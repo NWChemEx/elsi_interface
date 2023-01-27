@@ -242,6 +242,22 @@ module ELSI_DATATYPE
       integer(kind=i4) :: bse_n_lcol
       integer(kind=i4) :: bse_desc(9)
 
+      ! ChASE
+      real(kind=r8) :: chase_tol
+      integer(kind=i4) :: chase_filter_deg
+      real(kind=r8) :: chase_extra_space
+      integer(kind=i4) :: chase_min_extra_space
+      logical :: chase_started = .false.
+      real(kind=r8), allocatable :: pre_evec_real(:,:)
+      complex(kind=r8), allocatable :: pre_evec_cmplx(:,:)
+      real(kind=r8), allocatable :: pre_eval(:)
+      real(kind=r8), allocatable :: htmp_r(:,:)
+      complex(kind=r8), allocatable :: htmp_c(:,:)
+      integer(kind=i4) :: chase_pre_n_good
+      integer(kind=i4) :: chase_pre_n_states
+      logical :: chase_same_ovlp = .false.
+      logical :: chase_deg_opt = .true.
+      logical :: chase_evecs_recycl = .true. 
    end type
 
    type, public :: elsi_handle

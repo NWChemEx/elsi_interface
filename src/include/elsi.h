@@ -269,6 +269,18 @@ void c_elsi_set_ntpoly_max_iter(elsi_handle handle_c,
 void c_elsi_set_magma_solver(elsi_handle handle_c,
      int solver);
 
+void c_elsi_set_chase_tol(elsi_handle handle_c,
+     double tol);
+
+void c_elsi_set_chase_filter_deg(elsi_handle handle_c,
+     int deg);
+
+void c_elsi_set_chase_extra_space(elsi_handle handle_c,
+     double percent);
+
+void c_elsi_set_chase_min_extra_space(elsi_handle handle_c,
+     int min_s);
+
 void c_elsi_set_mu_broaden_scheme(elsi_handle handle_c,
      int broaden_scheme);
 

@@ -37,6 +37,10 @@ module ELSI_ELPA
    public :: elsi_undo_fc_elpa
    public :: elsi_elpa_tridiag
    public :: elsi_cholesky_inverse_inplace_elpa
+   !! For ChASE
+   public :: elsi_check_ovlp_elpa
+   public :: elsi_elpa_evec
+   public :: elsi_elpa_setup
 
    interface elsi_solve_elpa
       module procedure elsi_solve_elpa_real

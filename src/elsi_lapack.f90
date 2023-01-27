@@ -25,6 +25,14 @@ module ELSI_LAPACK
    public :: elsi_do_fc_lapack
    public :: elsi_undo_fc_lapack
 
+   !>
+   !! For ChASE 
+   !!
+   public :: elsi_check_ovlp_sp
+   public :: elsi_factor_ovlp_sp
+   public :: elsi_reduce_evp_sp
+   public :: elsi_back_ev_sp
+   
    interface elsi_solve_lapack
       module procedure elsi_solve_lapack_real
       module procedure elsi_solve_lapack_cmplx

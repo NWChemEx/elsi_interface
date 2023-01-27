@@ -176,6 +176,7 @@ subroutine test_die()
       write(*,"(A)") "  ##          6 = NTPoly                ##"
       write(*,"(A)") "  ##          7 = MAGMA                 ##"
       write(*,"(A)") "  ##          8 = BSEPACK               ##"
+      write(*,"(A)") "  ##          9 = ChASE                 ##"      
       write(*,"(A)") "  ##  Arg #5: H matrix file             ##"
       write(*,"(A)") "  ##  Arg #6: S matrix file             ##"
       write(*,"(A)") "  ##                                    ##"

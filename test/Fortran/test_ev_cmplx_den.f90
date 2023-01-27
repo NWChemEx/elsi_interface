@@ -77,6 +77,8 @@ subroutine test_ev_cmplx_den(comm,solver,h_file,s_file)
          write(*,"(2X,A)") "Now start testing  elsi_ev_complex + ELPA"
       else if(solver == 7) then
          write(*,"(2X,A)") "Now start testing  elsi_ev_complex + MAGMA"
+      else if(solver == 9) then
+         write(*,"(2X,A)") "Now start testing  elsi_ev_complex + ChASE"      
       end if
       write(*,*)
    end if
@@ -152,6 +154,10 @@ subroutine test_ev_cmplx_den(comm,solver,h_file,s_file)
    call elsi_set_output(eh,2)
    call elsi_set_output_log(eh,1)
    call elsi_set_mu_broaden_width(eh,1.0e-6_r8)
+   !call elsi_set_illcond_tol(eh,1.0e-8_r8)
+   call elsi_set_chase_same_ovlp(eh, 1)
+   !call elsi_set_chase_deg_opt(eh, .0)
+   !call elsi_set_chase_evecs_recycl(eh, 0)
 
    inquire(file=file_name,exist=file_exist)
 
@@ -214,6 +220,7 @@ subroutine test_ev_cmplx_den(comm,solver,h_file,s_file)
    call elsi_reinit(eh)
    call elsi_set_elpa_solver(eh,1)
    call elsi_set_magma_solver(eh,2)
+   !call elsi_set_illcond_tol(eh,1.0e-8_r8)
 
    ham(:,:) = ham_save
    ovlp(:,:) = ovlp_save
