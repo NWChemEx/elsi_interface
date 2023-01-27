@@ -111,7 +111,8 @@ void test_ev_real_den_c(MPI_Comm comm,
 
    // Customize ELSI
    c_elsi_set_output(eh,2);
-
+   c_elsi_set_chase_tol(eh,1e-10);
+   
    // Call ELSI eigensolver
    c_elsi_ev_real(eh,h,s,eval,evec);
 
@@ -126,6 +127,8 @@ void test_ev_real_den_c(MPI_Comm comm,
    if (myid == 0) {
        if (fabs(e_test-e_ref) < e_tol) {
            printf("  Passed.\n");
+       }else{
+           printf("  not Passed: %f\n", fabs(e_test-e_ref));
        }
    }
 

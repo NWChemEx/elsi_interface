@@ -42,7 +42,7 @@ where $\boldsymbol{H}$ and $\boldsymbol{S}$ are the so-called Hamiltonian and ov
 
 \section{Solver Libraries Supported by ELSI}
 \label{sec:solvers}
-Distributed-memory solvers supported in the current version of ELSI are: ELPA~\cite{elpa_auckenthaler_2011,elpa_marek_2014,elpa_kus_2019a,elpa_kus_2019b}, libOMM~\cite{libomm_corsetti_2014}, PEXSI~\cite{pexsi_lin_2009,pexsi_lin_2013,pexsi_lin_2014,pselinv_jacquelin_2016,pexsi_jia_2017}, EigenExa~\cite{eigenexa_imamura_2011,eigenexa_fukaya_2015}, SLEPc-SIPc~\cite{slepc_hernandez_2005,sips_campos_2012,sips_keceli_2016,sips_keceli_2018}, NTPoly~\cite{ntpoly_dawson_2018}, and BSEPACK~\cite{bsepack_shao_2016}. Shared-memory solvers supported in the current version of ELSI are: LAPACK~\cite{lapack_anderson_1999} and MAGMA~\cite{magma_tomov_2010,magma_dongarra_2014}.
+Distributed-memory solvers supported in the current version of ELSI are: ELPA~\cite{elpa_auckenthaler_2011,elpa_marek_2014,elpa_kus_2019a,elpa_kus_2019b}, libOMM~\cite{libomm_corsetti_2014}, PEXSI~\cite{pexsi_lin_2009,pexsi_lin_2013,pexsi_lin_2014,pselinv_jacquelin_2016,pexsi_jia_2017}, EigenExa~\cite{eigenexa_imamura_2011,eigenexa_fukaya_2015}, SLEPc-SIPc~\cite{slepc_hernandez_2005,sips_campos_2012,sips_keceli_2016,sips_keceli_2018}, NTPoly~\cite{ntpoly_dawson_2018}, BSEPACK~\cite{bsepack_shao_2016} and ChASE~\cite{winkelmann2019chase,chase_pasc22}. Shared-memory solvers supported in the current version of ELSI are: LAPACK~\cite{lapack_anderson_1999}, MAGMA~\cite{magma_tomov_2010,magma_dongarra_2014} and ChASE~\cite{winkelmann2019chase,chase_pasc22}.
 
 What follows is a brief summary of the solvers supported in ELSI. For technical descriptions of the solvers, the reader is referred to the original publications of the solvers, e.g., those in the reference list of this document.
 
@@ -64,6 +64,8 @@ What follows is a brief summary of the solvers supported in ELSI. For technical 
 
 \href{https://icl.utk.edu/magma}{\tcb{MAGMA}}: The MAGMA project aims to develop a dense linear algebra framework for heterogeneous architectures consisting of manycore and GPU systems. MAGMA incorporates the latest advances in synchronization-avoiding and communication-avoiding algorithms, and uses a hybridization methodology where algorithms are split into tasks of varying granularity and their execution scheduled over the available hardware components.
 
+\href{https://chase-library.github.io/ChASE/}{\tcb{ChASE}}: ChASE is a modern and scalable library based on subspace iteration with polynomial acceleration to solve dense Hermitian (Symmetric) algebraic eigenvalue problems. Novel to ChASE is the computation of the spectral estimates that enter in the filter and an optimization of the polynomial degree that further reduces the necessary floating-point operations. When solving sequences of Hermitian eigenproblems for a portion of their extremal spectrum, ChASE greatly benefits from the sequence’s spectral properties and outperforms direct solvers in many scenarios. The library ships with both shared-memory and distributed-memory implementations with the acceleration of GPUs, if available.
+
 \section{Citing ELSI}
 \label{sec:cite}
 Key concepts of ELSI and the first version of its implementation are described in the following paper~\cite{elsi_yu_2018}:
@@ -80,7 +82,7 @@ ELSI is a National Science Foundation Software Infrastructure for Sustained Inno
 \chapter{Installation of ELSI}
 \section{Prerequisites}
 \label{sec:prereq}
-The ELSI package contains the ELSI interface software as well as redistributed source code for the solver libraries ELPA (version 2020.05.001), libOMM (version 1.0.0), PEXSI (version 1.2.0), and NTPoly (version 2.7.0). The installation of ELSI makes use of the \href{https://cmake.org}{CMake} software. Minimum requirements include:
+The ELSI package contains the ELSI interface software as well as redistributed source code for the solver libraries ELPA (version 2020.05.001), libOMM (version 1.0.0), PEXSI (version 1.2.0), NTPoly (version 2.7.0), and ChASE (version 1.2.1). The installation of ELSI makes use of the \href{https://cmake.org}{CMake} software. Minimum requirements include:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{CMake}  [minimum version 3.0; newer version recommended]
 \tcb{Fortran compiler}  [Fortran 2003 compliant]
@@ -88,7 +90,7 @@ The ELSI package contains the ELSI interface software as well as redistributed s
 \tcb{MPI}  [MPI-3]
 \end{Verbatim}
 
-The PEXSi, EigenExa, SLEPc-SIPs, BSEPACK, and MAGMA solvers are not enabled by default. Enabling the PEXSI solver requires:
+The PEXSi, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, and ChASE solvers are not enabled by default. Enabling the PEXSI and ChASE solvers requires:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{C++ compiler}  [C++ 11 compliant]
 \end{Verbatim}
@@ -110,7 +112,7 @@ Enabling the MAGMA solver requires:
 \tcb{CUDA}  [version 10.0 or newer]
 \end{Verbatim}
 
-Enabling the CUDA-based GPU acceleration in the ELPA solver requires:
+Enabling the CUDA-based GPU acceleration in the ELPA and ChASE solvers requires:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{CUDA}  [version 10.0 or newer recommended]
 \end{Verbatim}
@@ -168,19 +170,25 @@ If the compilation succeeds, the next step would be reading the code examples in
 \label{sec:config}
 \subsection{Compilers}
 \label{subsec:config_compilers}
-CMake automatically detects compilers. The choices made by CMake often work, but they do not necessarily lead to the optimal performance. In some cases, the compilers picked up by CMake may not be the ones desired by the user. To build ELSI, it is mandatory that the user explicitly sets the identification of the compilers in \texttt{CMAKE\_Fortran\_COMPILER}, \texttt{CMAKE\_C\_COMPILER}, and \texttt{CMAKE\_CXX\_COMPILER}. Please note that the C++ compiler is not needed when building ELSI without PEXSI.
+CMake automatically detects compilers. The choices made by CMake often work, but they do not necessarily lead to the optimal performance. In some cases, the compilers picked up by CMake may not be the ones desired by the user. To build ELSI, it is mandatory that the user explicitly sets the identification of the compilers in \texttt{CMAKE\_Fortran\_COMPILER}, \texttt{CMAKE\_C\_COMPILER}, and \texttt{CMAKE\_CXX\_COMPILER}. Please note that the C++ compiler is not needed when building ELSI without PEXSI or ChASE.
 
 In addition, it is highly recommended to specify the compiler flags in \texttt{CMAKE\_Fortran\_FLAGS}, \texttt{CMAKE\_C\_FLAGS}, and \texttt{CMAKE\_CXX\_FLAGS}.
 
 \subsection{Solvers}
 \label{subsec:config_solvers}
-The ELPA, libOMM, PEXSI, NTPoly, and BSEPACK solver libraries, as well as the SuperLU\_DIST and PT-SCOTCH libraries (both required by PEXSI), are redistributed with the current ELSI package.
+The ELPA, libOMM, PEXSI, NTPoly, BSEPACK and ChASE solver libraries, as well as the SuperLU\_DIST and PT-SCOTCH libraries (both required by PEXSI), are redistributed with the current ELSI package.
 
 The redistributed version of ELPA comes with a few ``kernels'' written to take advantage of architecture-specific instruction sets, which may be chosen by the \texttt{ELPA2\_KERNEL} keyword. Available options are \texttt{AVX}, \texttt{AVX2}, and \texttt{AVX512}, for architectures supporting Intel AVX, AVX2, and AVX512 instruction sets, respectively. In ELPA, these kernels are employed to accelerate the calculation of eigenvectors, which is often a bottleneck when calculating a large portion of the eigenspectrum. In addition, ELPA supports GPU acceleration on NVIDIA devices via the CUDA programming model and the cuBLAS library. This feature may be enabled by the keyword \texttt{USE\_GPU\_CUDA}, which requires the CUDA runtime and cuBLAS libraries.
 
-The PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, and MAGMA solvers are not enabled by default. They may be activated by the keywords \texttt{ENABLE\_PEXSI}, \texttt{ENABLE\_EIGENEXA}, \texttt{ENABLE\_SIPS}, \texttt{ENABLE\_BSEPACK}, and \texttt{ENABLE\_MAGMA}, respectively. PEXSI 1.2.0, EigenExa 2.11, SLEPc 3.9, 3.10, 3.11, 3.12, 3.13, BSEPACK 0.1, and MAGMA 2.5 have been tested with this version of ELSI. Older/newer versions may or may not be compatible. The PETSc library, required by SLEPc, must be compiled with MPI support, and (at least) with MUMPS and ParMETIS enabled.
+The PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, AND ChASE solvers are not enabled by default. They may be activated by the keywords \texttt{ENABLE\_PEXSI}, \texttt{ENABLE\_EIGENEXA}, \texttt{ENABLE\_SIPS}, \texttt{ENABLE\_BSEPACK}, \texttt{ENABLE\_MAGMA} and \texttt{ENABLE\_CHASE}, respectively. PEXSI 1.2.0, EigenExa 2.11, SLEPc 3.9, 3.10, 3.11, 3.12, 3.13, BSEPACK 0.1, and MAGMA 2.5 have been tested with this version of ELSI. Older/newer versions may or may not be compatible. The PETSc library, required by SLEPc, must be compiled with MPI support, and (at least) with MUMPS and ParMETIS enabled.
 
-Experienced users are encouraged to link ELSI against externally installed, better optimized solver libraries. The keywords \texttt{USE\_EXTERNAL\_ELPA}, \texttt{USE\_EXTERNAL\_OMM}, \texttt{USE\_EXTERNAL\_PEXSI}, \texttt{USE\_EXTERNAL\_NTPOLY}, and \texttt{USE\_EXTERNAL\_BSEPACK} control the usage of externally compiled ELPA, libOMM, PEXSI, NTPoly, and BSEPACK, respectively.
+Experienced users are encouraged to link ELSI against externally
+installed, better optimized solver libraries. The keywords
+\texttt{USE\_EXTERNAL\_ELPA}, \texttt{USE\_EXTERNAL\_OMM},
+\texttt{USE\_EXTERNAL\_PEXSI}, \texttt{USE\_EXTERNAL\_NTPOLY},
+\texttt{USE\_EXTERNAL\_BSEPACK}, and \texttt{USE\_EXTERNAL\_CHASE}
+control the usage of externally compiled ELPA, libOMM, PEXSI, NTPoly,
+BSEPACK, and ChASE, respectively.
 
 All external libraries and include paths should be set via \texttt{INC\_PATHS}, \texttt{LIB\_PATHS}, and \texttt{LIBS}, each of which is a list of items separated with `` '' (space) or ``;'' (semicolon). If an external library depends on additional libraries, \texttt{LIBS} should include all the relevant dependencies. For instance, \texttt{LIBS} should include the MAGMA library and CUDA libraries when enabling MAGMA support.
 
@@ -232,6 +240,8 @@ The options accepted by the ELSI CMake build system are listed here in alphabeti
 \hline
 \texttt{ENABLE\_SIPS}             & boolean & OFF         & Enable SLEPc-SIPs support\\
 \hline
+\texttt{ENABLE\_CHASE}             & boolean & OFF         & Enable ChASE support\\
+\hline
 \texttt{ENABLE\_TESTS}            & boolean & OFF         & Build Fortran test programs\\
 \hline
 \texttt{INC\_PATHS}               & string  & none        & Include directories of external libraries\\
@@ -273,7 +283,7 @@ The options accepted by the ELSI CMake build system are listed here in alphabeti
 
 (4) \texttt{SCOTCH\_LAST\_RESORT}: The compilation of PT-SCOTCH is a multi-step process. First, two auxiliary executables are created. Then, some header files are generated on-the-fly by the two executables. Finally, the main source files are compiled with the generated header files included. The header generation step may fail on platforms where directly running an executable is prohibited, e.g. login nodes of a supercomputer. Often this can be circumvented by requesting an interactive session to a compute node and compiling the code there, or by submitting the compilation as a job to the queuing system. However, this may still fail on platforms where an executable compiled with MPI must be launched by an MPI job launcher (aprun, mpirun, srun, etc). If the standard compilation of PT-SCOTCH fails due to this reason, the user may set \texttt{SCOTCH\_LAST\_RESORT} to the command that starts an MPI job with one MPI task, e.g. ``\texttt{mpirun -n 1}''. This command is then used to launch the auxiliary executables to generate necessary header files for PT-SCOTCH.
 
-(5) External libraries: ELSI redistributes source code of ELPA, libOMM, NTPoly, PEXSI, SuperLU\_DIST, and PT-SCOTCH libraries, which are built by default together with the ELSI interface. Experienced users are encouraged to link the ELSI interface against external, better optimized solver libraries. See Sec.~\ref{subsec:config_solvers} for more information.
+(5) External libraries: ELSI redistributes source code of ELPA, libOMM, NTPoly, PEXSI, SuperLU\_DIST, PT-SCOTCH and ChASE libraries, which are built by default together with the ELSI interface. Experienced users are encouraged to link the ELSI interface against external, better optimized solver libraries. See Sec.~\ref{subsec:config_solvers} for more information.
 
 \section{Importing ELSI into Third-Party Code Projects}
 \label{sec:import}
@@ -308,7 +318,7 @@ ELSI_LIB     = -L/PATH/TO/BUILD/ELSI/lib -lelsi \
 \end{verbatim}
 \end{tcolorbox}
 
-Enabling/disabling PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA or linking ELSI against externally installed solver libraries requires the user modify these flags accordingly.
+Enabling/disabling PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, ChASE or linking ELSI against externally installed solver libraries requires the user modify these flags accordingly.
 
 \subsection{Using ELSI}
 \label{subsec:import_use}
@@ -352,7 +362,7 @@ The ELSI interface must be initialized via the \texttt{elsi\_init} subroutine be
 \hline
 \texttt{handle}         & elsi\_handle & out & ELSI handle.\\
 \hline
-\texttt{solver}         & integer      & in  & 0: \texttt{AUTO}. 1: \texttt{ELPA}. 2: \texttt{libOMM}. 3: \texttt{PEXSI}. 4: \texttt{EigenExa}. 5: \texttt{SLEPc-SIPs}. 6: \texttt{NTPoly}. 7: \texttt{MAGMA}. 8: \texttt{BSEPACK}. See remark 1.\\
+\texttt{solver}         & integer      & in  & 0: \texttt{AUTO}. 1: \texttt{ELPA}. 2: \texttt{libOMM}. 3: \texttt{PEXSI}. 4: \texttt{EigenExa}. 5: \texttt{SLEPc-SIPs}. 6: \texttt{NTPoly}. 7: \texttt{MAGMA}. 8: \texttt{BSEPACK}. 9: \texttt{ChASE}. See remark 1.\\
 \hline
 \texttt{parallel\_mode} & integer      & in  & 0: \texttt{SINGLE\_PROC}. 1: \texttt{MULTI\_PROC}. See remark 4.\\
 \hline
@@ -396,15 +406,19 @@ The table below summarizes the supported problem types for each solver.
 \hline
 \texttt{BSEPACK}    & \texttt{MULTI\_PROC}  & \texttt{BLACS\_DENSE} & Real/complex & BSE-EV\\
 \hline
+\texttt{ChASE}       & \texttt{SINGLE\_PROC} & \texttt{BLACS\_DENSE} & Real/complex & KS-EV\\
+\hline
+\texttt{ChASE}       & \texttt{MULTI\_PROC}  & \texttt{BLACS\_DENSE}  & Real/complex & KS-EV\\
+\hline
 \end{tabular}
 
 (2) \texttt{matrix\_format}: ``\texttt{BLACS\_DENSE}'' refers to a dense matrix format in a 2-dimensional block-cyclic distribution, i.e. the BLACS standard. ``\texttt{PEXSI\_CSC}'' refers to a compressed sparse column (CSC) matrix format in a 1-dimensional block distribution. ``\texttt{SIESTA\_CSC}'' refers to a compressed sparse column (CSC) matrix format in a 1-dimensional block-cyclic distribution. As the Hamiltonian, overlap, and density matrices are symmetric (Hermitian), compressed sparse row (CSR) matrix format is effectively supported. ``\texttt{GENERIC\_COO}'' refers to a coordinate (COO) sparse matrix format in an arbitrary distribution. Please refer to Sec.~\ref{subsec:setup_matrix} for specifications of these matrix formats.
 
-(3) \texttt{n\_state}: If ELPA, EigenExa, SLEPc-SIPs, or MAGMA is the chosen solver, this parameter specifies the number of eigenstates to solve. EigenExa internally computes all the eigenstates unless \texttt{n\_state} is 0. When \texttt{n\_state} is larger than 0 and smaller than \texttt{n\_basis}, ELSI simply discards the unwanted solutions. libOMM, PEXSI and NTPoly do not make use of this parameter.
+(3) \texttt{n\_state}: If ELPA, EigenExa, SLEPc-SIPs, MAGMA or ChASE is the chosen solver, this parameter specifies the number of eigenstates to solve. EigenExa internally computes all the eigenstates unless \texttt{n\_state} is 0. When \texttt{n\_state} is larger than 0 and smaller than \texttt{n\_basis}, ELSI simply discards the unwanted solutions. libOMM, PEXSI and NTPoly do not make use of this parameter.
 
 (4) \texttt{parallel\_mode}: The two parallelization modes, ``\texttt{SINGLE\_PROC}'' and ``\texttt{MULTI\_PROC}'', allow for two parallelization strategies commonly employed by electronic structure codes. See below.
 
-\textbf{4a)} ``\texttt{SINGLE\_PROC}'': Solves the KS eigenproblem following a LAPACK-like fashion. This option may only be selected when ELPA or MAGMA is chosen as the solver. Every MPI task independently handles a group of $k$-points uniquely assigned to it. Example: 16 $k$-points, 4 MPI tasks.
+\textbf{4a)} ``\texttt{SINGLE\_PROC}'': Solves the KS eigenproblem following a LAPACK-like fashion. This option may only be selected when ELPA, MAGMA or ChASE is chosen as the solver. Every MPI task independently handles a group of $k$-points uniquely assigned to it. Example: 16 $k$-points, 4 MPI tasks.
 \begin{itemize}
 \item MPI task 0 handles $k$-points 1, 2, 3, 4 sequentially;
 \item MPI task 1 handles $k$-points 5, 6, 7, 8 sequentially;
@@ -617,7 +631,8 @@ When an ELSI instance is no longer needed, its associated handle should be clean
 
 \section{Solving Eigenvalues and Eigenvectors}
 \label{sec:ev}
-\api{elsi\_ev\_\{real$\vert$complex\}\{\_sparse\}} returns all the eigenvalues and a subset of eigenvectors of a generalized eigenproblem defined in Eq.~\ref{eq:ks}. See \api{elsi\_set\_unit\_ovlp} in Sec.~\ref{subsec:setter_elsi} for standard eigenproblems. ELPA, EigenExa, SLEPc-SIPs, or MAGMA may be selected as the solver when using these subroutines.
+\api{elsi\_ev\_\{real$\vert$complex\}\{\_sparse\}} returns all the eigenvalues (except ChASE is selected which returns
+only a subset of required extremal eigenvalues) and a subset of eigenvectors of a generalized eigenproblem defined in Eq.~\ref{eq:ks}. See \api{elsi\_set\_unit\_ovlp} in Sec.~\ref{subsec:setter_elsi} for standard eigenproblems. ELPA, EigenExa, SLEPc-SIPs, MAGMA or ChASE may be selected as the solver when using these subroutines.
 
 \begin{tabular}[]{|p{20mm}|p{40mm}|p{10mm}|p{92mm}|}
 \multicolumn{4}{l}{\api{elsi\_ev\_real}(handle, ham, ovlp, eval, evec)}\\
@@ -1139,6 +1154,92 @@ end do
 \textbf{Remarks}
 
 (1) MAGMA can use multiple GPUs, controlled by the environment variable \texttt{MAGMA\_NUM\_GPUS}. Refer to the users' guide of MAGMA for more information.
+
+\subsection{Customizing the ChASE Solver}
+\label{subsec:setter_chase}
+\begin{tabular}[]{|p{30mm}|p{20mm}|p{15mm}|p{97mm}|}
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_tol}(handle, resid\_tol)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_filter\_deg}(handle, deg)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_extra\_space}(handle, extra\_ratio)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_min\_extra\_space}(handle, min\_s)}\\			
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_deg\_opt}(handle, is\_deg\_opt)}\\	
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_same\_ovlp}(handle, is\_same\_ovlp)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_evecs\_recycl}(handle, is\_recycl)}\\				
+	\multicolumn{4}{l}{}\\
+	\hline
+	\multicolumn{1}{|l|}{\textbf{Argument}} & \multicolumn{1}{l|}{\textbf{Data Type}} & \multicolumn{1}{l|}{\textbf{Default}} & \multicolumn{1}{l|}{\textbf{Explanation}}\\
+	\hline
+	\texttt{resid\_tol} & real double &  $10^{-8}$ & Convergence tolerance of the residuals of the desired eigenpairs.\\
+	\hline
+	\texttt{deg} & integer &  $20$ &  Initial degree of Chebyshev polynomial in ChASE. \\
+    \hline	
+	\texttt{extra\_ratio} & real double &  $0.25$ & Percentage of extra eigenvalues added to the
+                                                        searching space filtered by the Chebyshev polynomial. The size of the
+                                                        search space is then ((1+\texttt{extra\_ratio})$\times$ \texttt{n\_state}). \\
+	\hline	    
+	\texttt{min\_s} & integer &  $10$ & Minimal number of extra eigenvalues to be added to
+                                            the search space filtered by the Chebyshev polynomial. \\
+	\hline
+	\texttt{is\_deg\_opt} & integer &  $1$ &  Controls the activation of the optimization
+                                                 mechanism of the degree of the Cheby. polynomimal. 0: Disabled. 1: Enabled. \\
+	\hline	
+	\texttt{is\_same\_ovlp} & integer &  $0$ &  Controls the setting of the overlap matrix when it does not change
+                                                   for distinct eigenpencils. 0: No. 1: Yes. \\	
+	\hline
+	\texttt{is\_recycl} & integer &  $1$ &  Controls the use of approximate eigenvectors when they are available. 0: No. 1: Yes. \\	
+	\hline					
+\end{tabular}
+
+\textbf{Remarks}
+
+(1) \texttt{resid\_tol} is an optional parameter controlling the
+minimal value for the residual after which the corresponding eigenpair
+is declared converged. As a rule of thumb a minimum value of $10^{-8}$
+and $10^{-4}$ are suggested for Double Precision and Single Precision,
+respectively. The smallest safe value for this parameter is
+$10^{-14}$. For smaller values, the ChASE algorithm may fail to converge. 
+
+
+(2) \texttt{deg} controls the polynomial degree for the Chebyshev
+filter. When the value of \texttt{is\_deg\_opt} $= 1$, this is the
+initial polynomial degree used solely in the first subspace
+iteration. When \texttt{is\_deg\_opt} $= 0$ the same value
+\texttt{deg} is used for every vector for each filter call. When
+\texttt{is\_deg\_opt} $= 1$, it is advisable to set \texttt{deg} to a
+value not larger than $10$. If \texttt{is\_deg\_opt} $= 0$, then it is
+advised to select a value not smaller than $15$ but not larger than
+$30$.
+
+(3) \texttt{extra\_ratio} specifies the search space increment such
+that the overall size of the search space is \texttt{n\_state} +
+\texttt{extra\_ratio} $\times$ \texttt{n\_state}. In most cases 25\%
+of the value of \texttt{n\_state} is more than sufficient. The best
+case scenario for optimal convergence is when there is a large
+spectrum gap between \texttt{n\_state} and \texttt{n\_state} +
+\texttt{extra\_ratio} $\times$ \texttt{n\_state}. 
+
+(4) \texttt{is\_deg\_opt} is a parameter controlling that the filter
+uses a vector of degrees optimized for each single filtered
+vector. It is advisable to keep the degree optimization enabled in order to avoid
+wasting extra FLOPs to reach convergence. In some cases where the
+spectrum of the problem is particularly challenging, the optimization
+could be disabled to avoid undesired fluctuation in the eigenpairs residuals. 
+
+(5) \texttt{is\_recycl} controls those cases when the user can provide
+ChASE with approximate eigenvectors. This situation is typical for
+eigenproblems that are part of  a Self-Consistent Field (SCF) cycle of
+a Density Functional Theory computation. In these cases, ChASE can
+take advantage of the correlation between eigenpairs of problems generated in
+adjacent SCF cycles. When it is enabled, ChASE can use the eigenvactors solution of an
+eigenproblem at a given SCF cycle as input for the problem at the next
+SCF cycle. By solving the entire sequence of eigenproblems in this
+way, ChASE can gain substantial speedups sometimes even halfing the
+time to solution. When \texttt{is\_recycl} is set to $1$, ChASE
+expects to receive in input two arrays holding approximate vectors and
+values. 
+
+(6) distributed-memory version of ChASE can use multiple GPUs per node, controlled by the environment variable 
+\texttt{CUDA\_VISIBLE\_DEVICES}. Refer to the \href{https://chase-library.github.io/ChASE/installation/suggestion.html#id1}{\tcb{ChASE's Documentation}} for more information.
 
 \section{Getting Additional Results from ELSI}
 \label{sec:getter}
@@ -1960,6 +2061,6 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \end{Verbatim}
 \end{tcolorbox}
 
-The source code of ELPA 2020.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), and BSEPACK 0.1 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
+The source code of ELPA 2020.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), BSEPACK 0.1 (BSD3), ChASE 1.2.1 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
 
 \end{document}

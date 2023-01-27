@@ -498,6 +498,7 @@ subroutine elsi_reinit(eh)
       eh%ph%sips_first = .true.
       eh%ph%nt_first = .true.
       eh%ph%exa_first = .true.
+      eh%ph%chase_started = .false.
 
       call elsi_cleanup_pexsi(eh%ph)
       call elsi_cleanup_sips(eh%ph)
@@ -659,6 +660,26 @@ subroutine elsi_cleanup(eh)
 
    if(allocated(eh%dm_cmplx_den)) then
       call elsi_deallocate(eh%bh,eh%dm_cmplx_den,"dm_cmplx_den")
+   end if
+
+   if(allocated(eh%ph%pre_eval)) then
+      call elsi_deallocate(eh%bh,eh%ph%pre_eval,"pre_eval")
+   end if
+
+   if(allocated(eh%ph%pre_evec_real)) then
+      call elsi_deallocate(eh%bh,eh%ph%pre_evec_real,"pre_evec_real")
+   end if
+
+   if(allocated(eh%ph%pre_evec_cmplx)) then
+      call elsi_deallocate(eh%bh,eh%ph%pre_evec_cmplx,"pre_evec_cmplx")
+   end if
+
+   if(allocated(eh%ph%htmp_r)) then
+      call elsi_deallocate(eh%bh,eh%ph%htmp_r,"htmp_r")
+   end if
+
+   if(allocated(eh%ph%htmp_c)) then
+      call elsi_deallocate(eh%bh,eh%ph%htmp_c,"htmp_c")
    end if
 
    ! Sparse

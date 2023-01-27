@@ -186,6 +186,12 @@ IF(ENABLE_BSEPACK)
   test_fortran(02_bsepack b 0 c 8 ${a_cmplx} ${b_cmplx})
 ENDIF()
 
+### Parallel Fortran tests: ev + ChASE ###
+IF(ENABLE_CHASE)
+  test_fortran(01_chase e 0 r 9 ${h_real} ${s_real})
+  test_fortran(02_chase e 0 c 9 ${h_cmplx} ${s_cmplx})   
+ENDIF()	
+
 ### Serial Fortran tests: ev + LAPACK ###
 ADD_TEST(test_serial_01_lapack
   ${MPIEXEC_1P} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elsi_test e 0 r 1 ${h_real} ${s_real})
@@ -209,6 +215,19 @@ IF(ENABLE_MAGMA)
   SET_TESTS_PROPERTIES(test_serial_02_magma
     PROPERTIES PASS_REGULAR_EXPRESSION "Passed")
 ENDIF()
+
+### Serial Fortran tests: ev + ChASE ###
+IF(ENABLE_CHASE)
+  ADD_TEST(test_serial_01_chase
+    ${MPIEXEC_1P} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elsi_test e 0 r 9 ${h_real} ${s_real})
+  SET_TESTS_PROPERTIES(test_serial_01_chase
+    PROPERTIES PASS_REGULAR_EXPRESSION "Passed")
+
+  ADD_TEST(test_serial_02_chase
+  ${MPIEXEC_1P} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elsi_test e 0 c 9 ${h_cmplx} ${s_cmplx})
+  SET_TESTS_PROPERTIES(test_serial_02_chase
+  PROPERTIES PASS_REGULAR_EXPRESSION "Passed")
+ENDIF()	
 
 ### Fortran tests: matrix IO ###
 ADD_TEST(test_matio_01
@@ -261,4 +280,9 @@ IF(ENABLE_C_TESTS)
   ### Parallel C tests: dm + NTPoly ###
   test_c(01_ntpoly d 0 r 6 ${h_real} ${s_real})
   test_c(02_ntpoly d 0 c 6 ${h_cmplx} ${s_cmplx})
+
+  ### Parallel C tests: ev + ChASE ###
+  test_c(01_chase e 0 r 9 ${h_real} ${s_real})
+  test_c(02_chase e 0 c 9 ${h_cmplx} ${s_cmplx})
+
 ENDIF()

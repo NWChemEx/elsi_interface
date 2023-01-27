@@ -1283,6 +1283,112 @@ subroutine c_elsi_set_magma_solver(h_c,solver) bind(C)
 
 end subroutine
 
+subroutine c_elsi_set_chase_tol(h_c,resid_tol) bind(C)
+
+   implicit none
+
+   type(c_ptr), value, intent(in) :: h_c
+   real(kind=c_double), value, intent(in) :: resid_tol
+
+   type(elsi_handle), pointer :: h_f
+
+   call c_f_pointer(h_c,h_f)
+
+   call elsi_set_chase_tol(h_f,resid_tol)
+
+end subroutine
+
+subroutine c_elsi_set_chase_filter_deg(h_c,deg) bind(C)
+
+   implicit none
+
+   type(c_ptr), value, intent(in) :: h_c
+   integer(kind=c_int32_t), value, intent(in) :: deg
+
+   type(elsi_handle), pointer :: h_f
+
+   call c_f_pointer(h_c,h_f)
+
+   call elsi_set_chase_filter_deg(h_f,deg)
+
+end subroutine
+
+subroutine c_elsi_set_chase_extra_space(h_c,percent) bind(C)
+
+   implicit none
+
+   type(c_ptr), value, intent(in) :: h_c
+   real(kind=c_double), value, intent(in) :: percent
+
+   type(elsi_handle), pointer :: h_f
+
+   call c_f_pointer(h_c,h_f)
+
+   call elsi_set_chase_extra_space(h_f,percent)
+
+end subroutine
+
+subroutine c_elsi_set_chase_min_extra_space(h_c,min_s) bind(C)
+
+   implicit none
+
+   type(c_ptr), value, intent(in) :: h_c
+   integer(kind=c_int32_t), value, intent(in) :: min_s
+
+   type(elsi_handle), pointer :: h_f
+
+   call c_f_pointer(h_c,h_f)
+
+   call elsi_set_chase_min_extra_space(h_f,min_s)
+
+end subroutine
+
+subroutine c_elsi_set_chase_same_ovlp(h_c, issame) bind(C)
+ 
+    implicit none
+
+    type(c_ptr), value, intent(in) :: h_c
+    integer(kind=c_int), value, intent(in) :: issame
+
+    type(elsi_handle), pointer :: h_f
+
+    call c_f_pointer(h_c,h_f)
+
+    call elsi_set_chase_same_ovlp(h_f, issame)
+
+
+end subroutine        
+
+subroutine c_elsi_set_chase_deg_opt(h_c, isopt) bind(C)
+
+    implicit none
+
+    type(c_ptr), value, intent(in) :: h_c
+    integer(kind=c_int), value, intent(in) :: isopt
+
+    type(elsi_handle), pointer :: h_f
+
+    call c_f_pointer(h_c,h_f)
+
+    call elsi_set_chase_deg_opt(h_f, isopt)
+
+end subroutine
+
+subroutine c_elsi_set_chase_evecs_recycl(h_c, isrecycl) bind(C)
+
+    implicit none
+
+    type(c_ptr), value, intent(in) :: h_c
+    integer(kind=c_int), value, intent(in) :: isrecycl
+
+    type(elsi_handle), pointer :: h_f
+
+    call c_f_pointer(h_c,h_f)
+
+    call elsi_set_chase_evecs_recycl(h_f, isrecycl)
+
+end subroutine
+
 subroutine c_elsi_set_mu_broaden_scheme(h_c,broaden_scheme) bind(C)
 
    implicit none

@@ -17,7 +17,7 @@ module ELSI_CONSTANT
    real(kind=r8), parameter :: INVERT_SQRT_PI = 0.5641895835477563275_r8
 
    integer(kind=i4), parameter :: UNSET = -910910
-   integer(kind=i4), parameter :: N_SOLVERS = 9
+   integer(kind=i4), parameter :: N_SOLVERS = 10
    integer(kind=i4), parameter :: N_MATRIX_FORMATS = 4
    integer(kind=i4), parameter :: N_PARALLEL_MODES = 2
 
@@ -31,6 +31,7 @@ module ELSI_CONSTANT
    integer(kind=i4), parameter :: NTPOLY_SOLVER = 6
    integer(kind=i4), parameter :: MAGMA_SOLVER = 7
    integer(kind=i4), parameter :: BSEPACK_SOLVER = 8
+   integer(kind=i4), parameter :: CHASE_SOLVER = 9
 
    ! Real or complex data
    integer(kind=i4), parameter :: REAL_DATA = 0
