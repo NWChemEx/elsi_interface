@@ -118,6 +118,10 @@ test_fortran(06_omm d 2 c 2 ${h_cmplx} ${s_cmplx})
 test_fortran(07_omm d 3 r 2 ${h_real} ${s_real})
 test_fortran(08_omm d 3 c 2 ${h_cmplx} ${s_cmplx})
 
+### Parallel Fortran tests: occupation tests ###
+test_fortran(01_occ o 1 0 0 ${h_cmplx} ${s_cmplx})
+test_fortran(02_occ o 2 0 0 ${h_cmplx} ${s_cmplx})
+
 ### Parallel Fortran tests: dm + PEXSI ###
 IF(ENABLE_PEXSI)
   test_fortran(01_pexsi d 0 r 3 ${h_real} ${s_real})
