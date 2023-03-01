@@ -5,7 +5,7 @@
 ! which may be found in the LICENSE file in the ELSI root directory.
 
 !>
-!! This subroutine tests occ number normal occupation.
+!! This subroutine tests the occ numbers under normal occupation.
 !!
 subroutine test_occ_normal(comm,mu_width)
 
@@ -34,9 +34,11 @@ subroutine test_occ_normal(comm,mu_width)
    integer(kind=i4) :: l_cols2
    integer(kind=i4) :: header(8)
    integer(kind=i4) :: i_state
+   integer(kind=i4) :: i_count
 
    integer(kind=i4) :: n_kpt
    real(kind=r8) :: k_wt(1)
+   real(kind=r8) :: test_occ(100,1,1)
    real(kind=r8)  :: occ(100,1,1) !< Occupation members
    real(kind=r8)  :: mu !< Chemical potential
 
@@ -48,6 +50,7 @@ subroutine test_occ_normal(comm,mu_width)
    logical :: file_exist
 
    real(kind=r8), allocatable :: eval(:,:,:)
+   real(kind=r8) :: e_constraints(1,3,0)
 
    type(elsi_handle) :: eh
 
@@ -72,13 +75,14 @@ subroutine test_occ_normal(comm,mu_width)
    n_kpt = 1
    n_basis = 100
    n_electrons = 100
+
    allocate(eval(n_basis,1,1))
    do i_state = 1, 100
      eval(i_state,1,1) = dble(i_state)
    end do
+
    k_wt = 1.0
    eh%ph%mu_width = mu_width
-
 
    ! Initialize ELSI
    call elsi_init(eh,1,1,0,n_basis,n_electrons,n_basis)
@@ -88,9 +92,10 @@ subroutine test_occ_normal(comm,mu_width)
    call elsi_set_output(eh,2)
    call elsi_set_output_log(eh,1)
 
+   ! Run ELSI occupations
    call elsi_compute_mu_and_occ(eh,n_electrons,n_basis,1,n_kpt,k_wt,eval,occ,mu)
 
-
+   ! Print out occupations
    if(myid == 0) then
       write(*,"(2X,A)") "Finished occ normal"
       write(*,*) "#chemical potential mu", mu
@@ -99,6 +104,22 @@ subroutine test_occ_normal(comm,mu_width)
         write(*,*) i_state, eval(i_state,1,1), occ(i_state,1,1)
       end do
       write(*,*)
+   end if
+
+   ! Set up test occupation array
+   do i_count = 1,50
+      test_occ(i_count,1,1) = 2.0
+   end do
+
+   do i_count = 51,100
+      test_occ(i_count,1,1) = 0.0
+   end do
+
+   ! Check occupations are correct
+   if (all(test_occ .eq. occ)) then
+      write(*,"(2X,A)") "Passed."
+   else
+      write(*,"(2X,A)") "Failed."
    end if
 
    ! Finalize ELSI
