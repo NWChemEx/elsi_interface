@@ -61,6 +61,9 @@ subroutine test_occ_normal(comm,mu_width)
 
    character(len=*), parameter :: file_name = "elsi.in"
 
+   call MPI_Comm_size(comm,n_proc,ierr)
+   call MPI_Comm_rank(comm,myid,ierr)
+
    tol = 1.0e-8_r8
    header(:) = 0
 
