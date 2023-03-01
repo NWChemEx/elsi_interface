@@ -53,22 +53,8 @@ subroutine elsi_mu_and_occ(ph,bh,n_electron,n_state,n_spin,n_kpt,k_wt,eval,occ,&
    real(kind=r8) :: mu1
    real(kind=r8) :: mu2
 
-
-   if (ph%occ_non_aufbau) then
-     ! YY: This is for non Aufbau distribution occ number.
-     ! YY: Used for (lowest excited state) delta SCF
-     ! YY: normal occ_number    :  2 2 2 2 0 0 0 0
-     ! YY: non-Aufbau occ_number:  2 2 2 1 1 0 0 0
-     call elsi_mu_and_occ_normal(ph,bh,n_electron-2,n_state,n_spin,n_kpt,k_wt,&
-          eval,occ1,mu1)
-     call elsi_mu_and_occ_normal(ph,bh,n_electron+2,n_state,n_spin,n_kpt,k_wt,&
-          eval,occ2,mu2)
-     occ = (occ1 + occ2) / 2
-     mu = (mu1 + mu2) / 2
-   else
-     call elsi_mu_and_occ_normal(ph,bh,n_electron,n_state,n_spin,n_kpt,k_wt,&
-          eval,occ,mu)
-   end if
+   call elsi_mu_and_occ_normal(ph,bh,n_electron,n_state,n_spin,n_kpt,k_wt,&
+        eval,occ,mu)
 
 end subroutine
 !>
@@ -239,6 +225,7 @@ subroutine elsi_check_electrons(ph,n_electron,n_state,n_spin,n_kpt,k_wt,eval,&
    integer(kind=i4) :: i_kpt
    integer(kind=i4) :: i_spin
    integer(kind=i4) :: i_mp
+   integer(kind=i4) :: i_constraints
 
    character(len=*), parameter :: caller = "elsi_check_electrons"
 
@@ -356,6 +343,23 @@ subroutine elsi_check_electrons(ph,n_electron,n_state,n_spin,n_kpt,k_wt,eval,&
          end do
       end do
    end select
+
+   ! If chose to run a calculation if using a non-Aufbau occupation
+   if (ph%occ_non_aufbau) then
+      do i_constraints = 1, ph%n_constraints, 1
+         do i_kpt = 1, n_kpt, 1
+            ! Calculate an inital electron difference
+            diff = diff - occ(ph%constr_state(i_constraints,i_kpt),&
+               ph%constr_spin(i_constraints),i_kpt) * k_wt(i_kpt)
+            ! Apply occupations from the property arrays
+            occ(ph%constr_state(i_constraints,i_kpt),ph%constr_spin(i_constraints),&
+               i_kpt) = ph%constr_occ(i_constraints)
+            ! Check electron difference with constraint applied
+            diff = diff + occ(ph%constr_state(i_constraints,i_kpt),&
+               ph%constr_spin(i_constraints),i_kpt) * k_wt(i_kpt)
+         end do
+      end do
+   end if
 
    diff = diff-n_electron
 
@@ -475,15 +479,15 @@ subroutine elsi_adjust_occ(ph,bh,n_state,n_spin,n_kpt,k_wt,eval,occ,diff)
    integer(kind=i4) :: i_spin
    integer(kind=i4) :: i_val
 
-   real(kind=r8), allocatable :: tmp(:)
-   integer(kind=i4), allocatable :: perm(:)
+   integer(kind=i4), allocatable :: eval_tmp(:)
+   real(kind=r8), allocatable :: occ_tmp(:)
 
    character(len=*), parameter :: caller = "elsi_adjust_occ"
 
    n_total = n_state*n_spin*n_kpt
 
-   call elsi_allocate(bh,tmp,n_total,"tmp",caller)
-   call elsi_allocate(bh,perm,n_total,"perm",caller)
+   call elsi_allocate(bh,eval_tmp,n_total,"eval_tmp",caller)
+   call elsi_allocate(bh,occ_tmp,n_total,"occ_tmp",caller)
 
    ! Put eval into a 1D array
    i_val = 0
@@ -492,13 +496,10 @@ subroutine elsi_adjust_occ(ph,bh,n_state,n_spin,n_kpt,k_wt,eval,occ,diff)
       do i_spin = 1,n_spin
          do i_state = 1,n_state
             i_val = i_val+1
-            tmp(i_val) = eval(i_state,i_spin,i_kpt)
+            eval_tmp(i_val) = eval(i_state,i_spin,i_kpt)
          end do
       end do
    end do
-
-   ! Sort eval
-   call elsi_heapsort(n_total,tmp,perm)
 
    ! Put occ into a 1D array
    i_val = 0
@@ -507,24 +508,22 @@ subroutine elsi_adjust_occ(ph,bh,n_state,n_spin,n_kpt,k_wt,eval,occ,diff)
       do i_spin = 1,n_spin
          do i_state = 1,n_state
             i_val = i_val+1
-            tmp(i_val) = occ(i_state,i_spin,i_kpt)
+            occ_tmp(i_val) = occ(i_state,i_spin,i_kpt)
          end do
       end do
    end do
 
-   call elsi_permute(n_total,perm,tmp)
-
    ! Remove error
-   do i_val = 1,n_total
-      i_kpt = (perm(i_val)-1)/(n_spin*n_state)+1
+   do i_val = n_total,1,-1
+      i_kpt = (eval_tmp(i_val)-1)/(n_spin*n_state)+1
 
-      if(tmp(i_val) > 0.0_r8) then
-         if(k_wt(i_kpt)*tmp(i_val) > diff) then
-            tmp(i_val) = tmp(i_val)-diff/k_wt(i_kpt)
+      if(occ_tmp(i_val) > 0.0_r8) then
+         if(k_wt(i_kpt)*occ_tmp(i_val) > diff) then
+            occ_tmp(i_val) = occ_tmp(i_val)-diff/k_wt(i_kpt)
             diff = 0.0_r8
          else
-            diff = diff-k_wt(i_kpt)*tmp(i_val)
-            tmp(i_val) = 0.0_r8
+            diff = diff-k_wt(i_kpt)*occ_tmp(i_val)
+            occ_tmp(i_val) = 0.0_r8
          end if
       end if
 
@@ -533,8 +532,6 @@ subroutine elsi_adjust_occ(ph,bh,n_state,n_spin,n_kpt,k_wt,eval,occ,diff)
       end if
    end do
 
-   call elsi_unpermute(n_total,perm,tmp)
-
    ! Put adjusted occ back into a 3D array
    i_val = 0
 
@@ -542,13 +539,13 @@ subroutine elsi_adjust_occ(ph,bh,n_state,n_spin,n_kpt,k_wt,eval,occ,diff)
       do i_spin = 1,n_spin
          do i_state = 1,n_state
             i_val = i_val+1
-            occ(i_state,i_spin,i_kpt) = tmp(i_val)
+            occ(i_state,i_spin,i_kpt) = occ_tmp(i_val)
          end do
       end do
    end do
 
-   call elsi_deallocate(bh,tmp,"tmp")
-   call elsi_deallocate(bh,perm,"perm")
+   call elsi_deallocate(bh,eval_tmp,"eval_tmp")
+   call elsi_deallocate(bh,occ_tmp,"occ_tmp")
 
 end subroutine
 
