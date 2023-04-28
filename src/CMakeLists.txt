@@ -36,7 +36,7 @@ LIST(APPEND elsi_src
   elsi_sort.f90
   elsi_util.f90
   elsi_inverse_slate.f90
-  elsi_chase.f90)
+  )
 
 #### add the header files
 ADD_SUBDIRECTORY(include)
@@ -78,6 +78,12 @@ IF(NOT ENABLE_BSEPACK)
   LIST(APPEND elsi_src stub_bsepack.f90)
 ELSE()
   LIST(APPEND elsi_src elsi_bsepack.f90)
+ENDIF()
+
+IF(NOT ENABLE_CHASE)
+  LIST(APPEND elsi_src stub_chase.f90)
+ELSE()
+  LIST(APPEND elsi_src elsi_chase.f90)
 ENDIF()
 
 ADD_LIBRARY(elsi ${elsi_src})
