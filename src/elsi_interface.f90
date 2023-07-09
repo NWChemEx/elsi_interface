@@ -87,10 +87,10 @@ module ELSI
    public :: elsi_set_chase_tol
    public :: elsi_set_chase_filter_deg
    public :: elsi_set_chase_extra_space
-   public :: elsi_set_chase_min_extra_space   
+   public :: elsi_set_chase_min_extra_space
    public :: elsi_set_chase_same_ovlp
    public :: elsi_set_chase_deg_opt
-   public :: elsi_set_chase_evecs_recycl   
+   public :: elsi_set_chase_evecs_recycl
    public :: elsi_set_mu_broaden_scheme
    public :: elsi_set_mu_broaden_width
    public :: elsi_set_mu_tol
@@ -163,6 +163,7 @@ module ELSI
    public :: elsi_compute_mu_and_occ
    public :: elsi_compute_entropy
    public :: elsi_suggest_blacs_distribution
+   public :: elsi_static_excitations
 
    ! Read and write matrix
    public :: elsi_init_rw
