@@ -24,9 +24,9 @@ module ELSI_SOLVER
    use ELSI_MALLOC, only: elsi_allocate,elsi_deallocate
    use ELSI_MPI
    use ELSI_NTPOLY, only: elsi_init_ntpoly,elsi_solve_ntpoly
-   use ELSI_OCC, only: elsi_mu_and_occ,elsi_entropy,elsi_get_occ_for_dm
+   use ELSI_OCC, only: elsi_mu_and_occ,elsi_entropy,elsi_get_occ_for_dm, elsi_check_electrons
    use ELSI_OMM, only: elsi_init_omm,elsi_solve_omm
-   use ELSI_OUTPUT, only: elsi_add_log,elsi_get_time,fjson_get_datetime_rfc3339
+   use ELSI_OUTPUT, only: elsi_add_log,elsi_get_time,fjson_get_datetime_rfc3339, elsi_say
    use ELSI_PEXSI, only: elsi_init_pexsi,elsi_solve_pexsi
    use ELSI_PRECISION, only: r8,i4
    use ELSI_REDIST, only: elsi_blacs_to_generic_dm,elsi_blacs_to_mask,&
@@ -72,6 +72,7 @@ module ELSI_SOLVER
    public :: elsi_compute_entropy
    public :: elsi_inverse_cholesky_real
    public :: elsi_inverse_cholesky_complex
+   public :: elsi_static_excitations
 
 contains
 
@@ -332,7 +333,7 @@ subroutine elsi_ev_real(eh,ham,ovlp,eval,evec)
             !call elsi_solve_elpa(eh%ph,eh%bh,ham,ovlp,eval,evec)
             call elsi_solve_chase_mp(eh%ph,eh%bh,ham,ovlp,eval,evec)
          end if
-      end if   
+      end if
    case default
       write(msg,"(A)") "Unsupported eigensolver"
       call elsi_stop(eh%bh,msg,caller)
@@ -459,7 +460,7 @@ subroutine elsi_ev_complex(eh,ham,ovlp,eval,evec)
             call elsi_init_elpa(eh%ph,eh%bh)
             call elsi_solve_chase_mp(eh%ph,eh%bh,ham,ovlp,eval,evec)
          end if
-      end if      
+      end if
    case default
       write(msg,"(A)") "Unsupported eigensolver"
       call elsi_stop(eh%bh,msg,caller)
@@ -2642,6 +2643,123 @@ subroutine elsi_inverse_cholesky_complex(eh,mat)
 
 end subroutine
 
+!>
+!! Compute the occupation number matrix and chemical potentials for static excitations
+!!
+!! UKH
 
+subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
+                                    k_weights,KS_eigenvalue,occ_numbers,chemical_potential, &
+                                    chemical_potential1, chemical_potential2, n_excited_electrons, &
+                                    excitation_type,q4c_excitation)
+
+    implicit none
+
+    type(elsi_handle), intent(in) :: eh
+    real(kind=r8), intent(in) :: n_electrons
+    integer(kind=i4), intent(in) :: n_states
+    integer(kind=i4), intent(in) :: n_spin
+    integer(kind=i4), intent(in) :: n_k_points
+    real(kind=r8), intent(in) :: k_weights(n_k_points)
+    real(kind=r8), intent(in) :: KS_eigenvalue(n_states,n_spin,n_k_points)
+    real(kind=r8), intent(inout) :: chemical_potential
+    real(kind=r8), intent(inout) :: chemical_potential1
+    real(kind=r8), intent(inout) :: chemical_potential2
+    real(kind=r8), intent(out) :: occ_numbers(n_states,n_spin,n_k_points)
+    real(kind=r8) :: occ_numbers1(n_states,n_spin,n_k_points)
+    real(kind=r8) :: occ_numbers2(n_states,n_spin,n_k_points)
+    real(kind=r8), intent(in) :: n_excited_electrons
+    real(kind=r8) :: diff_electrons
+    character(len=20) :: excitation_type
+    character(len=200) :: msg
+    integer :: i
+    double precision, parameter :: hartree = 27.211384d0
+    logical :: q4c_excitation
+
+    character(len=*), parameter :: caller = "elsi_static_excitations"
+
+    if (excitation_type .eq. 'scf') then
+
+        ! Calculate occupation for default calculation
+        call elsi_compute_mu_and_occ(eh, n_electrons, n_states, &
+        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers, &
+        chemical_potential)
+
+        ! call for n-x electrons
+        call elsi_compute_mu_and_occ(eh, n_electrons-n_excited_electrons, n_states, &
+        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers1, &
+        chemical_potential1)
+
+        ! call for n+x electrons
+        call elsi_compute_mu_and_occ(eh, n_electrons+n_excited_electrons, n_states, &
+        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers2, &
+        chemical_potential2)
+
+        if (q4c_excitation) then
+        ! num_excited_electrons
+            do i = 1, (n_electrons),1
+                occ_numbers(i,:,:) = occ_numbers1(i,:,:)
+            enddo
+
+            do i = (n_electrons)+1, n_states, 1
+                occ_numbers(i,:,:) = occ_numbers2(i,:,:)
+            enddo
+        else
+        ! num_excited_electrons
+            do i = 1, (n_electrons/2),1
+                occ_numbers(i,:,:) = occ_numbers1(i,:,:)
+            enddo
+
+            do i = (n_electrons/2)+1, n_states, 1
+                occ_numbers(i,:,:) = occ_numbers2(i,:,:)
+            enddo
+        endif
+
+        write(msg,"(A,E14.7,A)") "Chemical potential for n electrons: &
+            ",chemical_potential*hartree, " eV"
+        call elsi_say(eh%bh,msg)
+        write(msg,"(A,F4.2,A,E14.7,A)") "Chemical potential for n-", &
+            n_excited_electrons," electrons: ",chemical_potential1*hartree, " eV"
+        call elsi_say(eh%bh,msg)
+        write(msg,"(A,F4.2,A,E14.7,A)") "Chemical potential for n+", &
+            n_excited_electrons," electrons: ",chemical_potential2*hartree, " eV"
+        call elsi_say(eh%bh,msg)
+
+    elseif (excitation_type .eq. 'nscf') then
+
+        ! Default
+        call elsi_check_electrons(eh%ph, n_electrons, n_states, n_spin, n_k_points, k_weights, &
+        KS_eigenvalue,occ_numbers, chemical_potential,diff_electrons)
+
+        ! Call for n-x electrons
+        call elsi_check_electrons(eh%ph, n_electrons-n_excited_electrons, n_states, n_spin, n_k_points, k_weights, &
+        KS_eigenvalue,occ_numbers1, chemical_potential1,diff_electrons)
+
+        ! Call for n+x electrons
+        call elsi_check_electrons(eh%ph, n_electrons+n_excited_electrons, n_states, n_spin, n_k_points, k_weights, &
+        KS_eigenvalue,occ_numbers2, chemical_potential2,diff_electrons)
+
+        if (q4c_excitation) then
+        ! num_excited_electrons
+            do i = 1, (n_electrons),1
+                occ_numbers(i,:,:) = occ_numbers1(i,:,:)
+            enddo
+
+            do i = (n_electrons)+1, n_states, 1
+                occ_numbers(i,:,:) = occ_numbers2(i,:,:)
+            enddo
+        else
+        ! num_excited_electrons
+            do i = 1, (n_electrons/2),1
+                occ_numbers(i,:,:) = occ_numbers1(i,:,:)
+            enddo
+
+            do i = (n_electrons/2)+1, n_states, 1
+                occ_numbers(i,:,:) = occ_numbers2(i,:,:)
+            enddo
+        endif
+endif
+
+end subroutine
 
 end module ELSI_SOLVER
