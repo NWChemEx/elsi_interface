@@ -286,7 +286,9 @@ IF(ENABLE_C_TESTS)
   test_c(02_ntpoly d 0 c 6 ${h_cmplx} ${s_cmplx})
 
   ### Parallel C tests: ev + ChASE ###
-  test_c(01_chase e 0 r 9 ${h_real} ${s_real})
-  test_c(02_chase e 0 c 9 ${h_cmplx} ${s_cmplx})
+  IF(ENABLE_CHASE)
+    test_c(01_chase e 0 r 9 ${h_real} ${s_real})
+    test_c(02_chase e 0 c 9 ${h_cmplx} ${s_cmplx})
+  ENDIF()
 
 ENDIF()
