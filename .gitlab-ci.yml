@@ -19,7 +19,6 @@ gnu:
     - cd build
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/gnu.cmake ..
     - make -j4
-    - mpirun -np 4 ./bin/elsi_test e 0 c 9 ../test/matrices/H_cmplx.csc ../test/matrices/S_cmplx.csc
     - ctest --output-on-failure
 
 ### NVIDIA HPC SDK (20.7) ###
