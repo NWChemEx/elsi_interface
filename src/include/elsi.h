@@ -281,6 +281,9 @@ void c_elsi_set_chase_extra_space(elsi_handle handle_c,
 void c_elsi_set_chase_min_extra_space(elsi_handle handle_c,
      int min_s);
 
+void c_elsi_set_chase_cholqr(elsi_handle handle_c,
+     int isCholqr);
+
 void c_elsi_set_mu_broaden_scheme(elsi_handle handle_c,
      int broaden_scheme);
 

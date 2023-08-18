@@ -112,7 +112,8 @@ void test_ev_real_den_c(MPI_Comm comm,
    // Customize ELSI
    c_elsi_set_output(eh,2);
    c_elsi_set_chase_tol(eh,1e-10);
-   
+   c_elsi_set_chase_cholqr(eh, 0);
+
    // Call ELSI eigensolver
    c_elsi_ev_real(eh,h,s,eval,evec);
 

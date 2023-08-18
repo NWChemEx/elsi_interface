@@ -21,11 +21,12 @@ module ELSI_SETUP
    use ELSI_OUTPUT, only: fjson_close_file,fjson_finish_array,&
        fjson_reset_fj_handle
    use ELSI_PEXSI, only: elsi_set_pexsi_default,elsi_cleanup_pexsi
+   use ELSI_CHASE, only: elsi_cleanup_chase
    use ELSI_PRECISION, only: r8,i4,i8
    use ELSI_SIPS, only: elsi_cleanup_sips
    use ELSI_SORT, only: elsi_heapsort
    use ELSI_UTIL, only: elsi_check_init,elsi_reset_param,elsi_reset_basic
-
+   
    implicit none
 
    private
@@ -624,6 +625,7 @@ subroutine elsi_cleanup(eh)
    call elsi_cleanup_ntpoly(eh%ph)
    call elsi_cleanup_sips(eh%ph)
    call elsi_cleanup_magma(eh%ph)
+   call elsi_cleanup_chase(eh%ph)
 
    ! Dense
    if(allocated(eh%ham_real_den)) then

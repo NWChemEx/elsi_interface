@@ -12,7 +12,8 @@ module ELSI_UTIL
    use ELSI_CONSTANT, only: UNSET,N_SOLVERS,N_PARALLEL_MODES,N_MATRIX_FORMATS,&
        MULTI_PROC,SINGLE_PROC,BLACS_DENSE,PEXSI_CSC,SIESTA_CSC,GENERIC_COO,&
        AUTO_SOLVER,ELPA_SOLVER,OMM_SOLVER,PEXSI_SOLVER,EIGENEXA_SOLVER,&
-       SIPS_SOLVER,NTPOLY_SOLVER,MAGMA_SOLVER,BSEPACK_SOLVER,UT_MAT,GET_DM
+       SIPS_SOLVER,NTPOLY_SOLVER,MAGMA_SOLVER,BSEPACK_SOLVER,CHASE_SOLVER,&
+       UT_MAT,GET_DM
    use ELSI_DATATYPE, only: elsi_param_t,elsi_basic_t
    use ELSI_MALLOC, only: elsi_allocate,elsi_deallocate
    use ELSI_MPI
@@ -199,6 +200,11 @@ subroutine elsi_reset_param(ph)
    ph%chase_same_ovlp = .false.
    ph%chase_deg_opt = .true.
    ph%chase_evecs_recycl = .true.
+   ph%dchase_init = 0
+   ph%zchase_init = 0   
+   ph%pdchase_init = 0
+   ph%pzchase_init = 0
+   ph%chase_cholqr = .true.
 end subroutine
 
 !>
@@ -535,6 +541,25 @@ subroutine elsi_check(ph,bh,caller)
          write(msg,"(A)") "BSEPACK requires BLACS_DENSE matrix format"
          call elsi_stop(bh,msg,caller)
       end if
+   case(CHASE_SOLVER)
+      call elsi_get_chase_enabled(solver_enabled)
+
+      if(ph%ill_check .and. ph%elpa_autotune > 0) then
+         write(msg,"(A)") "ELPA autotuning not compatible with"//&
+            " ill-conditioning check"
+         call elsi_stop(bh,msg,caller)
+      end if
+      
+      if(solver_enabled == 0) then
+         write(msg,"(A)") "ChASE is not enabled in this ELSI installation"
+         call elsi_stop(bh,msg,caller)
+      end if
+
+      if(ph%matrix_format /= BLACS_DENSE) then
+         write(msg,"(A)") "ChASE requires BLACS_DENSE matrix format"
+         call elsi_stop(bh,msg,caller)
+      end if
+      
    end select
 
 end subroutine

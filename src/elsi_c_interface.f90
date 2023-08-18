@@ -1389,6 +1389,21 @@ subroutine c_elsi_set_chase_evecs_recycl(h_c, isrecycl) bind(C)
 
 end subroutine
 
+subroutine c_elsi_set_chase_cholqr(h_c, ischolqr) bind(C)
+
+    implicit none
+
+    type(c_ptr), value, intent(in) :: h_c
+    integer(kind=c_int), value, intent(in) :: ischolqr
+
+    type(elsi_handle), pointer :: h_f
+
+    call c_f_pointer(h_c,h_f)
+
+    call elsi_set_chase_deg_opt(h_f, ischolqr)
+
+end subroutine
+
 subroutine c_elsi_set_mu_broaden_scheme(h_c,broaden_scheme) bind(C)
 
    implicit none

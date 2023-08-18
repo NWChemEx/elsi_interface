@@ -82,7 +82,7 @@ ELSI is a National Science Foundation Software Infrastructure for Sustained Inno
 \chapter{Installation of ELSI}
 \section{Prerequisites}
 \label{sec:prereq}
-The ELSI package contains the ELSI interface software as well as redistributed source code for the solver libraries ELPA (version 2020.05.001), libOMM (version 1.0.0), PEXSI (version 1.2.0), NTPoly (version 2.7.0), and ChASE (version 1.2.1). The installation of ELSI makes use of the \href{https://cmake.org}{CMake} software. Minimum requirements include:
+The ELSI package contains the ELSI interface software as well as redistributed source code for the solver libraries ELPA (version 2020.05.001), libOMM (version 1.0.0), PEXSI (version 1.2.0), NTPoly (version 2.7.0), and ChASE (version 1.4.0). The installation of ELSI makes use of the \href{https://cmake.org}{CMake} software. Minimum requirements include:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{CMake}  [minimum version 3.0; newer version recommended]
 \tcb{Fortran compiler}  [Fortran 2003 compliant]
@@ -115,6 +115,12 @@ Enabling the MAGMA solver requires:
 Enabling the CUDA-based GPU acceleration in the ELPA and ChASE solvers requires:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{CUDA}  [version 10.0 or newer recommended]
+\end{Verbatim}
+
+Optionally, if ``\texttt{ENABLE\_CHASE\_NCCL}'' is set to be  ``\texttt{ON}','  
+ChASE solver with GPU acceleration requires:
+\begin{Verbatim}[commandchars=\\\{\}]
+\tcb{NCCL}  [version 2.0 or newer recommended]
 \end{Verbatim}
 
 Linear algebra libraries should be provided for ELSI to link against:
@@ -180,7 +186,7 @@ The ELPA, libOMM, PEXSI, NTPoly, BSEPACK and ChASE solver libraries, as well as 
 
 The redistributed version of ELPA comes with a few ``kernels'' written to take advantage of architecture-specific instruction sets, which may be chosen by the \texttt{ELPA2\_KERNEL} keyword. Available options are \texttt{AVX}, \texttt{AVX2}, and \texttt{AVX512}, for architectures supporting Intel AVX, AVX2, and AVX512 instruction sets, respectively. In ELPA, these kernels are employed to accelerate the calculation of eigenvectors, which is often a bottleneck when calculating a large portion of the eigenspectrum. In addition, ELPA supports GPU acceleration on NVIDIA devices via the CUDA programming model and the cuBLAS library. This feature may be enabled by the keyword \texttt{USE\_GPU\_CUDA}, which requires the CUDA runtime and cuBLAS libraries.
 
-The PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, AND ChASE solvers are not enabled by default. They may be activated by the keywords \texttt{ENABLE\_PEXSI}, \texttt{ENABLE\_EIGENEXA}, \texttt{ENABLE\_SIPS}, \texttt{ENABLE\_BSEPACK}, \texttt{ENABLE\_MAGMA} and \texttt{ENABLE\_CHASE}, respectively. PEXSI 1.2.0, EigenExa 2.11, SLEPc 3.9, 3.10, 3.11, 3.12, 3.13, BSEPACK 0.1, and MAGMA 2.5 have been tested with this version of ELSI. Older/newer versions may or may not be compatible. The PETSc library, required by SLEPc, must be compiled with MPI support, and (at least) with MUMPS and ParMETIS enabled.
+The PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, and ChASE solvers are not enabled by default. They may be activated by the keywords \texttt{ENABLE\_PEXSI}, \texttt{ENABLE\_EIGENEXA}, \texttt{ENABLE\_SIPS}, \texttt{ENABLE\_BSEPACK}, \texttt{ENABLE\_MAGMA} and \texttt{ENABLE\_CHASE}, respectively. PEXSI 1.2.0, EigenExa 2.11, SLEPc 3.9, 3.10, 3.11, 3.12, 3.13, BSEPACK 0.1, and MAGMA 2.5 have been tested with this version of ELSI. Older/newer versions may or may not be compatible. The PETSc library, required by SLEPc, must be compiled with MPI support, and (at least) with MUMPS and ParMETIS enabled.
 
 Experienced users are encouraged to link ELSI against externally
 installed, better optimized solver libraries. The keywords
@@ -241,6 +247,8 @@ The options accepted by the ELSI CMake build system are listed here in alphabeti
 \texttt{ENABLE\_SIPS}             & boolean & OFF         & Enable SLEPc-SIPs support\\
 \hline
 \texttt{ENABLE\_CHASE}             & boolean & OFF         & Enable ChASE support\\
+\hline
+\texttt{ENABLE\_CHASE\_NCCL}             & boolean & OFF         & Enable ChASE support with NCCL\\
 \hline
 \texttt{ENABLE\_TESTS}            & boolean & OFF         & Build Fortran test programs\\
 \hline
@@ -1165,6 +1173,7 @@ end do
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_deg\_opt}(handle, is\_deg\_opt)}\\	
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_same\_ovlp}(handle, is\_same\_ovlp)}\\
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_evecs\_recycl}(handle, is\_recycl)}\\				
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_cholqr}(handle, is\_cholqr)}\\					
 	\multicolumn{4}{l}{}\\
 	\hline
 	\multicolumn{1}{|l|}{\textbf{Argument}} & \multicolumn{1}{l|}{\textbf{Data Type}} & \multicolumn{1}{l|}{\textbf{Default}} & \multicolumn{1}{l|}{\textbf{Explanation}}\\
@@ -1187,7 +1196,9 @@ end do
                                                    for distinct eigenpencils. 0: No. 1: Yes. \\	
 	\hline
 	\texttt{is\_recycl} & integer &  $1$ &  Controls the use of approximate eigenvectors when they are available. 0: No. 1: Yes. \\	
-	\hline					
+	\hline
+	\texttt{is\_cholqr} & integer &  $1$ &  Controls the use of flexible Cholesky QR in ChASE. 0: use Househoulder QR. 1: Yes. \\	
+\hline							
 \end{tabular}
 
 \textbf{Remarks}
@@ -1238,8 +1249,12 @@ time to solution. When \texttt{is\_recycl} is set to $1$, ChASE
 expects to receive in input two arrays holding approximate vectors and
 values. 
 
-(6) distributed-memory version of ChASE can use multiple GPUs per node, controlled by the environment variable 
-\texttt{CUDA\_VISIBLE\_DEVICES}. Refer to the \href{https://chase-library.github.io/ChASE/installation/suggestion.html#id1}{\tcb{ChASE's Documentation}} for more information.
+(6)  \texttt{is\_cholqr} can be used to enable/disable a flexible Cholesky QR in ChASE.
+Based on an estimation of condition number of filtered vectors, this flexible Cholesky QR is
+able to select different variants of CholeskyQR on the fly to attain the best performance while
+maintain a good numerical stability. This mechanism is enabled by default, and it can be
+disabled by setting  \texttt{is\_cholqr} to $0$. Then a numerical stable Househoulder QR
+factorization (either from LAPACK or ScaLAPACK) would be used. 
 
 \section{Getting Additional Results from ELSI}
 \label{sec:getter}
@@ -2061,6 +2076,6 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \end{Verbatim}
 \end{tcolorbox}
 
-The source code of ELPA 2020.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), BSEPACK 0.1 (BSD3), ChASE 1.2.1 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
+The source code of ELPA 2020.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), BSEPACK 0.1 (BSD3), ChASE 1.4.0 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
 
 \end{document}

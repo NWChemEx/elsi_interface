@@ -7,6 +7,7 @@ module ELSI_CHASE
 
    public :: elsi_solve_chase_sp
    public :: elsi_solve_chase_mp
+   public :: elsi_cleanup_chase
 
    interface elsi_solve_chase_sp
        module procedure elsi_solve_chase_real_sp
@@ -80,5 +81,12 @@ subroutine elsi_solve_chase_cmplx_mp(ph,bh,ham,ovlp,eval,evec)
    stop
 
 end subroutine   
+
+subroutine elsi_cleanup_chase(ph)
+
+   implicit none
+   type(elsi_param_t), intent(inout) :: ph
+
+end subroutine
 
 end module ELSI_CHASE        

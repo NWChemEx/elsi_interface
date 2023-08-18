@@ -89,3 +89,16 @@ subroutine elsi_get_bsepack_enabled(bsepack_enabled)
    bsepack_enabled = @ENABLE_BSEPACK_BOOL@
 
 end subroutine
+
+!>
+!! Return 0 if ChASE has not been enabled; return 1 otherwise.
+!!
+subroutine elsi_get_chase_enabled(chase_enabled)
+
+   implicit none
+
+   integer, intent(out) :: chase_enabled !< ChASE is available?
+
+   chase_enabled = @ENABLE_CHASE_BOOL@
+
+end subroutine

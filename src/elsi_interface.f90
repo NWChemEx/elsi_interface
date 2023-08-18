@@ -92,6 +92,7 @@ module ELSI
    public :: elsi_set_chase_same_ovlp
    public :: elsi_set_chase_deg_opt
    public :: elsi_set_chase_evecs_recycl
+   public :: elsi_set_chase_cholqr
    public :: elsi_set_mu_broaden_scheme
    public :: elsi_set_mu_broaden_width
    public :: elsi_set_mu_tol
