@@ -2650,7 +2650,7 @@ end subroutine
 
 subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
                                     k_weights,KS_eigenvalue,occ_numbers,chemical_potential, &
-                                    chemical_potential_lower, chemical_potential_higher, n_excited_electrons, &
+                                    chemical_potential_lower, chemical_potential_upper, n_excited_electrons, &
                                     excitation_type)
 
     implicit none
@@ -2664,7 +2664,7 @@ subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
     real(kind=r8), intent(in) :: KS_eigenvalue(n_states,n_spin,n_k_points)
     real(kind=r8), intent(inout) :: chemical_potential
     real(kind=r8), intent(inout) :: chemical_potential_lower
-    real(kind=r8), intent(inout) :: chemical_potential_higher
+    real(kind=r8), intent(inout) :: chemical_potential_upper
     real(kind=r8), intent(out) :: occ_numbers(n_states,n_spin,n_k_points)
     real(kind=r8) :: occ_numbers_tmp(n_states,n_spin,n_k_points)
     real(kind=r8) :: occ_numbers_lower(n_states,n_spin,n_k_points)
@@ -2734,7 +2734,7 @@ subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
             n_excited_electrons," electrons: ",chemical_potential_lower*hartree, " eV"
         call elsi_say(eh%bh,msg)
         write(msg,"(A,F4.2,A,E14.7,A)") "Chemical potential for n+", &
-            n_excited_electrons," electrons: ",chemical_potential_higher*hartree, " eV"
+            n_excited_electrons," electrons: ",chemical_potential_upper*hartree, " eV"
         call elsi_say(eh%bh,msg)
 
     elseif (excitation_type .eq. 'nscf') then
