@@ -391,13 +391,9 @@ subroutine elsi_solve_chase_real_mp(ph,bh,ham,ovlp,eval,evec)
    
    ! Transform to standard form
    if(.not. ph%unit_ovlp) then
-      if(ph%n_good == ph%n_basis) then
+      if(ph%elpa_first .and. ph%n_good == ph%n_basis) then
         ! Do Cholesky if not singular
-        if( ph%elpa_first ) then
-           call elsi_factor_ovlp_elpa(ph,bh,ovlp)
-        else if(.not. ph%chase_same_ovlp) then
-           call elsi_factor_ovlp_elpa(ph,bh,ovlp)
-        end if
+        call elsi_factor_ovlp_elpa(ph,bh,ovlp)
       end if
 
       call elsi_reduce_evp_elpa(ph,bh,ham,ovlp,evec)
@@ -561,15 +557,10 @@ subroutine elsi_solve_chase_cmplx_mp(ph,bh,ham,ovlp,eval,evec)
 
    ! Transform to standard form
    if(.not. ph%unit_ovlp) then
-      if(ph%n_good == ph%n_basis) then
-        ! Do Cholesky if not singular
-        if( ph%elpa_first ) then
-           call elsi_factor_ovlp_elpa(ph,bh,ovlp)
-        else if(.not. ph%chase_same_ovlp) then
-           call elsi_factor_ovlp_elpa(ph,bh,ovlp)
-        end if
+      if(ph%elpa_first .and. ph%n_good == ph%n_basis) then
+         ! Do Cholesky if not singular
+         call elsi_factor_ovlp_elpa(ph,bh,ovlp)
       end if
-
       call elsi_reduce_evp_elpa(ph,bh,ham,ovlp,evec)
    end if
 

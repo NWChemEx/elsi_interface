@@ -89,7 +89,6 @@ module ELSI
    public :: elsi_set_chase_filter_deg
    public :: elsi_set_chase_extra_space
    public :: elsi_set_chase_min_extra_space
-   public :: elsi_set_chase_same_ovlp
    public :: elsi_set_chase_deg_opt
    public :: elsi_set_chase_evecs_recycl
    public :: elsi_set_chase_cholqr

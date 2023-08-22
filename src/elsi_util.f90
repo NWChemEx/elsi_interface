@@ -197,7 +197,6 @@ subroutine elsi_reset_param(ph)
    ph%chase_extra_space = 2.5e-1_r8
    ph%chase_min_extra_space = 10
    ph%chase_started = .false.
-   ph%chase_same_ovlp = .false.
    ph%chase_deg_opt = .true.
    ph%chase_evecs_recycl = .true.
    ph%dchase_init = 0

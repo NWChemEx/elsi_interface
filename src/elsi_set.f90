@@ -67,7 +67,6 @@ module ELSI_SET
    public :: elsi_set_chase_filter_deg
    public :: elsi_set_chase_extra_space
    public :: elsi_set_chase_min_extra_space   
-   public :: elsi_set_chase_same_ovlp
    public :: elsi_set_chase_deg_opt
    public :: elsi_set_chase_evecs_recycl
    public :: elsi_set_chase_cholqr
@@ -1180,30 +1179,6 @@ subroutine elsi_set_chase_extra_space(eh, percent)
    end if
 
    eh%ph%chase_extra_space = percent 
-
-end subroutine
-
-!>
-!! Set if ChASE is always working with a same overlap matrix
-!!
-subroutine elsi_set_chase_same_ovlp(eh, is_same_ovlp)
-
-   implicit none
-
-   type(elsi_handle), intent(inout) :: eh !< Handle
-   integer(kind=i4), intent(in) :: is_same_ovlp !< whether to work with a same overlap matrix
-
-   character(len=200) :: msg
-
-   character(len=*), parameter :: caller = "elsi_set_chase_ovlp"
-
-   call elsi_check_init(eh%bh,eh%handle_init,caller)
-
-   if(is_same_ovlp == 0) then
-      eh%ph%chase_same_ovlp = .false.
-   else
-      eh%ph%chase_same_ovlp = .true.
-   end if
 
 end subroutine
 

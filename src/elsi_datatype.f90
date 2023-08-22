@@ -261,7 +261,6 @@ module ELSI_DATATYPE
       complex(kind=r8), allocatable :: htmp_c(:,:)
       integer(kind=i4) :: chase_pre_n_good
       integer(kind=i4) :: chase_pre_n_states
-      logical :: chase_same_ovlp = .false.
       logical :: chase_deg_opt = .true.
       logical :: chase_evecs_recycl = .true. 
       integer(kind=i4) :: dchase_init = 0
