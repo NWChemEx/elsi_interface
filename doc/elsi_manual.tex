@@ -1171,7 +1171,6 @@ end do
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_extra\_space}(handle, extra\_ratio)}\\
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_min\_extra\_space}(handle, min\_s)}\\			
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_deg\_opt}(handle, is\_deg\_opt)}\\	
-	\multicolumn{4}{l}{\api{elsi\_set\_chase\_same\_ovlp}(handle, is\_same\_ovlp)}\\
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_evecs\_recycl}(handle, is\_recycl)}\\				
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_cholqr}(handle, is\_cholqr)}\\					
 	\multicolumn{4}{l}{}\\
@@ -1191,9 +1190,6 @@ end do
 	\hline
 	\texttt{is\_deg\_opt} & integer &  $1$ &  Controls the activation of the optimization
                                                  mechanism of the degree of the Cheby. polynomimal. 0: Disabled. 1: Enabled. \\
-	\hline	
-	\texttt{is\_same\_ovlp} & integer &  $0$ &  Controls the setting of the overlap matrix when it does not change
-                                                   for distinct eigenpencils. 0: No. 1: Yes. \\	
 	\hline
 	\texttt{is\_recycl} & integer &  $1$ &  Controls the use of approximate eigenvectors when they are available. 0: No. 1: Yes. \\	
 	\hline

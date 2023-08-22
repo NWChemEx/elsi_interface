@@ -10,7 +10,6 @@ SET(CMAKE_CXX_FLAGS "-O3 -std=c++11" CACHE STRING "C++ flags")
 
 SET(ENABLE_PEXSI ON CACHE BOOL "Enable PEXSI")
 SET(ENABLE_TESTS ON CACHE BOOL "Enable Fortran tests")
-SET(ENABLE_CHASE ON CACHE BOOL "Enable ChASE eigensolver")
 SET(ENABLE_C_TESTS ON CACHE BOOL "Enable C tests")
 
 SET(LIB_PATHS "/home/wy29/opt/scalapack-2.1.0;/home/wy29/opt/lapack-3.9.0" CACHE STRING "External library paths")
