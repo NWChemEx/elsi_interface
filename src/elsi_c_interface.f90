@@ -1343,22 +1343,6 @@ subroutine c_elsi_set_chase_min_extra_space(h_c,min_s) bind(C)
 
 end subroutine
 
-subroutine c_elsi_set_chase_same_ovlp(h_c, issame) bind(C)
- 
-    implicit none
-
-    type(c_ptr), value, intent(in) :: h_c
-    integer(kind=c_int), value, intent(in) :: issame
-
-    type(elsi_handle), pointer :: h_f
-
-    call c_f_pointer(h_c,h_f)
-
-    call elsi_set_chase_same_ovlp(h_f, issame)
-
-
-end subroutine        
-
 subroutine c_elsi_set_chase_deg_opt(h_c, isopt) bind(C)
 
     implicit none
@@ -1386,6 +1370,21 @@ subroutine c_elsi_set_chase_evecs_recycl(h_c, isrecycl) bind(C)
     call c_f_pointer(h_c,h_f)
 
     call elsi_set_chase_evecs_recycl(h_f, isrecycl)
+
+end subroutine
+
+subroutine c_elsi_set_chase_cholqr(h_c, ischolqr) bind(C)
+
+    implicit none
+
+    type(c_ptr), value, intent(in) :: h_c
+    integer(kind=c_int), value, intent(in) :: ischolqr
+
+    type(elsi_handle), pointer :: h_f
+
+    call c_f_pointer(h_c,h_f)
+
+    call elsi_set_chase_deg_opt(h_f, ischolqr)
 
 end subroutine
 

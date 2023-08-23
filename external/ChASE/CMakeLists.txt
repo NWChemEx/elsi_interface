@@ -1,3 +1,5 @@
+OPTION(ENABLE_CHASE_NCCL "Enable NCCL support in ChASE" OFF)
+
 include( FortranCInterface )
 FortranCInterface_HEADER( ${CMAKE_BINARY_DIR}/fortran_mangle.h
   MACRO_NAMESPACE "FC_"
@@ -6,6 +8,9 @@ FortranCInterface_HEADER( ${CMAKE_BINARY_DIR}/fortran_mangle.h
 
 list(APPEND includePath ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 list(APPEND inc_install ${CMAKE_CURRENT_SOURCE_DIR}/src/ChASE-MPI ${CMAKE_CURRENT_SOURCE_DIR}/src/algorithm)
+
+add_compile_definitions(HAS_SCALAPACK=1)
+add_compile_definitions(USE_MPI=1)
 
 option( CHASE_OUTPUT "ChASE will provide output at each iteration" OFF)
 if( CHASE_OUTPUT )
@@ -21,6 +26,13 @@ IF(USE_GPU_CUDA)
 
   target_link_libraries( chase_cuda PUBLIC ${LIBS})
   add_compile_definitions(HAS_GPU=1)
+  add_compile_definitions(HAS_CUDA=1)
+
+  if(ENABLE_CHASE_NCCL)
+     MESSAGE(STATUS "Enabling NCCL support in ChASE")	  
+     add_compile_definitions(HAS_NCCL=1)
+     add_compile_definitions(CUDA_AWARE=1)
+   endif()
 ENDIF()
 
 LIST(APPEND chase_src

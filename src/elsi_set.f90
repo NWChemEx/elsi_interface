@@ -67,9 +67,9 @@ module ELSI_SET
    public :: elsi_set_chase_filter_deg
    public :: elsi_set_chase_extra_space
    public :: elsi_set_chase_min_extra_space   
-   public :: elsi_set_chase_same_ovlp
    public :: elsi_set_chase_deg_opt
    public :: elsi_set_chase_evecs_recycl
+   public :: elsi_set_chase_cholqr
    public :: elsi_set_mu_broaden_scheme
    public :: elsi_set_mu_broaden_width
    public :: elsi_set_mu_tol
@@ -1183,30 +1183,6 @@ subroutine elsi_set_chase_extra_space(eh, percent)
 end subroutine
 
 !>
-!! Set if ChASE is always working with a same overlap matrix
-!!
-subroutine elsi_set_chase_same_ovlp(eh, is_same_ovlp)
-
-   implicit none
-
-   type(elsi_handle), intent(inout) :: eh !< Handle
-   integer(kind=i4), intent(in) :: is_same_ovlp !< whether to work with a same overlap matrix
-
-   character(len=200) :: msg
-
-   character(len=*), parameter :: caller = "elsi_set_chase_ovlp"
-
-   call elsi_check_init(eh%bh,eh%handle_init,caller)
-
-   if(is_same_ovlp == 0) then
-      eh%ph%chase_same_ovlp = .false.
-   else
-      eh%ph%chase_same_ovlp = .true.
-   end if
-
-end subroutine
-
-!>
 !! Set if the degree optimization mechanism of Cheby. polynomimal is 
 !! used in ChASE. Default is true.
 !!
@@ -1276,6 +1252,31 @@ subroutine elsi_set_chase_min_extra_space(eh, min_s)
    eh%ph%chase_min_extra_space = min_s
 
 end subroutine
+
+!>
+!! Set if use flexible CholeskyQR implmenetation in ChASE
+!!
+subroutine elsi_set_chase_cholqr(eh, is_cholqr)
+
+   implicit none
+
+   type(elsi_handle), intent(inout) :: eh !< Handle
+   integer(kind=i4), intent(in) :: is_cholqr !< whether to work with CholeskyQR
+
+   character(len=200) :: msg
+
+   character(len=*), parameter :: caller = "elsi_set_chase_cholqr"
+
+   call elsi_check_init(eh%bh,eh%handle_init,caller)
+
+   if(is_cholqr == 0) then
+      eh%ph%chase_cholqr = .false.
+   else
+      eh%ph%chase_cholqr = .true.
+   end if
+
+end subroutine
+
 
 !>
 !! Set the broadening scheme to determine the chemical potential and the

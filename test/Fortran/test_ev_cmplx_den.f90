@@ -154,10 +154,10 @@ subroutine test_ev_cmplx_den(comm,solver,h_file,s_file)
    call elsi_set_output(eh,2)
    call elsi_set_output_log(eh,1)
    call elsi_set_mu_broaden_width(eh,1.0e-6_r8)
-   !call elsi_set_illcond_tol(eh,1.0e-8_r8)
-   call elsi_set_chase_same_ovlp(eh, 1)
-   !call elsi_set_chase_deg_opt(eh, .0)
+   !call elsi_set_illcond_tol(eh,1.0e-5_r8)
+   !call elsi_set_chase_deg_opt(eh, 0)
    !call elsi_set_chase_evecs_recycl(eh, 0)
+   call elsi_set_chase_cholqr(eh, 0)
 
    inquire(file=file_name,exist=file_exist)
 
