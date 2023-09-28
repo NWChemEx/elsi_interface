@@ -206,7 +206,8 @@ template< typename T>
     void ForwardMessage( ){
       if(myRequests_.m()!=GetDestCount()){
         myRequests_.Resize(GetDestCount());
-        SetValue(myRequests_,MPI_REQUEST_NULL);
+        //SetValue(myRequests_,MPI_REQUEST_NULL);
+        SetValue<MPI_Request>(myRequests_,MPI_REQUEST_NULL);
       }
       for( Int idxRecv = 0; idxRecv < myDests_.size(); ++idxRecv ){
         Int iProc = myDests_[idxRecv];
@@ -1365,7 +1366,8 @@ public:
     }
 
     myRequests_.Resize(GetDestCount());
-    SetValue(myRequests_,MPI_REQUEST_NULL);
+    //SetValue(myRequests_,MPI_REQUEST_NULL);
+    SetValue<MPI_Request>(myRequests_,MPI_REQUEST_NULL);
     myStatuses_.Resize(GetDestCount());
     recvIdx_.Resize(GetDestCount());
 
@@ -1695,7 +1697,8 @@ public:
       this->remoteData_[0] = (T*)&(this->myRecvBuffers_[0]);
 
       this->myRequests_.Resize(1);
-      SetValue(this->myRequests_,MPI_REQUEST_NULL);
+      //SetValue(this->myRequests_,MPI_REQUEST_NULL);
+      SetValue<MPI_Request>(this->myRequests_,MPI_REQUEST_NULL);
       this->myStatuses_.Resize(1);
       this->recvIdx_.Resize(1);
     }
