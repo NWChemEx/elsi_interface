@@ -1,3 +1,50 @@
+/* Copyright 2014 - 2023, A. Marek */
+
+/*     This file is part of ELPA. */
+
+/*     The ELPA library was originally created by the ELPA consortium, */
+/*     consisting of the following organizations: */
+
+/*     - Max Planck Computing and Data Facility (MPCDF), formerly known as */
+/*       Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG), */
+/*     - Bergische Universität Wuppertal, Lehrstuhl für angewandte */
+/*       Informatik, */
+/*     - Technische Universität München, Lehrstuhl für Informatik mit */
+/*       Schwerpunkt Wissenschaftliches Rechnen , */
+/*     - Fritz-Haber-Institut, Berlin, Abt. Theorie, */
+/*     - Max-Plack-Institut für Mathematik in den Naturwissenschaften, */
+/*       Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition, */
+/*       and */
+/*     - IBM Deutschland GmbH */
+
+
+/*     More information can be found here: */
+/*     http://elpa.mpcdf.mpg.de/ */
+
+/*     ELPA is free software: you can redistribute it and/or modify */
+/*     it under the terms of the version 3 of the license of the */
+/*     GNU Lesser General Public License as published by the Free */
+/*     Software Foundation. */
+
+/*     ELPA is distributed in the hope that it will be useful, */
+/*     but WITHOUT ANY WARRANTY; without even the implied warranty of */
+/*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
+/*     GNU Lesser General Public License for more details. */
+
+/*     You should have received a copy of the GNU Lesser General Public License */
+/*     along with ELPA.  If not, see <http://www.gnu.org/licenses/> */
+
+/*     ELPA reflects a substantial effort on the part of the original */
+/*     ELPA consortium, and we ask you to respect the spirit of the */
+/*     license that we chose: i.e., please contribute any changes you */
+/*     may have back to the original ELPA library distribution, and keep */
+/*     any derivatives of ELPA under the same license that we chose for */
+/*     the original distribution, the GNU Lesser General Public License. */
+
+/*  Author: Andreas Marek, MPCDF */
+/*  This file is the generated version. Do NOT edit */
+
+
 # 1 "../src/elpa2/kernels/real_avx_2hv_double_precision.c"
 # 1 "/usr/include/stdc-predef.h" 1 3
 
@@ -15,7 +62,6 @@
 
 
 
- 
 
 
 
@@ -26,17 +72,18 @@
 
 
 
- 
-
- 
 
 
 
 
- 
 
 
- 
+
+
+
+
+
+
 
 
 # 1 "../src/elpa2/kernels/real_avx_2hv_double_precision.c" 2
@@ -206,11 +253,11 @@
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -230,7 +277,6 @@
 
 
 
- 
 
 
 
@@ -308,19 +354,14 @@
 
 
 
- 
 
 
- 
+
+
+
 # 125 "/usr/include/features.h" 3
 
 
- 
-
-
-
-
- 
 
 
 
@@ -329,37 +370,30 @@
 
 
 
- 
+
+
+
+
+
+
+
 # 148 "/usr/include/features.h" 3
 
 
- 
 
 
 
 
 
 
- 
+
+
 # 182 "/usr/include/features.h" 3
 
 
- 
+
 # 191 "/usr/include/features.h" 3
 
- 
-
-
-
-
-
- 
-
-
-
-
-
- 
 
 
 
@@ -368,14 +402,27 @@
 
 
 
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 235 "/usr/include/features.h" 3
 
 
@@ -443,7 +490,6 @@
 # 342 "/usr/include/features.h" 3
 
 
- 
 
 
 
@@ -451,22 +497,23 @@
 
 
 
- 
-
-
-
-
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
 # 371 "/usr/include/features.h" 3
 
- 
+
 # 1 "/usr/include/sys/cdefs.h" 1 3
 
 
@@ -484,59 +531,59 @@
 
 
 
- 
-
-
-
-
- 
 
 
 
 
 
 
- 
-
-
-
-
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 49 "/usr/include/sys/cdefs.h" 3
 
 
 
 
 
- 
+
 # 70 "/usr/include/sys/cdefs.h" 3
 
 # 80 "/usr/include/sys/cdefs.h" 3
 
 
- 
 
 
 
 
- 
 
 
 
 
- 
 
 
 
 
- 
+
+
+
+
 # 105 "/usr/include/sys/cdefs.h" 3
 
 
@@ -544,15 +591,14 @@
 
 
 
- 
+
 # 120 "/usr/include/sys/cdefs.h" 3
 
 
- 
+
 # 130 "/usr/include/sys/cdefs.h" 3
 
 
- 
 
 
 
@@ -560,15 +606,16 @@
 
 
 
- 
+
+
 
 
 
 # 155 "/usr/include/sys/cdefs.h" 3
 
- 
 
- 
+
+
 # 172 "/usr/include/sys/cdefs.h" 3
 
 
@@ -580,7 +627,7 @@
 
 
 
- 
+
 
 
 
@@ -591,19 +638,6 @@
 
 
 
- 
-
-
-
-
- 
-
-
-
-
-
-
- 
 
 
 
@@ -612,14 +646,6 @@
 
 
 
- 
-
-
-
-
-
-
- 
 
 
 
@@ -628,10 +654,30 @@
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 251 "/usr/include/sys/cdefs.h" 3
 
- 
 
 
 
@@ -643,7 +689,6 @@
 
 
 
- 
 
 
 
@@ -653,11 +698,12 @@
 
 
 
- 
+
+
+
 # 281 "/usr/include/sys/cdefs.h" 3
 
 
- 
 
 
 
@@ -665,18 +711,10 @@
 
 
 
- 
+
+
 # 304 "/usr/include/sys/cdefs.h" 3
 
- 
-
-
-
-
-
-
-
- 
 
 
 
@@ -691,7 +729,16 @@
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
 # 341 "/usr/include/sys/cdefs.h" 3
 
 
@@ -699,7 +746,6 @@
 
 
 
- 
 
 
 
@@ -708,25 +754,25 @@
 
 
 
- 
-
-
-
-
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
 # 383 "/usr/include/sys/cdefs.h" 3
 
 # 391 "/usr/include/sys/cdefs.h" 3
 
 # 1 "/usr/include/bits/wordsize.h" 1 3
- 
 
 
 
@@ -736,7 +782,8 @@
 
 
 
- 
+
+
 # 393 "/usr/include/sys/cdefs.h" 2 3
 
 # 425 "/usr/include/sys/cdefs.h" 3
@@ -745,15 +792,6 @@
 
 
 
- 
-
-
-
-
-
-
-
- 
 
 
 
@@ -764,18 +802,27 @@
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
 # 1 "/usr/include/gnu/stubs.h" 1 3
 
 
- 
+
 
 
 # 1 "/usr/include/gnu/stubs-64.h" 1 3
 
 
 
- 
+
 
 
 
@@ -787,7 +834,7 @@
 
 # 25 "/usr/include/stdlib.h" 2 3
 
- 
+
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 1 3
 
 
@@ -820,7 +867,7 @@
 
 
 
- 
+
 
 
 typedef long ptrdiff_t;
@@ -832,7 +879,6 @@ typedef unsigned long size_t;
 
 
 
- 
 
 
 
@@ -840,7 +886,8 @@ typedef unsigned long size_t;
 
 
 
- 
+
+
 
 
 
@@ -869,7 +916,7 @@ typedef struct {
 
 
 
- 
+
 # 33 "/usr/include/stdlib.h" 2 3
 
 
@@ -878,7 +925,7 @@ typedef struct {
 
 
 
- 
+
 # 1 "/usr/include/bits/waitflags.h" 1 3
 
 
@@ -896,18 +943,18 @@ typedef struct {
 
 
 
- 
 
 
 
 
 
 
- 
 
 
 
- 
+
+
+
 
 
 
@@ -931,45 +978,45 @@ typedef struct {
 
 
 
- 
 
 
 
 
 
 
- 
-
-
- 
-
-
- 
-
-
- 
-
-
- 
-
-
- 
-
-
-
- 
-
-
-
- 
 
 
 
 
- 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -994,7 +1041,6 @@ typedef struct {
 
 
 
- 
 
 
 
@@ -1007,15 +1053,16 @@ typedef struct {
 
 
 
- 
 
 
 
 
 
- 
+
+
+
 # 1 "/usr/include/bits/endian.h" 1 3
- 
+
 
 
 
@@ -1024,7 +1071,7 @@ typedef struct {
 # 37 "/usr/include/endian.h" 2 3
 
 
- 
+
 
 
 
@@ -1039,7 +1086,7 @@ typedef struct {
 
 
 
- 
+
 # 1 "/usr/include/bits/byteswap.h" 1 3
 
 
@@ -1057,7 +1104,7 @@ typedef struct {
 
 
 
- 
+
 
 
 
@@ -1083,17 +1130,16 @@ typedef struct {
 
 
 
- 
 
 
 
- 
+
+
 
 
 
 
 # 1 "/usr/include/bits/wordsize.h" 1 3
- 
 
 
 
@@ -1103,16 +1149,17 @@ typedef struct {
 
 
 
- 
+
+
 # 28 "/usr/include/bits/types.h" 2 3
 
- 
+
 typedef unsigned char __u_char;
 typedef unsigned short int __u_short;
 typedef unsigned int __u_int;
 typedef unsigned long int __u_long;
 
- 
+
 typedef signed char __int8_t;
 typedef unsigned char __uint8_t;
 typedef signed short int __int16_t;
@@ -1127,7 +1174,7 @@ typedef unsigned long int __uint64_t;
 
 
 
- 
+
 
 typedef long int __quad_t;
 typedef unsigned long int __u_quad_t;
@@ -1161,10 +1208,10 @@ typedef unsigned long int __u_quad_t;
 
 
 
- 
+
 
 # 125 "/usr/include/bits/types.h" 3
- 
+
 # 1 "/usr/include/bits/typesizes.h" 1 3
 
 
@@ -1182,7 +1229,6 @@ typedef unsigned long int __u_quad_t;
 
 
 
- 
 
 
 
@@ -1192,9 +1238,10 @@ typedef unsigned long int __u_quad_t;
 
 
 
- 
 
- 
+
+
+
 # 37 "/usr/include/bits/typesizes.h" 3
 
 # 74 "/usr/include/bits/typesizes.h" 3
@@ -1202,85 +1249,85 @@ typedef unsigned long int __u_quad_t;
 
 
 
- 
-
-
- 
 
 
 
- 
+
+
+
+
+
 
 
 
 # 131 "/usr/include/bits/types.h" 2 3
 
 
-typedef unsigned long int __dev_t;	 
-typedef unsigned int __uid_t;	 
-typedef unsigned int __gid_t;	 
-typedef unsigned long int __ino_t;	 
-typedef unsigned long int __ino64_t;	 
-typedef unsigned int __mode_t;	 
-typedef unsigned long int __nlink_t;	 
-typedef long int __off_t;	 
-typedef long int __off64_t;	 
-typedef int __pid_t;	 
-typedef struct { int __val[2]; } __fsid_t;	 
-typedef long int __clock_t;	 
-typedef unsigned long int __rlim_t;	 
-typedef unsigned long int __rlim64_t;	 
-typedef unsigned int __id_t;		 
-typedef long int __time_t;	 
-typedef unsigned int __useconds_t;  
-typedef long int __suseconds_t;  
+typedef unsigned long int __dev_t;
+typedef unsigned int __uid_t;
+typedef unsigned int __gid_t;
+typedef unsigned long int __ino_t;
+typedef unsigned long int __ino64_t;
+typedef unsigned int __mode_t;
+typedef unsigned long int __nlink_t;
+typedef long int __off_t;
+typedef long int __off64_t;
+typedef int __pid_t;
+typedef struct { int __val[2]; } __fsid_t;
+typedef long int __clock_t;
+typedef unsigned long int __rlim_t;
+typedef unsigned long int __rlim64_t;
+typedef unsigned int __id_t;
+typedef long int __time_t;
+typedef unsigned int __useconds_t;
+typedef long int __suseconds_t;
 
-typedef int __daddr_t;	 
-typedef int __key_t;	 
+typedef int __daddr_t;
+typedef int __key_t;
 
- 
+
 typedef int __clockid_t;
 
- 
+
 typedef void * __timer_t;
 
- 
+
 typedef long int __blksize_t;
 
- 
 
- 
+
+
 typedef long int __blkcnt_t;
 typedef long int __blkcnt64_t;
 
- 
+
 typedef unsigned long int __fsblkcnt_t;
 typedef unsigned long int __fsblkcnt64_t;
 
- 
+
 typedef unsigned long int __fsfilcnt_t;
 typedef unsigned long int __fsfilcnt64_t;
 
- 
+
 typedef long int __fsword_t;
 
-typedef long int __ssize_t;  
+typedef long int __ssize_t;
 
- 
+
 typedef long int __syscall_slong_t;
- 
+
 typedef unsigned long int __syscall_ulong_t;
 
 
- 
-typedef __off64_t __loff_t;	 
+
+typedef __off64_t __loff_t;
 typedef __quad_t *__qaddr_t;
 typedef char *__caddr_t;
 
- 
+
 typedef long int __intptr_t;
 
- 
+
 typedef unsigned int __socklen_t;
 
 
@@ -1288,7 +1335,6 @@ typedef unsigned int __socklen_t;
 
 # 28 "/usr/include/bits/byteswap.h" 2 3
 # 1 "/usr/include/bits/wordsize.h" 1 3
- 
 
 
 
@@ -1298,14 +1344,15 @@ typedef unsigned int __socklen_t;
 
 
 
- 
+
+
 # 29 "/usr/include/bits/byteswap.h" 2 3
 
- 
 
 
 
- 
+
+
 # 1 "/usr/include/bits/byteswap-16.h" 1 3
 
 
@@ -1323,7 +1370,7 @@ typedef unsigned int __socklen_t;
 
 
 
- 
+
 
 
 
@@ -1331,7 +1378,7 @@ typedef unsigned int __socklen_t;
 
 # 36 "/usr/include/bits/byteswap.h" 2 3
 
- 
+
 
 
 
@@ -1347,7 +1394,7 @@ __bswap_32 (unsigned int __bsx)
 
 
 
- 
+
 # 106 "/usr/include/bits/byteswap.h" 3
 
 
@@ -1383,17 +1430,17 @@ union wait
     struct
       {
 
-	unsigned int __w_termsig:7;  
-	unsigned int __w_coredump:1;  
-	unsigned int __w_retcode:8;  
+	unsigned int __w_termsig:7;
+	unsigned int __w_coredump:1;
+	unsigned int __w_retcode:8;
 	unsigned int:16;
 # 83 "/usr/include/bits/waitstatus.h" 3
       } __wait_terminated;
     struct
       {
 
-	unsigned int __w_stopval:8;  
-	unsigned int __w_stopsig:8;  
+	unsigned int __w_stopval:8;
+	unsigned int __w_stopsig:8;
 	unsigned int:16;
 # 96 "/usr/include/bits/waitstatus.h" 3
       } __wait_stopped;
@@ -1410,20 +1457,20 @@ union wait
 
 
 
- 
+
 
 # 56 "/usr/include/stdlib.h" 3
 
 
 
 
- 
 
 
 
 
 
- 
+
+
 typedef union
   {
     union wait *__uptr;
@@ -1434,23 +1481,23 @@ typedef union
 
 # 82 "/usr/include/stdlib.h" 3
 
- 
+
 # 94 "/usr/include/stdlib.h" 3
 
 
- 
+
 typedef struct
   {
-    int quot;			 
-    int rem;			 
+    int quot;
+    int rem;
   } div_t;
 
- 
+
 
 typedef struct
   {
-    long int quot;		 
-    long int rem;		 
+    long int quot;
+    long int rem;
   } ldiv_t;
 
 
@@ -1458,54 +1505,54 @@ typedef struct
 
 
 
- 
+
 __extension__ typedef struct
   {
-    long long int quot;		 
-    long long int rem;		 
+    long long int quot;
+    long long int rem;
   } lldiv_t;
 
 
 
 
 
- 
 
 
 
 
- 
 
 
 
 
- 
+
+
+
 
 extern size_t __ctype_get_mb_cur_max (void) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 extern double atof (const char *__nptr)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__pure__)) __attribute__ ((__nonnull__ (1))) ;
- 
+
 extern int atoi (const char *__nptr)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__pure__)) __attribute__ ((__nonnull__ (1))) ;
- 
+
 extern long int atol (const char *__nptr)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__pure__)) __attribute__ ((__nonnull__ (1))) ;
 
 
 
 
- 
+
 __extension__ extern long long int atoll (const char *__nptr)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__pure__)) __attribute__ ((__nonnull__ (1))) ;
 
 
 
 
- 
+
 extern double strtod (const char *__restrict __nptr,
 		      char **__restrict __endptr)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
@@ -1513,7 +1560,7 @@ extern double strtod (const char *__restrict __nptr,
 
 
 
- 
+
 extern float strtof (const char *__restrict __nptr,
 		     char **__restrict __endptr) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
@@ -1524,23 +1571,23 @@ extern long double strtold (const char *__restrict __nptr,
 
 
 
- 
+
 extern long int strtol (const char *__restrict __nptr,
 			char **__restrict __endptr, int __base)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
- 
+
 extern unsigned long int strtoul (const char *__restrict __nptr,
 				  char **__restrict __endptr, int __base)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
 
- 
+
 __extension__
 extern long long int strtoq (const char *__restrict __nptr,
 			     char **__restrict __endptr, int __base)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
- 
+
 __extension__
 extern unsigned long long int strtouq (const char *__restrict __nptr,
 				       char **__restrict __endptr, int __base)
@@ -1549,12 +1596,12 @@ extern unsigned long long int strtouq (const char *__restrict __nptr,
 
 
 
- 
+
 __extension__
 extern long long int strtoll (const char *__restrict __nptr,
 			      char **__restrict __endptr, int __base)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
- 
+
 __extension__
 extern unsigned long long int strtoull (const char *__restrict __nptr,
 					char **__restrict __endptr, int __base)
@@ -1595,10 +1642,10 @@ __attribute__ ((__nothrow__ , __leaf__)) atoll (const char *__nptr)
 
 
 
- 
+
 extern char *l64a (long int __n) __attribute__ ((__nothrow__ , __leaf__)) ;
 
- 
+
 extern long int a64l (const char *__s)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__pure__)) __attribute__ ((__nonnull__ (1))) ;
 
@@ -1620,11 +1667,11 @@ extern long int a64l (const char *__s)
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -1730,11 +1777,11 @@ typedef __key_t key_t;
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -1748,7 +1795,7 @@ typedef __key_t key_t;
 
 
 
- 
+
 typedef __clock_t clock_t;
 
 
@@ -1764,7 +1811,7 @@ typedef __clock_t clock_t;
 
 
 
- 
+
 typedef __time_t time_t;
 
 
@@ -1780,7 +1827,7 @@ typedef __time_t time_t;
 
 
 
- 
+
 typedef __clockid_t clockid_t;
 
 
@@ -1792,7 +1839,7 @@ typedef __clockid_t clockid_t;
 
 
 
- 
+
 typedef __timer_t timer_t;
 
 
@@ -1840,7 +1887,7 @@ typedef __timer_t timer_t;
 
 
 
- 
+
 
 
 
@@ -1849,7 +1896,6 @@ typedef __timer_t timer_t;
 # 50 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 
- 
 
 
 
@@ -1857,7 +1903,8 @@ typedef __timer_t timer_t;
 
 
 
- 
+
+
 # 69 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 # 80 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
@@ -1870,21 +1917,21 @@ typedef __timer_t timer_t;
 
 
 
- 
+
 # 147 "/usr/include/sys/types.h" 2 3
 
 
- 
+
 typedef unsigned long int ulong;
 typedef unsigned short int ushort;
 typedef unsigned int uint;
 
 
- 
+
 
 # 185 "/usr/include/sys/types.h" 3
 
- 
+
 
 
 
@@ -1907,16 +1954,16 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 
 
- 
 
 
 
 
 
- 
 
 
- 
+
+
+
 # 1 "/usr/include/sys/select.h" 1 3
 
 
@@ -1934,19 +1981,19 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 
 
- 
-
- 
 
 
 
 
 
 
- 
 
 
- 
+
+
+
+
+
 # 1 "/usr/include/bits/select.h" 1 3
 
 
@@ -1963,14 +2010,13 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 
 
- 
+
 
 
 
 
 
 # 1 "/usr/include/bits/wordsize.h" 1 3
- 
 
 
 
@@ -1980,7 +2026,8 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 
 
- 
+
+
 # 23 "/usr/include/bits/select.h" 2 3
 
 
@@ -1998,7 +2045,7 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 # 31 "/usr/include/sys/select.h" 2 3
 
- 
+
 # 1 "/usr/include/bits/sigset.h" 1 3
 
 
@@ -2017,14 +2064,14 @@ typedef int register_t __attribute__ ((__mode__ (__word__)));
 
 
 
- 
+
 
 
 
 
 typedef int __sig_atomic_t;
 
- 
+
 
 
 typedef struct
@@ -2039,7 +2086,7 @@ typedef struct
 
 
 
- 
+
 
 # 34 "/usr/include/sys/select.h" 2 3
 
@@ -2048,7 +2095,7 @@ typedef struct
 typedef __sigset_t sigset_t;
 
 
- 
+
 # 1 "/usr/include/time.h" 1 3
 
 
@@ -2065,11 +2112,11 @@ typedef __sigset_t sigset_t;
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -2091,11 +2138,11 @@ typedef __sigset_t sigset_t;
 
 
 
- 
+
 struct timespec
   {
-    __time_t tv_sec;		 
-    __syscall_slong_t tv_nsec;	 
+    __time_t tv_sec;
+    __syscall_slong_t tv_nsec;
   };
 
 
@@ -2122,11 +2169,6 @@ struct timespec
 
 
 
- 
-
-
-
- 
 
 
 
@@ -2134,11 +2176,16 @@ struct timespec
 
 
 
- 
+
+
+
+
+
+
 struct timeval
   {
-    __time_t tv_sec;		 
-    __suseconds_t tv_usec;	 
+    __time_t tv_sec;
+    __suseconds_t tv_usec;
   };
 
 
@@ -2153,21 +2200,21 @@ typedef __suseconds_t suseconds_t;
 
 
 
- 
+
 typedef long int __fd_mask;
 
- 
-
- 
 
 
 
 
- 
+
+
+
+
 typedef struct
   {
-    
- 
+
+
 
 
 
@@ -2177,19 +2224,13 @@ typedef struct
 
   } fd_set;
 
- 
 
 
 
- 
+
+
 typedef __fd_mask fd_mask;
 
- 
-
-
-
-
- 
 
 
 
@@ -2205,7 +2246,13 @@ typedef __fd_mask fd_mask;
 
 
 
- 
+
+
+
+
+
+
+
 extern int select (int __nfds, fd_set *__restrict __readfds,
 		   fd_set *__restrict __writefds,
 		   fd_set *__restrict __exceptfds,
@@ -2217,7 +2264,7 @@ extern int select (int __nfds, fd_set *__restrict __readfds,
 
 
 
- 
+
 extern int pselect (int __nfds, fd_set *__restrict __readfds,
 		    fd_set *__restrict __writefds,
 		    fd_set *__restrict __exceptfds,
@@ -2226,7 +2273,7 @@ extern int pselect (int __nfds, fd_set *__restrict __readfds,
 
 
 
- 
+
 
 
 
@@ -2235,7 +2282,7 @@ extern int pselect (int __nfds, fd_set *__restrict __readfds,
 
 # 220 "/usr/include/sys/types.h" 2 3
 
- 
+
 # 1 "/usr/include/sys/sysmacros.h" 1 3
 
 
@@ -2254,7 +2301,6 @@ extern int pselect (int __nfds, fd_set *__restrict __readfds,
 
 
 
- 
 
 
 
@@ -2263,7 +2309,8 @@ extern int pselect (int __nfds, fd_set *__restrict __readfds,
 
 
 
- 
+
+
 
 
 
@@ -2301,7 +2348,7 @@ __attribute__ ((__nothrow__ , __leaf__)) gnu_dev_makedev (unsigned int __major, 
 
 
 
- 
+
 
 
 
@@ -2317,18 +2364,18 @@ typedef __blksize_t blksize_t;
 
 
 
- 
-
-
-typedef __blkcnt_t blkcnt_t;	  
 
 
 
-typedef __fsblkcnt_t fsblkcnt_t;  
+typedef __blkcnt_t blkcnt_t;
 
 
 
-typedef __fsfilcnt_t fsfilcnt_t;  
+typedef __fsblkcnt_t fsblkcnt_t;
+
+
+
+typedef __fsfilcnt_t fsfilcnt_t;
 # 260 "/usr/include/sys/types.h" 3
 
 
@@ -2338,7 +2385,7 @@ typedef __fsfilcnt_t fsfilcnt_t;
 
 
 
- 
+
 # 1 "/usr/include/bits/pthreadtypes.h" 1 3
 
 
@@ -2355,13 +2402,12 @@ typedef __fsfilcnt_t fsfilcnt_t;
 
 
 
- 
+
 
 
 
 
 # 1 "/usr/include/bits/wordsize.h" 1 3
- 
 
 
 
@@ -2371,14 +2417,15 @@ typedef __fsfilcnt_t fsfilcnt_t;
 
 
 
- 
+
+
 # 22 "/usr/include/bits/pthreadtypes.h" 2 3
 
 # 56 "/usr/include/bits/pthreadtypes.h" 3
 
 
 
- 
+
 typedef unsigned long int pthread_t;
 
 
@@ -2403,7 +2450,7 @@ typedef struct __pthread_internal_list
 
 
 
- 
+
 typedef union
 {
   struct __pthread_mutex_s
@@ -2414,15 +2461,15 @@ typedef union
 
     unsigned int __nusers;
 
-    
- 
+
+
     int __kind;
 
     short __spins;
     short __elision;
     __pthread_list_t __list;
 
- 
+
 # 125 "/usr/include/bits/pthreadtypes.h" 3
   } __data;
   char __size[40];
@@ -2437,7 +2484,7 @@ typedef union
 
 
 
- 
+
 typedef union
 {
   struct
@@ -2462,17 +2509,17 @@ typedef union
 } pthread_condattr_t;
 
 
- 
+
 typedef unsigned int pthread_key_t;
 
 
- 
+
 typedef int pthread_once_t;
 
 
 
 
- 
+
 typedef union
 {
 
@@ -2488,8 +2535,8 @@ typedef union
     int __shared;
     unsigned long int __pad1;
     unsigned long int __pad2;
-    
- 
+
+
     unsigned int __flags;
 
   } __data;
@@ -2507,12 +2554,12 @@ typedef union
 
 
 
- 
+
 typedef volatile int pthread_spinlock_t;
 
 
 
- 
+
 typedef union
 {
   char __size[32];
@@ -2542,39 +2589,39 @@ typedef union
 
 
 
- 
- 
+
+
 extern long int random (void) __attribute__ ((__nothrow__ , __leaf__));
 
- 
+
 extern void srandom (unsigned int __seed) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
 
- 
+
 extern char *initstate (unsigned int __seed, char *__statebuf,
 			size_t __statelen) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (2)));
 
 
- 
+
 extern char *setstate (char *__statebuf) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
 
 
 
- 
+
 
 struct random_data
   {
-    int32_t *fptr;		 
-    int32_t *rptr;		 
-    int32_t *state;		 
-    int rand_type;		 
-    int rand_deg;		 
-    int rand_sep;		 
-    int32_t *end_ptr;		 
+    int32_t *fptr;
+    int32_t *rptr;
+    int32_t *state;
+    int rand_type;
+    int rand_deg;
+    int rand_sep;
+    int32_t *end_ptr;
   };
 
 extern int random_r (struct random_data *__restrict __buf,
@@ -2596,36 +2643,36 @@ extern int setstate_r (char *__restrict __statebuf,
 
 
 
- 
+
 extern int rand (void) __attribute__ ((__nothrow__ , __leaf__));
- 
+
 extern void srand (unsigned int __seed) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 extern int rand_r (unsigned int *__seed) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
 
- 
 
- 
+
+
 extern double drand48 (void) __attribute__ ((__nothrow__ , __leaf__));
 extern double erand48 (unsigned short int __xsubi[3]) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
- 
+
 extern long int lrand48 (void) __attribute__ ((__nothrow__ , __leaf__));
 extern long int nrand48 (unsigned short int __xsubi[3])
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
- 
+
 extern long int mrand48 (void) __attribute__ ((__nothrow__ , __leaf__));
 extern long int jrand48 (unsigned short int __xsubi[3])
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
- 
+
 extern void srand48 (long int __seedval) __attribute__ ((__nothrow__ , __leaf__));
 extern unsigned short int *seed48 (unsigned short int __seed16v[3])
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
@@ -2634,24 +2681,24 @@ extern void lcong48 (unsigned short int __param[7]) __attribute__ ((__nothrow__ 
 
 
 
- 
+
 struct drand48_data
   {
-    unsigned short int __x[3];	 
-    unsigned short int __old_x[3];  
-    unsigned short int __c;	 
-    unsigned short int __init;	 
-    unsigned long long int __a;	 
+    unsigned short int __x[3];
+    unsigned short int __old_x[3];
+    unsigned short int __c;
+    unsigned short int __init;
+    unsigned long long int __a;
   };
 
- 
+
 extern int drand48_r (struct drand48_data *__restrict __buffer,
 		      double *__restrict __result) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
 extern int erand48_r (unsigned short int __xsubi[3],
 		      struct drand48_data *__restrict __buffer,
 		      double *__restrict __result) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
 
- 
+
 extern int lrand48_r (struct drand48_data *__restrict __buffer,
 		      long int *__restrict __result)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
@@ -2660,7 +2707,7 @@ extern int nrand48_r (unsigned short int __xsubi[3],
 		      long int *__restrict __result)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
 
- 
+
 extern int mrand48_r (struct drand48_data *__restrict __buffer,
 		      long int *__restrict __result)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
@@ -2669,7 +2716,7 @@ extern int jrand48_r (unsigned short int __xsubi[3],
 		      long int *__restrict __result)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1, 2)));
 
- 
+
 extern int srand48_r (long int __seedval, struct drand48_data *__buffer)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (2)));
 
@@ -2687,9 +2734,9 @@ extern int lcong48_r (unsigned short int __param[7],
 
 
 
- 
+
 extern void *malloc (size_t __size) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__malloc__)) ;
- 
+
 extern void *calloc (size_t __nmemb, size_t __size)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__malloc__)) ;
 
@@ -2698,18 +2745,18 @@ extern void *calloc (size_t __nmemb, size_t __size)
 
 
 
- 
 
 
- 
+
+
 extern void *realloc (void *__ptr, size_t __size)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__warn_unused_result__));
- 
+
 extern void free (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
@@ -2729,7 +2776,7 @@ extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 
 
 
@@ -2768,7 +2815,7 @@ extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 
 
 
@@ -2777,7 +2824,6 @@ extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 # 50 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 
- 
 
 
 
@@ -2785,7 +2831,8 @@ extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
+
 # 69 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 # 80 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
@@ -2798,15 +2845,15 @@ extern void cfree (void *__ptr) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 # 25 "/usr/include/alloca.h" 2 3
 
 
 
- 
 
 
- 
+
+
 extern void *alloca (size_t __size) __attribute__ ((__nothrow__ , __leaf__));
 
 
@@ -2820,32 +2867,32 @@ extern void *alloca (size_t __size) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 extern void *valloc (size_t __size) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__malloc__)) ;
 
 
 
- 
+
 extern int posix_memalign (void **__memptr, size_t __alignment, size_t __size)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1))) ;
 
 
 
- 
+
 extern void *aligned_alloc (size_t __alignment, size_t __size)
      __attribute__ ((__nothrow__ , __leaf__))  __attribute__ ((__malloc__, __alloc_size__ (2)));
 
 
 
- 
+
 extern void abort (void) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__noreturn__));
 
 
- 
+
 extern int atexit (void (*__func) (void)) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
- 
+
 
 
 
@@ -2857,7 +2904,7 @@ extern int at_quick_exit (void (*__func) (void)) __attribute__ ((__nothrow__ , _
 
 
 
- 
+
 extern int on_exit (void (*__func) (int __status, void *__arg), void *__arg)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
@@ -2865,13 +2912,13 @@ extern int on_exit (void (*__func) (int __status, void *__arg), void *__arg)
 
 
 
- 
+
 extern void exit (int __status) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__noreturn__));
 
 
 
 
- 
+
 extern void quick_exit (int __status) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__noreturn__));
 
 
@@ -2879,40 +2926,40 @@ extern void quick_exit (int __status) __attribute__ ((__nothrow__ , __leaf__)) _
 
 
 
- 
+
 extern void _Exit (int __status) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__noreturn__));
 
 
 
 
 
- 
+
 extern char *getenv (const char *__name) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1))) ;
 
 
 # 572 "/usr/include/stdlib.h" 3
 
 
- 
 
- 
+
+
 extern int putenv (char *__string) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
 
 
- 
+
 extern int setenv (const char *__name, const char *__value, int __replace)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (2)));
 
- 
+
 extern int unsetenv (const char *__name) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
 
 
 
- 
+
 extern int clearenv (void) __attribute__ ((__nothrow__ , __leaf__));
 
 
@@ -2923,7 +2970,7 @@ extern int clearenv (void) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 extern char *mktemp (char *__template) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
 
@@ -2936,7 +2983,7 @@ extern char *mktemp (char *__template) __attribute__ ((__nothrow__ , __leaf__)) 
 
 
 
- 
+
 
 extern int mkstemp (char *__template) __attribute__ ((__nonnull__ (1))) ;
 # 632 "/usr/include/stdlib.h" 3
@@ -2947,7 +2994,7 @@ extern int mkstemp (char *__template) __attribute__ ((__nonnull__ (1))) ;
 
 
 
- 
+
 
 extern int mkstemps (char *__template, int __suffixlen) __attribute__ ((__nonnull__ (1))) ;
 # 655 "/usr/include/stdlib.h" 3
@@ -2957,7 +3004,7 @@ extern int mkstemps (char *__template, int __suffixlen) __attribute__ ((__nonnul
 
 
 
- 
+
 extern char *mkdtemp (char *__template) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1))) ;
 
 
@@ -2968,7 +3015,7 @@ extern char *mkdtemp (char *__template) __attribute__ ((__nothrow__ , __leaf__))
 
 
 
- 
+
 extern int system (const char *__command) ;
 
 
@@ -2980,13 +3027,13 @@ extern int system (const char *__command) ;
 
 
 
- 
+
 extern char *realpath (const char *__restrict __name,
 		       char *__restrict __resolved) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 
 
 typedef int (*__compar_fn_t) (const void *, const void *);
@@ -2995,13 +3042,13 @@ typedef int (*__compar_fn_t) (const void *, const void *);
 
 
 
- 
+
 extern void *bsearch (const void *__key, const void *__base,
 		      size_t __nmemb, size_t __size, __compar_fn_t __compar)
      __attribute__ ((__nonnull__ (1, 2, 5))) ;
 
 
- 
+
 extern void qsort (void *__base, size_t __nmemb, size_t __size,
 		   __compar_fn_t __compar) __attribute__ ((__nonnull__ (1, 4)));
 
@@ -3011,7 +3058,7 @@ extern void qsort (void *__base, size_t __nmemb, size_t __size,
 
 
 
- 
+
 extern int abs (int __x) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__const__)) ;
 extern long int labs (long int __x) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__const__)) ;
 
@@ -3024,8 +3071,8 @@ __extension__ extern long long int llabs (long long int __x)
 
 
 
- 
- 
+
+
 extern div_t div (int __numer, int __denom)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__const__)) ;
 extern ldiv_t ldiv (long int __numer, long int __denom)
@@ -3044,29 +3091,29 @@ __extension__ extern lldiv_t lldiv (long long int __numer,
 
 
 
- 
 
 
 
- 
+
+
 extern char *ecvt (double __value, int __ndigit, int *__restrict __decpt,
 		   int *__restrict __sign) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (3, 4))) ;
 
 
 
- 
+
 extern char *fcvt (double __value, int __ndigit, int *__restrict __decpt,
 		   int *__restrict __sign) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (3, 4))) ;
 
 
 
- 
+
 extern char *gcvt (double __value, int __ndigit, char *__buf)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (3))) ;
 
 
 
- 
+
 extern char *qecvt (long double __value, int __ndigit,
 		    int *__restrict __decpt, int *__restrict __sign)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (3, 4))) ;
@@ -3078,7 +3125,7 @@ extern char *qgcvt (long double __value, int __ndigit, char *__buf)
 
 
 
- 
+
 extern int ecvt_r (double __value, int __ndigit, int *__restrict __decpt,
 		   int *__restrict __sign, char *__restrict __buf,
 		   size_t __len) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (3, 4, 5)));
@@ -3100,21 +3147,21 @@ extern int qfcvt_r (long double __value, int __ndigit,
 
 
 
- 
+
 extern int mblen (const char *__s, size_t __n) __attribute__ ((__nothrow__ , __leaf__)) ;
 
- 
+
 extern int mbtowc (wchar_t *__restrict __pwc,
 		   const char *__restrict __s, size_t __n) __attribute__ ((__nothrow__ , __leaf__)) ;
 
- 
+
 extern int wctomb (char *__s, wchar_t __wchar) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
- 
+
 extern size_t mbstowcs (wchar_t *__restrict  __pwcs,
 			const char *__restrict __s, size_t __n) __attribute__ ((__nothrow__ , __leaf__));
- 
+
 extern size_t wcstombs (char *__restrict __s,
 			const wchar_t *__restrict __pwcs, size_t __n)
      __attribute__ ((__nothrow__ , __leaf__));
@@ -3125,7 +3172,7 @@ extern size_t wcstombs (char *__restrict __s,
 
 
 
- 
+
 extern int rpmatch (const char *__response) __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1))) ;
 
 
@@ -3136,7 +3183,7 @@ extern int rpmatch (const char *__response) __attribute__ ((__nothrow__ , __leaf
 
 
 
- 
+
 extern int getsubopt (char **__restrict __optionp,
 		      char *const *__restrict __tokens,
 		      char **__restrict __valuep)
@@ -3150,7 +3197,7 @@ extern int getsubopt (char **__restrict __optionp,
 
 
 
- 
+
 
 
 
@@ -3164,7 +3211,7 @@ extern int getsubopt (char **__restrict __optionp,
 
 
 
- 
+
 extern int getloadavg (double __loadavg[], int __nelem)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__nonnull__ (1)));
 
@@ -3186,7 +3233,7 @@ extern int getloadavg (double __loadavg[], int __nelem)
 
 
 
- 
+
 
 
 
@@ -3202,7 +3249,7 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 # 952 "/usr/include/stdlib.h" 2 3
 
- 
+
 # 960 "/usr/include/stdlib.h" 3
 
 
@@ -3243,7 +3290,7 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
 
 
 
@@ -3252,7 +3299,7 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
 
 
 
@@ -3261,11 +3308,11 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -3275,12 +3322,12 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
 
 
 
 
- 
+
+
 
 
 
@@ -3290,12 +3337,12 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
 
 
 
 
- 
+
+
 
 
 
@@ -3304,7 +3351,7 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
 
 
 
@@ -3313,11 +3360,11 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -3326,22 +3373,6 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
-
-
-
- 
-
-
-
-
- 
- 
- 
-
-
-
- 
 
 
 
@@ -3354,7 +3385,23 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # 42 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/emmintrin.h" 3
@@ -3363,16 +3410,11 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 1 3
 
 
 
- 
-
-
-
- 
 
 
 
@@ -3380,16 +3422,16 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
+
+
+
+
+
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/mmintrin.h" 1 3
 
 
 
- 
-
-
-
- 
 
 
 
@@ -3402,7 +3444,6 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
 
 
 
@@ -3414,7 +3455,13 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 
- 
+
+
+
+
+
+
+
 # 41 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/mmintrin.h" 3
 
 # 49 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/mmintrin.h" 3
@@ -3429,10 +3476,10 @@ __attribute__ ((__nothrow__ , __leaf__)) atof (const char *__nptr)
 
 
 typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
-    
 
 
- 
+
+
     unsigned __int64    m64_u64;
     float               m64_f32[2];
     __int8              m64_i8[8];
@@ -3443,10 +3490,10 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
     unsigned __int16    m64_u16[4];
     unsigned __int32    m64_u32[2];
 
-    
 
 
- 
+
+
     __int64 __m;
 } __m64;
 
@@ -3459,7 +3506,7 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 
 # 192 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/mmintrin.h" 3
 
- 
+
 # 251 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/mmintrin.h" 3
 
 
@@ -3482,7 +3529,7 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 
 
 
- 
+
 
 
 
@@ -3524,7 +3571,7 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 
 
 
- 
+
 
 
 
@@ -3533,7 +3580,6 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 # 50 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 
- 
 
 
 
@@ -3541,7 +3587,8 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 
 
 
- 
+
+
 # 69 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 # 80 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
@@ -3554,43 +3601,43 @@ typedef union __declspec(align(8)) __declspec(intrin_type) __m64 {
 
 
 
- 
+
 # 75 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 2 3
 extern void*  _mm_malloc(size_t, size_t);
 extern void   _mm_free(void *);
 
 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
 
 
 
 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 116 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
 
- 
+
 # 127 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
- 
+
 # 136 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
 # 144 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
@@ -3625,101 +3672,41 @@ extern void   _mm_free(void *);
 
 
 
- 
- 
- 
+
+
+
 
 # 336 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
- 
+
 # 360 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
 
- 
- 
- 
 
- 
- 
- 
- 
- 
- 
- 
- 
+
+
+
+
+
+
+
+
+
+
+
 # 383 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
 
- 
- 
- 
- 
- 
- 
- 
- 
+
+
+
+
+
+
+
+
 # 400 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 3
 
- 
- 
- 
- 
- 
- 
- 
- 
-
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
-
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
 
 
 
@@ -3731,16 +3718,76 @@ extern void   _mm_free(void *);
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/emmintrin.h" 1 3
 
 
 
- 
 
 
 
- 
+
+
 
 # 477 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/xmmintrin.h" 2 3
 
@@ -3756,16 +3803,16 @@ typedef struct __declspec(align(16)) __declspec(intrin_type) __m128d {
 } __m128d;
 typedef union  __declspec(align(16)) __declspec(intrin_type) __m128i {
 
-     
 
 
- 
+
+
      __int64             m128i_gcc_compatibility[2];
 
-    
 
 
- 
+
+
     __int8              m128i_i8[16];
     __int16             m128i_i16[8];
     __int32             m128i_i32[4];
@@ -3775,18 +3822,18 @@ typedef union  __declspec(align(16)) __declspec(intrin_type) __m128i {
     unsigned __int32    m128i_u32[4];
     unsigned __int64    m128i_u64[2];
 
-    
 
 
- 
+
+
     char c[16];
 } __m128i;
 
 
 
- 
- 
- 
+
+
+
 
 
 
@@ -3795,7 +3842,7 @@ typedef union  __declspec(align(16)) __declspec(intrin_type) __m128i {
 
 # 443 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/emmintrin.h" 3
 
- 
+
 
 
 
@@ -3814,9 +3861,9 @@ typedef union  __declspec(align(16)) __declspec(intrin_type) __m128i {
 
 # 14 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/pmmintrin.h" 2 3
 
- 
- 
- 
+
+
+
 
 
 
@@ -3827,14 +3874,14 @@ typedef union  __declspec(align(16)) __declspec(intrin_type) __m128i {
 
 
 
- 
 
 
- 
+
+
 extern void  _mm_monitor(void const *, unsigned, unsigned);
 
 
- 
+
 extern void  _mm_mwait(unsigned, unsigned);
 
 # 10 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/tmmintrin.h" 2 3
@@ -3854,7 +3901,7 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
+
 
 
 
@@ -3869,7 +3916,6 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
@@ -3885,7 +3931,8 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
+
+
 
 
 
@@ -3902,7 +3949,7 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
+
 
 
 
@@ -3911,14 +3958,14 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
 
 
 
- 
+
+
 # 270 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/smmintrin.h" 3
 
 
@@ -3934,7 +3981,6 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
@@ -3946,7 +3992,6 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
@@ -3955,7 +4000,6 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
@@ -3964,7 +4008,6 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
@@ -3973,13 +4016,17 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
 
 
 
 
 
- 
+
+
+
+
+
+
 
 
 
@@ -4012,7 +4059,7 @@ extern void  _mm_mwait(unsigned, unsigned);
 
 
 
- 
+
 
 # 26 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/immintrin.h" 3
 typedef union  __declspec(align(32)) __declspec(intrin_type) __m256 {
@@ -4025,10 +4072,10 @@ typedef struct __declspec(align(32)) __declspec(intrin_type) __m256d {
 
 typedef union  __declspec(align(32)) __declspec(intrin_type) __m256i {
 
-    
 
 
- 
+
+
     __int64             m256i_gcc_compatibility[4];
 
     __int8              m256i_i8[32];
@@ -4067,52 +4114,52 @@ typedef char    __v32qi __attribute__((__vector_size__ (32)));
 
 
 
- 
+
 # 116 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/immintrin.h" 3
 
 
 
- 
+
 extern void  _allow_cpu_features(unsigned __int64);
 extern int  _may_i_use_cpu_feature(unsigned __int64);
 # 176 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/immintrin.h" 3
 
 
 
- 
+
 extern __int64  _rdtsc(void);
 extern __int64  _rdpmc(int);
 
- 
+
 extern int  _bswap(int);
 
- 
+
 extern int  _bit_scan_forward(int);
 extern int  _bit_scan_reverse(int);
 
 
- 
+
 extern unsigned char  _BitScanForward(unsigned __int32*,
                                                     unsigned __int32);
 extern unsigned char  _BitScanReverse(unsigned __int32*,
                                                     unsigned __int32);
 
 
- 
+
 extern unsigned char  _BitScanForward64(unsigned __int32*,
                                                       unsigned __int64);
 extern unsigned char  _BitScanReverse64(unsigned __int32*,
                                                       unsigned __int64);
 
 
- 
+
 extern unsigned char  _bittest(__int32 *, __int32);
 extern unsigned char  _bittestandcomplement(__int32 *, __int32);
 extern unsigned char  _bittestandreset(__int32 *, __int32);
 extern unsigned char  _bittestandset(__int32 *, __int32);
 
 
- 
+
 extern unsigned char  _bittest64(__int64 *, __int64);
 extern unsigned char  _bittestandcomplement64(__int64*, __int64);
 extern unsigned char  _bittestandreset64(__int64 *, __int64);
@@ -4120,18 +4167,18 @@ extern unsigned char  _bittestandset64(__int64 *, __int64);
 
 
 
- 
+
 extern int  _popcnt32(int);
 
- 
+
 extern unsigned short  _rotwl(unsigned short, int);
 extern unsigned short  _rotwr(unsigned short, int);
 
- 
+
 extern unsigned int  _rotl(unsigned int, int);
 extern unsigned int  _rotr(unsigned int, int);
 
- 
+
 extern unsigned long  _lrotl(unsigned long, int);
 extern unsigned long  _lrotr(unsigned long, int);
 
@@ -4171,7 +4218,6 @@ extern unsigned __int64  _rotr64(unsigned __int64, int);
 
 
 
- 
 
 
 
@@ -4189,7 +4235,8 @@ extern unsigned __int64  _rotr64(unsigned __int64, int);
 
 
 
- 
+
+
 
 # 1244 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/immintrin.h" 3
 
@@ -4224,7 +4271,7 @@ extern unsigned __int64  _rotr64(unsigned __int64, int);
 
 
 
- 
+
 
 
 
@@ -4240,7 +4287,7 @@ extern unsigned __int64  _rotr64(unsigned __int64, int);
 
 
 
- 
+
 extern unsigned int      _bextr_u32(unsigned int,
                                                   unsigned int,
                                                   unsigned int);
@@ -4285,7 +4332,7 @@ extern unsigned __int64  _andn_u64(unsigned __int64,
 
 
 
- 
+
 extern unsigned int      _lzcnt_u32(unsigned int);
 
 extern unsigned __int64  _lzcnt_u64(unsigned __int64);
@@ -4297,7 +4344,7 @@ extern unsigned __int64  _lzcnt_u64(unsigned __int64);
 
 
 
- 
+
 extern unsigned int      _tzcnt_u32(unsigned int);
 
 extern unsigned __int64  _tzcnt_u64(unsigned __int64);
@@ -4307,14 +4354,14 @@ extern unsigned __int64  _tzcnt_u64(unsigned __int64);
 
 
 
- 
+
 extern void  _invpcid(unsigned int  ,
                                     void *  );
 
 
 
 
- 
+
 # 2435 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/immintrin.h" 3
 
 extern unsigned int      _xbegin(void);
@@ -4328,7 +4375,7 @@ extern unsigned char     _xtest(void);
 
 
 
- 
+
 extern int  _rdseed16_step(unsigned short *);
 extern int  _rdseed32_step(unsigned int *);
 extern int  _rdseed64_step(unsigned __int64 *);
@@ -4336,7 +4383,7 @@ extern int  _rdseed64_step(unsigned __int64 *);
 
 
 
- 
+
 extern unsigned char  _addcarry_u32(unsigned char  ,
                                                   unsigned int  ,
                                                   unsigned int  ,
@@ -4349,7 +4396,7 @@ extern unsigned char  _addcarry_u64(unsigned char  ,
 
 
 
- 
+
 extern unsigned char  _subborrow_u32(unsigned char  ,
                                                    unsigned int  ,
                                                    unsigned int  ,
@@ -4363,7 +4410,7 @@ extern unsigned char  _subborrow_u64(unsigned char  ,
 
 
 
- 
+
 extern unsigned char  _addcarryx_u32(unsigned char  ,
                                                    unsigned int  ,
                                                    unsigned int  ,
@@ -4378,7 +4425,7 @@ extern unsigned char  _addcarryx_u64(unsigned char  ,
 
 
 
- 
+
 extern void *  _bnd_set_ptr_bounds(const void *, size_t);
 extern void *  _bnd_narrow_ptr_bounds(const void *, const void *,
                                                     size_t);
@@ -4399,18 +4446,6 @@ extern const void *  _bnd_get_ptr_ubound(const void *);
 
 
 
- 
-
-
-
-
-
-
-
-
-
-
- 
 
 
 
@@ -4428,7 +4463,19 @@ extern const void *  _bnd_get_ptr_ubound(const void *);
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 typedef unsigned char       __mmask8;
 typedef unsigned short      __mmask16;
@@ -4436,7 +4483,7 @@ typedef unsigned int        __mmask32;
 typedef unsigned __int64    __mmask64;
 
 
- 
+
 typedef __mmask16 __mmask;
 
 # 56 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -4451,10 +4498,10 @@ typedef union __declspec(align(64)) __declspec(intrin_type) __m512d {
 
 typedef union __declspec(align(64)) __declspec(intrin_type) __m512i {
 
-    
 
 
- 
+
+
     __int64             m512i_gcc_compatibility[8];
 
     __int8              m512i_i8[64];
@@ -4476,69 +4523,69 @@ typedef union __declspec(align(64)) __declspec(intrin_type) __m512i {
 
 
 
- 
+
 # 101 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
- 
 
 
 
- 
+
+
 typedef enum {
-    _MM_SWIZ_REG_NONE,       
+    _MM_SWIZ_REG_NONE,
 
-    _MM_SWIZ_REG_CDAB,       
-    _MM_SWIZ_REG_BADC,       
-    _MM_SWIZ_REG_AAAA,       
-    _MM_SWIZ_REG_BBBB,       
-    _MM_SWIZ_REG_CCCC,       
-    _MM_SWIZ_REG_DDDD,       
-    _MM_SWIZ_REG_DACB        
+    _MM_SWIZ_REG_CDAB,
+    _MM_SWIZ_REG_BADC,
+    _MM_SWIZ_REG_AAAA,
+    _MM_SWIZ_REG_BBBB,
+    _MM_SWIZ_REG_CCCC,
+    _MM_SWIZ_REG_DDDD,
+    _MM_SWIZ_REG_DACB
 } _MM_SWIZZLE_ENUM;
 
- 
-typedef enum {
-    _MM_BROADCAST32_NONE,    
 
-    _MM_BROADCAST_1X16,      
-    _MM_BROADCAST_4X16       
+typedef enum {
+    _MM_BROADCAST32_NONE,
+
+    _MM_BROADCAST_1X16,
+    _MM_BROADCAST_4X16
 } _MM_BROADCAST32_ENUM;
 
- 
-typedef enum {
-    _MM_BROADCAST64_NONE,    
 
-    _MM_BROADCAST_1X8,       
-    _MM_BROADCAST_4X8        
+typedef enum {
+    _MM_BROADCAST64_NONE,
+
+    _MM_BROADCAST_1X8,
+    _MM_BROADCAST_4X8
 } _MM_BROADCAST64_ENUM;
 
 
 
 
 
- 
+
 typedef enum {
-    _MM_ROUND_MODE_NEAREST,              
-    _MM_ROUND_MODE_DOWN,                 
-    _MM_ROUND_MODE_UP,                   
-    _MM_ROUND_MODE_TOWARD_ZERO,          
-    _MM_ROUND_MODE_DEFAULT               
+    _MM_ROUND_MODE_NEAREST,
+    _MM_ROUND_MODE_DOWN,
+    _MM_ROUND_MODE_UP,
+    _MM_ROUND_MODE_TOWARD_ZERO,
+    _MM_ROUND_MODE_DEFAULT
 } _MM_ROUND_MODE_ENUM;
 
- 
+
 typedef enum {
-    _MM_EXPADJ_NONE,                
-    _MM_EXPADJ_4,                   
-    _MM_EXPADJ_5,                   
-    _MM_EXPADJ_8,                   
-    _MM_EXPADJ_16,                  
-    _MM_EXPADJ_24,                  
-    _MM_EXPADJ_31,                  
-    _MM_EXPADJ_32                   
+    _MM_EXPADJ_NONE,
+    _MM_EXPADJ_4,
+    _MM_EXPADJ_5,
+    _MM_EXPADJ_8,
+    _MM_EXPADJ_16,
+    _MM_EXPADJ_24,
+    _MM_EXPADJ_31,
+    _MM_EXPADJ_32
 } _MM_EXP_ADJ_ENUM;
 
- 
+
 typedef enum {
     _MM_SCALE_1 = 1,
     _MM_SCALE_2 = 2,
@@ -4548,7 +4595,7 @@ typedef enum {
 
 
 
- 
+
 
 
 
@@ -4644,7 +4691,6 @@ typedef enum {
 
 
 
- 
 
 
 
@@ -4657,31 +4703,32 @@ typedef enum {
 
 
 
- 
+
+
 
 typedef enum {
 
-    _MM_UPCONV_PS_NONE,          
-    _MM_UPCONV_PS_FLOAT16,       
-    _MM_UPCONV_PS_UINT8,         
-    _MM_UPCONV_PS_SINT8,         
-    _MM_UPCONV_PS_UINT16,        
-    _MM_UPCONV_PS_SINT16         
+    _MM_UPCONV_PS_NONE,
+    _MM_UPCONV_PS_FLOAT16,
+    _MM_UPCONV_PS_UINT8,
+    _MM_UPCONV_PS_SINT8,
+    _MM_UPCONV_PS_UINT16,
+    _MM_UPCONV_PS_SINT16
 
 } _MM_UPCONV_PS_ENUM;
 
 # 308 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
- 
+
 
 typedef enum {
 
-    _MM_UPCONV_EPI32_NONE,       
-    _MM_UPCONV_EPI32_UINT8,      
-    _MM_UPCONV_EPI32_SINT8,      
-    _MM_UPCONV_EPI32_UINT16,     
-    _MM_UPCONV_EPI32_SINT16      
+    _MM_UPCONV_EPI32_NONE,
+    _MM_UPCONV_EPI32_UINT8,
+    _MM_UPCONV_EPI32_SINT8,
+    _MM_UPCONV_EPI32_UINT16,
+    _MM_UPCONV_EPI32_SINT16
 
 } _MM_UPCONV_EPI32_ENUM;
 
@@ -4689,56 +4736,56 @@ typedef enum {
 
 # 340 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
- 
+
 
 typedef enum {
-    _MM_UPCONV_PD_NONE           
+    _MM_UPCONV_PD_NONE
 } _MM_UPCONV_PD_ENUM;
 
 # 362 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
- 
+
 
 typedef enum {
-    _MM_UPCONV_EPI64_NONE        
+    _MM_UPCONV_EPI64_NONE
 } _MM_UPCONV_EPI64_ENUM;
 
 # 407 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
- 
+
 
 typedef enum {
 
-    _MM_DOWNCONV_PS_NONE,          
-    _MM_DOWNCONV_PS_FLOAT16,       
-    _MM_DOWNCONV_PS_UINT8,         
-    _MM_DOWNCONV_PS_SINT8,         
-    _MM_DOWNCONV_PS_UINT16,        
-    _MM_DOWNCONV_PS_SINT16         
+    _MM_DOWNCONV_PS_NONE,
+    _MM_DOWNCONV_PS_FLOAT16,
+    _MM_DOWNCONV_PS_UINT8,
+    _MM_DOWNCONV_PS_SINT8,
+    _MM_DOWNCONV_PS_UINT16,
+    _MM_DOWNCONV_PS_SINT16
 
 } _MM_DOWNCONV_PS_ENUM;
 
- 
+
 
 typedef enum {
-    _MM_DOWNCONV_EPI32_NONE,       
-    _MM_DOWNCONV_EPI32_UINT8,      
-    _MM_DOWNCONV_EPI32_SINT8,      
-    _MM_DOWNCONV_EPI32_UINT16,     
-    _MM_DOWNCONV_EPI32_SINT16      
+    _MM_DOWNCONV_EPI32_NONE,
+    _MM_DOWNCONV_EPI32_UINT8,
+    _MM_DOWNCONV_EPI32_SINT8,
+    _MM_DOWNCONV_EPI32_UINT16,
+    _MM_DOWNCONV_EPI32_SINT16
 } _MM_DOWNCONV_EPI32_ENUM;
 
- 
+
 
 typedef enum {
-    _MM_DOWNCONV_PD_NONE           
+    _MM_DOWNCONV_PD_NONE
 } _MM_DOWNCONV_PD_ENUM;
 
- 
+
 
 typedef enum {
-    _MM_DOWNCONV_EPI64_NONE        
+    _MM_DOWNCONV_EPI64_NONE
 } _MM_DOWNCONV_EPI64_ENUM;
 
 # 480 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -4746,52 +4793,52 @@ typedef enum {
 
 
 
- 
+
 # 514 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
+
 # 538 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
+
 # 648 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
+
 # 673 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
+
 # 745 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
 
- 
+
 # 788 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
 
- 
+
+
 typedef enum {
-    _MM_CMPINT_EQ,       
-    _MM_CMPINT_LT,       
-    _MM_CMPINT_LE,       
+    _MM_CMPINT_EQ,
+    _MM_CMPINT_LT,
+    _MM_CMPINT_LE,
     _MM_CMPINT_UNUSED,
-    _MM_CMPINT_NE,       
-    _MM_CMPINT_NLT,      
+    _MM_CMPINT_NE,
+    _MM_CMPINT_NLT,
 
-    _MM_CMPINT_NLE       
+    _MM_CMPINT_NLE
 
 } _MM_CMPINT_ENUM;
 
@@ -4823,7 +4870,7 @@ typedef enum {
 
 
 
- 
+
 
 # 1038 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -4831,12 +4878,12 @@ typedef enum {
 
 
 
- 
+
 # 1056 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
+
 # 1107 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -4875,7 +4922,7 @@ typedef enum {
 
 
 
- 
+
 # 1192 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -4964,7 +5011,7 @@ typedef enum {
 
 
 
- 
+
 # 1386 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5009,7 +5056,7 @@ typedef enum {
 
 
 
- 
+
 
 # 1443 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -5025,25 +5072,25 @@ typedef enum {
 
 
 
- 
+
 # 1465 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
 
- 
+
+
 typedef enum {
-    _MM_MANT_NORM_1_2,       
-    _MM_MANT_NORM_p5_2,      
-    _MM_MANT_NORM_p5_1,      
-    _MM_MANT_NORM_p75_1p5    
+    _MM_MANT_NORM_1_2,
+    _MM_MANT_NORM_p5_2,
+    _MM_MANT_NORM_p5_1,
+    _MM_MANT_NORM_p75_1p5
 } _MM_MANTISSA_NORM_ENUM;
 
 typedef enum {
-    _MM_MANT_SIGN_src,       
-    _MM_MANT_SIGN_zero,      
-    _MM_MANT_SIGN_nan        
+    _MM_MANT_SIGN_src,
+    _MM_MANT_SIGN_zero,
+    _MM_MANT_SIGN_nan
 } _MM_MANTISSA_SIGN_ENUM;
 
 # 1500 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -5059,7 +5106,7 @@ typedef enum {
 
 
 
- 
+
 # 1596 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 # 1603 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -5121,7 +5168,6 @@ typedef enum {
 
 
 
- 
 
 
 
@@ -5147,7 +5193,8 @@ typedef enum {
 
 
 
- 
+
+
 
 # 1808 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -5271,7 +5318,7 @@ typedef enum {
 
 
 
- 
+
 # 2011 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5295,20 +5342,19 @@ typedef enum {
 
 
 
- 
+
 
 # 2093 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
+
 # 2111 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
 
 
 
@@ -5320,7 +5366,6 @@ typedef enum {
 
 
 
- 
 
 
 
@@ -5330,19 +5375,20 @@ typedef enum {
 
 
 
- 
 
 
 
 
 
- 
+
+
+
+
 # 2157 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
 
 
 
@@ -5350,12 +5396,12 @@ typedef enum {
 
 
 
- 
+
+
 # 2196 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
 
 
 
@@ -5363,7 +5409,8 @@ typedef enum {
 
 
 
- 
+
+
 # 2224 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5378,7 +5425,7 @@ typedef enum {
 
 
 
- 
+
 
 # 2252 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -5394,7 +5441,7 @@ typedef enum {
 
 
 
- 
+
 
 # 2281 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -5411,7 +5458,6 @@ typedef enum {
 
 
 
- 
 
 
 
@@ -5423,12 +5469,12 @@ typedef enum {
 
 
 
- 
+
+
 # 2314 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
 
 
 
@@ -5440,32 +5486,6 @@ typedef enum {
 
 
 
- 
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
- 
 
 
 
@@ -5475,27 +5495,54 @@ typedef enum {
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 2373 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
+
 # 2390 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
 
- 
+
 # 2404 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
 
- 
+
 
 
 
@@ -5505,7 +5552,7 @@ typedef enum {
 
 
 
- 
+
 # 2437 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5515,7 +5562,7 @@ typedef enum {
 
 
 
- 
+
 # 2476 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5536,7 +5583,6 @@ typedef enum {
 
 
 
- 
 
 
 
@@ -5550,7 +5596,8 @@ typedef enum {
 
 
 
- 
+
+
 # 2516 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5565,7 +5612,7 @@ typedef enum {
 
 
 
- 
+
 
 # 2860 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
@@ -5574,26 +5621,11 @@ typedef enum {
 
 
 
- 
+
 # 2930 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
-
- 
-
-
-
-
-
- 
-
-
-
-
-
- 
 
 
 
@@ -5611,16 +5643,6 @@ typedef enum {
 
 
 
- 
-
-
-
-
-
-
-
-
- 
 
 
 
@@ -5630,14 +5652,39 @@ typedef enum {
 
 
 
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 3012 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -5645,20 +5692,20 @@ typedef enum {
 
 
 
- 
 
 
 
- 
+
+
 # 3031 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
- 
+
 # 3061 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
- 
+
 # 3176 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -6228,12 +6275,12 @@ typedef enum {
 
 
 
- 
+
 # 5546 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
+
 # 5603 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 # 5610 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -6258,14 +6305,14 @@ typedef enum {
 
 
 
- 
+
 # 5733 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
 
 
- 
+
 # 6341 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 # 6366 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
@@ -6456,12 +6503,12 @@ typedef enum {
 
 
 
- 
+
 # 10386 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
 
- 
+
 # 10548 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/zmmintrin.h" 3
 
 
@@ -6522,11 +6569,11 @@ typedef int __tile;
 
 
 
- 
 
 
 
- 
+
+
 
 
 
@@ -6568,7 +6615,7 @@ typedef int __tile;
 
 
 
- 
+
 
 
 
@@ -6577,7 +6624,6 @@ typedef int __tile;
 # 50 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 
- 
 
 
 
@@ -6585,7 +6631,8 @@ typedef int __tile;
 
 
 
- 
+
+
 # 69 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 # 80 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
@@ -6598,7 +6645,7 @@ typedef int __tile;
 
 
 
- 
+
 # 34 "/usr/include/stdio.h" 2 3
 
 
@@ -6609,11 +6656,11 @@ typedef int __tile;
 
 
 
- 
+
 struct _IO_FILE;
 
 
- 
+
 typedef struct _IO_FILE FILE;
 
 
@@ -6629,7 +6676,7 @@ typedef struct _IO_FILE FILE;
 
 
 
- 
+
 typedef struct _IO_FILE __FILE;
 
 
@@ -6667,19 +6714,19 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
+
 
 
 
 
 # 1 "/usr/include/_G_config.h" 1 3
 
- 
 
 
 
 
- 
+
+
 
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 1 3
 
@@ -6713,7 +6760,7 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
+
 
 
 
@@ -6722,7 +6769,6 @@ typedef struct _IO_FILE __FILE;
 # 50 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 
- 
 
 
 
@@ -6730,7 +6776,8 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
+
+
 # 69 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
 
 # 80 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stddef.h" 3
@@ -6743,7 +6790,7 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
+
 # 16 "/usr/include/_G_config.h" 2 3
 # 1 "/usr/include/wchar.h" 1 3
 
@@ -6761,12 +6808,12 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
 
 
 
 
- 
+
+
 
 
 
@@ -6779,7 +6826,7 @@ typedef struct _IO_FILE __FILE;
 
 
 
- 
+
 typedef struct
 {
   int __count;
@@ -6791,20 +6838,20 @@ typedef struct
 
 
     char __wchb[4];
-  } __value;		 
+  } __value;
 } __mbstate_t;
 
 
 
 
 
- 
+
 # 894 "/usr/include/wchar.h" 3
 
 
 
 
- 
+
 # 21 "/usr/include/_G_config.h" 2 3
 typedef struct
 {
@@ -6819,7 +6866,6 @@ typedef struct
 # 43 "/usr/include/_G_config.h" 3
 
 
- 
 
 
 
@@ -6827,16 +6873,17 @@ typedef struct
 
 
 
- 
+
+
 
 
 
 
 # 33 "/usr/include/libio.h" 2 3
- 
+
 # 47 "/usr/include/libio.h" 3
 
- 
+
 # 1 "/gpfs20/shared/software/intel/toolkit/compiler/2021.4.0/linux/bin/intel64/../../compiler/include/icc/stdarg.h" 1 3
 
 
@@ -6846,7 +6893,6 @@ typedef struct
 
 
 
- 
 
 
 
@@ -6870,7 +6916,8 @@ typedef struct
 
 
 
- 
+
+
 
 
 
@@ -6886,14 +6933,14 @@ typedef __builtin_va_list va_list;
 
 
 
- 
 
 
 
 
 
 
- 
+
+
 
 typedef __builtin_va_list __gnuc_va_list;
 
@@ -6917,37 +6964,37 @@ typedef __builtin_va_list __gnuc_va_list;
 
 
 
- 
+
 
 # 112 "/usr/include/libio.h" 3
 
 # 124 "/usr/include/libio.h" 3
 
- 
+
 # 143 "/usr/include/libio.h" 3
 
 
 struct _IO_jump_t;  struct _IO_FILE;
 
- 
+
 # 155 "/usr/include/libio.h" 3
 typedef void _IO_lock_t;
 
 
 
- 
+
 
 struct _IO_marker {
   struct _IO_marker *_next;
   struct _IO_FILE *_sbuf;
-  
- 
-   
+
+
+
   int _pos;
 # 178 "/usr/include/libio.h" 3
 };
 
- 
+
 enum __codecvt_result
 {
   __codecvt_ok,
@@ -6959,23 +7006,23 @@ enum __codecvt_result
 # 245 "/usr/include/libio.h" 3
 
 struct _IO_FILE {
-  int _flags;		 
+  int _flags;
 
 
-   
-   
-  char* _IO_read_ptr;	 
-  char* _IO_read_end;	 
-  char* _IO_read_base;	 
-  char* _IO_write_base;	 
-  char* _IO_write_ptr;	 
-  char* _IO_write_end;	 
-  char* _IO_buf_base;	 
-  char* _IO_buf_end;	 
-   
-  char *_IO_save_base;  
-  char *_IO_backup_base;   
-  char *_IO_save_end;  
+
+
+  char* _IO_read_ptr;
+  char* _IO_read_end;
+  char* _IO_read_base;
+  char* _IO_write_base;
+  char* _IO_write_ptr;
+  char* _IO_write_end;
+  char* _IO_buf_base;
+  char* _IO_buf_end;
+
+  char *_IO_save_base;
+  char *_IO_backup_base;
+  char *_IO_save_end;
 
   struct _IO_marker *_markers;
 
@@ -6987,15 +7034,15 @@ struct _IO_FILE {
 
   int _flags2;
 
-  __off_t _old_offset;  
+  __off_t _old_offset;
 
 
-   
+
   unsigned short _cur_column;
   signed char _vtable_offset;
   char _shortbuf[1];
 
-   
+
 
   _IO_lock_t *_lock;
 # 294 "/usr/include/libio.h" 3
@@ -7008,7 +7055,7 @@ struct _IO_FILE {
   size_t __pad5;
 
   int _mode;
-   
+
   char _unused2[15 * sizeof (int) - 4 * sizeof (void *) - sizeof (size_t)];
 
 };
@@ -7025,10 +7072,10 @@ extern struct _IO_FILE_plus _IO_2_1_stderr_;
 # 333 "/usr/include/libio.h" 3
 
 
- 
 
 
- 
+
+
 typedef __ssize_t __io_read_fn (void *__cookie, char *__buf, size_t __nbytes);
 
 
@@ -7036,7 +7083,7 @@ typedef __ssize_t __io_read_fn (void *__cookie, char *__buf, size_t __nbytes);
 
 
 
- 
+
 typedef __ssize_t __io_write_fn (void *__cookie, const char *__buf,
 				 size_t __n);
 
@@ -7045,10 +7092,10 @@ typedef __ssize_t __io_write_fn (void *__cookie, const char *__buf,
 
 
 
- 
+
 typedef int __io_seek_fn (void *__cookie, __off64_t *__pos, int __w);
 
- 
+
 typedef int __io_close_fn (void *__cookie);
 
 
@@ -7088,7 +7135,7 @@ extern int _IO_ferror (_IO_FILE *__fp) __attribute__ ((__nothrow__ , __leaf__));
 
 extern int _IO_peekc_locked (_IO_FILE *__fp);
 
- 
+
 
 
 
@@ -7136,7 +7183,7 @@ typedef __gnuc_va_list va_list;
 
 
 
- 
+
 
 
 typedef _G_fpos_t fpos_t;
@@ -7148,32 +7195,31 @@ typedef _G_fpos_t fpos_t;
 
 
 
- 
-
-
-
-
-
- 
 
 
 
 
 
 
- 
 
 
 
 
 
 
- 
+
+
+
+
+
+
+
+
+
 # 147 "/usr/include/stdio.h" 3
 
 
 
- 
 
 
 
@@ -7186,7 +7232,8 @@ typedef _G_fpos_t fpos_t;
 
 
 
- 
+
+
 # 1 "/usr/include/bits/stdio_lim.h" 1 3
 
 
@@ -7203,7 +7250,7 @@ typedef _G_fpos_t fpos_t;
 
 
 
- 
+
 
 
 
@@ -7224,24 +7271,24 @@ typedef _G_fpos_t fpos_t;
 # 165 "/usr/include/stdio.h" 2 3
 
 
- 
-extern struct _IO_FILE *stdin;		 
-extern struct _IO_FILE *stdout;		 
-extern struct _IO_FILE *stderr;		 
- 
+
+extern struct _IO_FILE *stdin;
+extern struct _IO_FILE *stdout;
+extern struct _IO_FILE *stderr;
 
 
 
 
 
- 
+
+
 extern int remove (const char *__filename) __attribute__ ((__nothrow__ , __leaf__));
- 
+
 extern int rename (const char *__old, const char *__new) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
+
 extern int renameat (int __oldfd, const char *__old, int __newfd,
 		     const char *__new) __attribute__ ((__nothrow__ , __leaf__));
 
@@ -7250,7 +7297,7 @@ extern int renameat (int __oldfd, const char *__old, int __newfd,
 
 
 
- 
+
 
 extern FILE *tmpfile (void) ;
 # 203 "/usr/include/stdio.h" 3
@@ -7259,13 +7306,13 @@ extern FILE *tmpfile (void) ;
 
 
 
- 
+
 extern char *tmpnam (char *__s) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
 
- 
+
 extern char *tmpnam_r (char *__s) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
@@ -7277,7 +7324,7 @@ extern char *tmpnam_r (char *__s) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 extern char *tempnam (const char *__dir, const char *__pfx)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__malloc__)) ;
 
@@ -7287,12 +7334,12 @@ extern char *tempnam (const char *__dir, const char *__pfx)
 
 
 
- 
+
 extern int fclose (FILE *__stream);
 
 
 
- 
+
 extern int fflush (FILE *__stream);
 
 
@@ -7302,7 +7349,7 @@ extern int fflush (FILE *__stream);
 
 
 
- 
+
 extern int fflush_unlocked (FILE *__stream);
 
 
@@ -7314,13 +7361,13 @@ extern int fflush_unlocked (FILE *__stream);
 
 
 
- 
+
 extern FILE *fopen (const char *__restrict __filename,
 		    const char *__restrict __modes) ;
 
 
 
- 
+
 extern FILE *freopen (const char *__restrict __filename,
 		      const char *__restrict __modes,
 		      FILE *__restrict __stream) ;
@@ -7329,42 +7376,42 @@ extern FILE *freopen (const char *__restrict __filename,
 # 303 "/usr/include/stdio.h" 3
 
 
- 
+
 extern FILE *fdopen (int __fd, const char *__modes) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 # 316 "/usr/include/stdio.h" 3
 
 
- 
+
 extern FILE *fmemopen (void *__s, size_t __len, const char *__modes)
   __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 extern FILE *open_memstream (char **__bufloc, size_t *__sizeloc) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
 
 
- 
+
 extern void setbuf (FILE *__restrict __stream, char *__restrict __buf) __attribute__ ((__nothrow__ , __leaf__));
 
 
- 
+
 extern int setvbuf (FILE *__restrict __stream, char *__restrict __buf,
 		    int __modes, size_t __n) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
 
- 
+
 extern void setbuffer (FILE *__restrict __stream, char *__restrict __buf,
 		       size_t __size) __attribute__ ((__nothrow__ , __leaf__));
 
- 
+
 extern void setlinebuf (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__));
 
 
@@ -7373,37 +7420,37 @@ extern void setlinebuf (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__))
 
 
 
- 
+
 extern int fprintf (FILE *__restrict __stream,
 		    const char *__restrict __format, ...);
 
 
 
- 
+
 extern int printf (const char *__restrict __format, ...);
- 
+
 extern int sprintf (char *__restrict __s,
 		    const char *__restrict __format, ...) __attribute__ ((__nothrow__));
 
 
 
 
- 
+
 extern int vfprintf (FILE *__restrict __s, const char *__restrict __format,
 		     __gnuc_va_list __arg);
 
 
 
- 
+
 extern int vprintf (const char *__restrict __format, __gnuc_va_list __arg);
- 
+
 extern int vsprintf (char *__restrict __s, const char *__restrict __format,
 		     __gnuc_va_list __arg) __attribute__ ((__nothrow__));
 
 
 
 
- 
+
 extern int snprintf (char *__restrict __s, size_t __maxlen,
 		     const char *__restrict __format, ...)
      __attribute__ ((__nothrow__)) __attribute__ ((__format__ (__printf__, 3, 4)));
@@ -7417,7 +7464,7 @@ extern int vsnprintf (char *__restrict __s, size_t __maxlen,
 # 409 "/usr/include/stdio.h" 3
 
 
- 
+
 extern int vdprintf (int __fd, const char *__restrict __fmt,
 		     __gnuc_va_list __arg)
      __attribute__ ((__format__ (__printf__, 2, 0)));
@@ -7430,15 +7477,15 @@ extern int dprintf (int __fd, const char *__restrict __fmt, ...)
 
 
 
- 
+
 extern int fscanf (FILE *__restrict __stream,
 		   const char *__restrict __format, ...) ;
 
 
 
- 
+
 extern int scanf (const char *__restrict __format, ...) ;
- 
+
 extern int sscanf (const char *__restrict __s,
 		   const char *__restrict __format, ...) __attribute__ ((__nothrow__ , __leaf__));
 
@@ -7448,7 +7495,7 @@ extern int sscanf (const char *__restrict __s,
 
 
 
- 
+
 extern int fscanf (FILE *__restrict __stream, const char *__restrict __format, ...) __asm__ ("" "__isoc99_fscanf") ;
 
 
@@ -7464,7 +7511,7 @@ extern int sscanf (const char *__restrict __s, const char *__restrict __format, 
 
 
 
- 
+
 extern int vfscanf (FILE *__restrict __s, const char *__restrict __format,
 		    __gnuc_va_list __arg)
      __attribute__ ((__format__ (__scanf__, 2, 0))) ;
@@ -7472,11 +7519,11 @@ extern int vfscanf (FILE *__restrict __s, const char *__restrict __format,
 
 
 
- 
+
 extern int vscanf (const char *__restrict __format, __gnuc_va_list __arg)
      __attribute__ ((__format__ (__scanf__, 1, 0))) ;
 
- 
+
 extern int vsscanf (const char *__restrict __s,
 		    const char *__restrict __format, __gnuc_va_list __arg)
      __attribute__ ((__nothrow__ , __leaf__)) __attribute__ ((__format__ (__scanf__, 2, 0)));
@@ -7487,7 +7534,7 @@ extern int vsscanf (const char *__restrict __s,
 
 
 
- 
+
 extern int vfscanf (FILE *__restrict __s, const char *__restrict __format, __gnuc_va_list __arg) __asm__ ("" "__isoc99_vfscanf")
 
 
@@ -7511,26 +7558,26 @@ extern int vsscanf (const char *__restrict __s, const char *__restrict __format,
 
 
 
- 
+
 extern int fgetc (FILE *__stream);
 extern int getc (FILE *__stream);
 
 
 
 
- 
+
 extern int getchar (void);
 
 
 
- 
 
 
 
 
 
 
- 
+
+
 extern int getc_unlocked (FILE *__stream);
 extern int getchar_unlocked (void);
 
@@ -7541,7 +7588,7 @@ extern int getchar_unlocked (void);
 
 
 
- 
+
 extern int fgetc_unlocked (FILE *__stream);
 
 
@@ -7553,19 +7600,18 @@ extern int fgetc_unlocked (FILE *__stream);
 
 
 
- 
+
 extern int fputc (int __c, FILE *__stream);
 extern int putc (int __c, FILE *__stream);
 
 
 
 
- 
+
 extern int putchar (int __c);
 
 
 
- 
 
 
 
@@ -7574,7 +7620,8 @@ extern int putchar (int __c);
 
 
 
- 
+
+
 extern int fputc_unlocked (int __c, FILE *__stream);
 
 
@@ -7582,7 +7629,7 @@ extern int fputc_unlocked (int __c, FILE *__stream);
 
 
 
- 
+
 extern int putc_unlocked (int __c, FILE *__stream);
 extern int putchar_unlocked (int __c);
 
@@ -7590,10 +7637,10 @@ extern int putchar_unlocked (int __c);
 
 
 
- 
+
 extern int getw (FILE *__stream);
 
- 
+
 extern int putw (int __w, FILE *__stream);
 
 
@@ -7602,7 +7649,7 @@ extern int putw (int __w, FILE *__stream);
 
 
 
- 
+
 extern char *fgets (char *__restrict __s, int __n, FILE *__restrict __stream)
      ;
 
@@ -7622,7 +7669,7 @@ extern char *fgets (char *__restrict __s, int __n, FILE *__restrict __stream)
 
 
 
- 
+
 extern __ssize_t __getdelim (char **__restrict __lineptr,
 			       size_t *__restrict __n, int __delimiter,
 			       FILE *__restrict __stream) ;
@@ -7635,7 +7682,7 @@ extern __ssize_t getdelim (char **__restrict __lineptr,
 
 
 
- 
+
 extern __ssize_t getline (char **__restrict __lineptr,
 			    size_t *__restrict __n,
 			    FILE *__restrict __stream) ;
@@ -7646,33 +7693,33 @@ extern __ssize_t getline (char **__restrict __lineptr,
 
 
 
- 
+
 extern int fputs (const char *__restrict __s, FILE *__restrict __stream);
 
 
 
 
- 
+
 extern int puts (const char *__s);
 
 
 
 
 
- 
+
 extern int ungetc (int __c, FILE *__stream);
 
 
 
 
 
- 
+
 extern size_t fread (void *__restrict __ptr, size_t __size,
 		     size_t __n, FILE *__restrict __stream) ;
 
 
 
- 
+
 extern size_t fwrite (const void *__restrict __ptr, size_t __size,
 		      size_t __n, FILE *__restrict __s);
 
@@ -7685,7 +7732,7 @@ extern size_t fwrite (const void *__restrict __ptr, size_t __size,
 
 
 
- 
+
 extern size_t fread_unlocked (void *__restrict __ptr, size_t __size,
 			      size_t __n, FILE *__restrict __stream) ;
 extern size_t fwrite_unlocked (const void *__restrict __ptr, size_t __size,
@@ -7697,36 +7744,36 @@ extern size_t fwrite_unlocked (const void *__restrict __ptr, size_t __size,
 
 
 
- 
+
 extern int fseek (FILE *__stream, long int __off, int __whence);
 
 
 
- 
+
 extern long int ftell (FILE *__stream) ;
 
 
 
- 
+
 extern void rewind (FILE *__stream);
 
 
 
 
 
- 
 
 
 
 
 
 
- 
+
+
 extern int fseeko (FILE *__stream, __off_t __off, int __whence);
 
 
 
- 
+
 extern __off_t ftello (FILE *__stream) ;
 # 791 "/usr/include/stdio.h" 3
 
@@ -7735,12 +7782,12 @@ extern __off_t ftello (FILE *__stream) ;
 
 
 
- 
+
 extern int fgetpos (FILE *__restrict __stream, fpos_t *__restrict __pos);
 
 
 
- 
+
 extern int fsetpos (FILE *__stream, const fpos_t *__pos);
 # 815 "/usr/include/stdio.h" 3
 
@@ -7748,16 +7795,16 @@ extern int fsetpos (FILE *__stream, const fpos_t *__pos);
 # 823 "/usr/include/stdio.h" 3
 
 
- 
+
 extern void clearerr (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__));
- 
+
 extern int feof (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
- 
+
 extern int ferror (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 extern void clearerr_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__));
 extern int feof_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
 extern int ferror_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
@@ -7768,14 +7815,14 @@ extern int ferror_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf
 
 
 
- 
+
 extern void perror (const char *__s);
 
 
 
 
 
- 
+
 # 1 "/usr/include/bits/sys_errlist.h" 1 3
 
 
@@ -7793,13 +7840,13 @@ extern void perror (const char *__s);
 
 
 
- 
 
 
 
 
 
- 
+
+
 
 
 extern int sys_nerr;
@@ -7808,12 +7855,12 @@ extern const char *const sys_errlist[];
 
 
 
- 
+
 extern int fileno (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
 
- 
+
 extern int fileno_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
 
 
@@ -7823,19 +7870,19 @@ extern int fileno_unlocked (FILE *__stream) __attribute__ ((__nothrow__ , __leaf
 
 
 
- 
+
 extern FILE *popen (const char *__command, const char *__modes) ;
 
 
 
 
- 
+
 extern int pclose (FILE *__stream);
 
 
 
 
- 
+
 extern char *ctermid (char *__s) __attribute__ ((__nothrow__ , __leaf__));
 
 
@@ -7850,23 +7897,23 @@ extern char *ctermid (char *__s) __attribute__ ((__nothrow__ , __leaf__));
 
 
 
- 
 
- 
+
+
 extern void flockfile (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__));
 
 
- 
+
 extern int ftrylockfile (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)) ;
 
- 
+
 extern void funlockfile (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__));
 
 
 # 930 "/usr/include/stdio.h" 3
 
 
- 
+
 # 1 "/usr/include/bits/stdio.h" 1 3
 
 
@@ -7884,7 +7931,6 @@ extern void funlockfile (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)
 
 
 
- 
 
 
 
@@ -7899,9 +7945,10 @@ extern void funlockfile (FILE *__stream) __attribute__ ((__nothrow__ , __leaf__)
 
 
 
- 
 
- 
+
+
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 vprintf (const char *__restrict __fmt, __gnuc_va_list __arg)
 {
@@ -7909,7 +7956,7 @@ vprintf (const char *__restrict __fmt, __gnuc_va_list __arg)
 }
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 getchar (void)
 {
@@ -7918,7 +7965,7 @@ getchar (void)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 fgetc_unlocked (FILE *__fp)
 {
@@ -7928,14 +7975,14 @@ fgetc_unlocked (FILE *__fp)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 getc_unlocked (FILE *__fp)
 {
   return (__builtin_expect (((__fp)->_IO_read_ptr >= (__fp)->_IO_read_end), 0) ? __uflow (__fp) : *(unsigned char *) (__fp)->_IO_read_ptr++);
 }
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 getchar_unlocked (void)
 {
@@ -7944,7 +7991,7 @@ getchar_unlocked (void)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 putchar (int __c)
 {
@@ -7953,7 +8000,7 @@ putchar (int __c)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 fputc_unlocked (int __c, FILE *__stream)
 {
@@ -7963,14 +8010,14 @@ fputc_unlocked (int __c, FILE *__stream)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 putc_unlocked (int __c, FILE *__stream)
 {
   return (__builtin_expect (((__stream)->_IO_write_ptr >= (__stream)->_IO_write_end), 0) ? __overflow (__stream, (unsigned char) (__c)) : (unsigned char) (*(__stream)->_IO_write_ptr++ = (__c)));
 }
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 putchar_unlocked (int __c)
 {
@@ -7983,14 +8030,14 @@ putchar_unlocked (int __c)
 
 
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 __attribute__ ((__nothrow__ , __leaf__)) feof_unlocked (FILE *__stream)
 {
   return (((__stream)->_flags & 0x10) != 0);
 }
 
- 
+
 extern __inline __attribute__ ((__gnu_inline__)) int
 __attribute__ ((__nothrow__ , __leaf__)) ferror_unlocked (FILE *__stream)
 {
@@ -8003,12 +8050,12 @@ __attribute__ ((__nothrow__ , __leaf__)) ferror_unlocked (FILE *__stream)
 
 
 
- 
+
 # 167 "/usr/include/bits/stdio.h" 3
 
 # 188 "/usr/include/bits/stdio.h" 3
 
- 
+
 # 935 "/usr/include/stdio.h" 2 3
 # 942 "/usr/include/stdio.h" 3
 
@@ -8123,7 +8170,7 @@ __attribute__ ((__nothrow__ , __leaf__)) ferror_unlocked (FILE *__stream)
 # 539 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 550 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
-__attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh, 
+__attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
 	double s);
 # 560 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -8133,7 +8180,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (dou
 # 582 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 593 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
-__attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh, 
+__attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
 	double s);
 # 603 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -8155,7 +8202,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_12_AVX_2hv_double (do
 
 # 680 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
-__attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh, 
+__attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
 	double s);
 # 691 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -8166,7 +8213,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (do
 
 # 724 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
-__attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh, 
+__attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
 	double s);
 # 735 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -8196,7 +8243,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8209,7 +8255,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8223,7 +8268,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8237,7 +8281,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8251,7 +8294,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8265,7 +8307,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8280,7 +8321,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8294,7 +8334,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8309,7 +8348,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8323,7 +8361,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8338,7 +8375,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8352,7 +8388,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8366,7 +8401,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8380,7 +8414,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8395,7 +8428,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8409,7 +8441,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8422,7 +8453,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8435,7 +8465,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8448,7 +8477,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8461,7 +8489,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8475,7 +8502,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8488,7 +8514,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8502,7 +8527,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8516,7 +8540,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8530,7 +8553,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8544,7 +8566,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8558,7 +8579,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8572,7 +8592,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8586,7 +8605,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8600,7 +8618,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8614,7 +8631,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8627,7 +8643,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8642,7 +8657,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8655,7 +8669,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8669,7 +8682,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8682,7 +8694,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8695,7 +8706,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8708,7 +8718,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8722,7 +8731,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8735,7 +8743,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8749,7 +8756,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8762,7 +8768,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8776,7 +8781,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8791,7 +8795,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8804,7 +8807,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8818,7 +8820,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8831,7 +8832,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8844,7 +8844,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8858,7 +8857,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8871,7 +8869,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8886,7 +8883,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8899,7 +8895,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8913,7 +8908,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8926,7 +8920,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8940,7 +8933,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8953,7 +8945,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8966,7 +8957,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8979,7 +8969,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -8993,7 +8982,6 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
@@ -9006,7 +8994,66 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* pnq, int* pldq, int* pldh)
 {
@@ -9026,8 +9073,8 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 # 1658 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-  
-  
+
+
   double s = hh[(ldh)+1]*1.0;
 
 
@@ -9050,7 +9097,7 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
     }
 
-  
+
 
 
 # 1828 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -9151,11 +9198,11 @@ void double_hh_trafo_real_AVX_2hv_double (double* q, double* hh, int* pnb, int* 
 
 
 
- 
 
 
 
- 
+
+
 # 2345 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
@@ -9163,10 +9210,10 @@ __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (do
 # 2355 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 2368 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
     int i;
@@ -9178,7 +9225,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (do
 
 
 # 2394 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
-    
+
 
 
         __m256d sign = (__m256d)_mm256_set1_epi64x(0x8000000000000000);
@@ -9202,7 +9249,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (do
 # 2436 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
     __m256d h1 = _mm256_broadcast_sd(&hh[ldh+1]);
 
- 
+
     __m256d h2;
 # 2454 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
     __m256d q1 = _mm256_load_pd(q);
@@ -9283,9 +9330,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (do
 # 3735 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 3751 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 3794 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -9505,22 +9552,22 @@ __attribute__((always_inline)) static void hh_trafo_kernel_24_AVX_2hv_double (do
 
 
 
- 
 
 
 
- 
+
+
 # 5658 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
-__attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh, 
+__attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
 
                double s)
 # 5668 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 5681 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
     int i;
@@ -9626,9 +9673,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (do
 # 6919 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 6935 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 6978 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -9834,11 +9881,11 @@ __attribute__((always_inline)) static void hh_trafo_kernel_20_AVX_2hv_double (do
 
 
 
- 
 
 
 
- 
+
+
 # 8692 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
@@ -9847,10 +9894,10 @@ __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (do
 # 8703 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 8716 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
     int i;
@@ -9947,9 +9994,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (do
 # 9823 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 9839 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 9882 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -10047,7 +10094,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (do
    q2 = _mm256_load_pd(&q[ldq+4]);
    q3 = _mm256_load_pd(&q[ldq+2*4]);
    q4 = _mm256_load_pd(&q[ldq+3*4]);
- 
+
 # 10193 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
    q1 = _mm256_add_pd(  q1, _mm256_add_pd(  x1, _mm256_mul_pd(  y1, h2)));
    q2 = _mm256_add_pd(  q2, _mm256_add_pd(  x2, _mm256_mul_pd(  y2, h2)));
@@ -10138,11 +10185,11 @@ __attribute__((always_inline)) static void hh_trafo_kernel_16_AVX_2hv_double (do
 
 
 
- 
 
 
 
- 
+
+
 # 11434 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 __attribute__((always_inline)) static void hh_trafo_kernel_12_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
@@ -10151,10 +10198,10 @@ __attribute__((always_inline)) static void hh_trafo_kernel_12_AVX_2hv_double (do
 # 11445 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 11458 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
     int i;
@@ -10255,9 +10302,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_12_AVX_2hv_double (do
 # 12435 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 12451 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 12493 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -10446,11 +10493,11 @@ __attribute__((always_inline)) static void hh_trafo_kernel_12_AVX_2hv_double (do
 
 
 
- 
 
 
 
- 
+
+
 # 13911 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 __attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
@@ -10459,10 +10506,10 @@ __attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (dou
 # 13922 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 13935 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
     int i;
@@ -10546,9 +10593,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (dou
 # 14782 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 14798 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 # 14840 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -10714,11 +10761,11 @@ __attribute__((always_inline)) static void hh_trafo_kernel_8_AVX_2hv_double (dou
 
 
 
- 
 
 
 
- 
+
+
 # 16102 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (double* q, double* hh, int nb, int ldq, int ldh,
@@ -10727,10 +10774,10 @@ __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (dou
 # 16113 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
   {
 
-    
-    
-    
-    
+
+
+
+
 # 16126 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
     int i;
 # 16137 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
@@ -10759,7 +10806,7 @@ __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (dou
 # 16187 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
     __m256d h1 = _mm256_broadcast_sd(&hh[ldh+1]);
 
- 
+
     __m256d h2;
 
 
@@ -10812,9 +10859,9 @@ __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (dou
 # 16844 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
-    
-    
-    
+
+
+
 # 16860 "../src/elpa2/kernels/real_128bit_256bit_512bit_BLOCK_template.c"
 
 
@@ -10959,8 +11006,3 @@ __attribute__((always_inline)) static void hh_trafo_kernel_4_AVX_2hv_double (dou
 }
 
 # 55 "../src/elpa2/kernels/real_avx_2hv_double_precision.c" 2
-
-
-
-
-
