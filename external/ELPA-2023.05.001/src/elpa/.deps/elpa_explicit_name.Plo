@@ -1,0 +1,5 @@
+elpa/elpa_explicit_name.lo: \
+ manually_preprocessed_.._elpa_elpa_explicit_name.c-elpa_elpa_explicit_name.o.c \
+ /usr/include/stdc-predef.h
+
+/usr/include/stdc-predef.h:
