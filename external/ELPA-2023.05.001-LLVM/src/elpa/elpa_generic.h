@@ -1,5 +1,53 @@
 #pragma once
 
+/* Copyright 2014 - 2023, A. Marek */
+
+/*     This file is part of ELPA. */
+
+/*     The ELPA library was originally created by the ELPA consortium, */
+/*     consisting of the following organizations: */
+
+/*     - Max Planck Computing and Data Facility (MPCDF), formerly known as */
+/*       Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG), */
+/*     - Bergische Universität Wuppertal, Lehrstuhl für angewandte */
+/*       Informatik, */
+/*     - Technische Universität München, Lehrstuhl für Informatik mit */
+/*       Schwerpunkt Wissenschaftliches Rechnen , */
+/*     - Fritz-Haber-Institut, Berlin, Abt. Theorie, */
+/*     - Max-Plack-Institut für Mathematik in den Naturwissenschaften, */
+/*       Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition, */
+/*       and */
+/*     - IBM Deutschland GmbH */
+
+
+/*     More information can be found here: */
+/*     http://elpa.mpcdf.mpg.de/ */
+
+/*     ELPA is free software: you can redistribute it and/or modify */
+/*     it under the terms of the version 3 of the license of the */
+/*     GNU Lesser General Public License as published by the Free */
+/*     Software Foundation. */
+
+/*     ELPA is distributed in the hope that it will be useful, */
+/*     but WITHOUT ANY WARRANTY; without even the implied warranty of */
+/*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
+/*     GNU Lesser General Public License for more details. */
+
+/*     You should have received a copy of the GNU Lesser General Public License */
+/*     along with ELPA.  If not, see <http://www.gnu.org/licenses/> */
+
+/*     ELPA reflects a substantial effort on the part of the original */
+/*     ELPA consortium, and we ask you to respect the spirit of the */
+/*     license that we chose: i.e., please contribute any changes you */
+/*     may have back to the original ELPA library distribution, and keep */
+/*     any derivatives of ELPA under the same license that we chose for */
+/*     the original distribution, the GNU Lesser General Public License. */
+
+/*  Author: Andreas Marek, MPCDF */
+/*  This file is the generated version. Do NOT edit */
+
+
+
 /*! \brief generic C method for elpa_set
  *
  *  \details
@@ -67,22 +115,22 @@ inline void elpa_get(elpa_t handle, const char *name, double *value, int *error)
  *  \result void
  */
 #ifdef __cplusplus
-inline void elpa_eigenvectors(const elpa_t handle, double *a, double *ev, double *q, int *error) 
+inline void elpa_eigenvectors(const elpa_t handle, double *a, double *ev, double *q, int *error)
 	{
 	elpa_eigenvectors_a_h_a_d(handle, a, ev, q, error);
 	}
 
-inline void elpa_eigenvectors(const elpa_t handle, float  *a, float  *ev, float  *q, int *error) 
+inline void elpa_eigenvectors(const elpa_t handle, float  *a, float  *ev, float  *q, int *error)
 	{
 	elpa_eigenvectors_a_h_a_f(handle, a, ev, q, error);
 	}
 
-inline void elpa_eigenvectors(const elpa_t handle, std::complex<double> *a, double *ev, std::complex<double> *q, int *error) 
+inline void elpa_eigenvectors(const elpa_t handle, std::complex<double> *a, double *ev, std::complex<double> *q, int *error)
 	{
 	elpa_eigenvectors_a_h_a_dc(handle, a, ev, q, error);
 	}
 
-inline void elpa_eigenvectors(const elpa_t handle, std::complex<float>  *a, float  *ev, std::complex<float>  *q, int *error) 
+inline void elpa_eigenvectors(const elpa_t handle, std::complex<float>  *a, float  *ev, std::complex<float>  *q, int *error)
 	{
 	elpa_eigenvectors_a_h_a_fc(handle, a, ev, q, error);
 	}
@@ -113,12 +161,12 @@ inline void elpa_eigenvectors(const elpa_t handle, std::complex<float>  *a, floa
  *  \result void
  */
 #ifdef __cplusplus
-inline void elpa_skew_eigenvectors(const elpa_t handle, double *a, double *ev, double *q, int *error) 
+inline void elpa_skew_eigenvectors(const elpa_t handle, double *a, double *ev, double *q, int *error)
 	{
 	elpa_skew_eigenvectors_a_h_a_d(handle, a, ev, q, error);
 	}
 
-inline void elpa_skew_eigenvectors(const elpa_t handle, float  *a, float  *ev, float  *q, int *error) 
+inline void elpa_skew_eigenvectors(const elpa_t handle, float  *a, float  *ev, float  *q, int *error)
 	{
 	elpa_skew_eigenvectors_a_h_a_f(handle, a, ev, q, error);
 	}
@@ -148,22 +196,22 @@ inline void elpa_skew_eigenvectors(const elpa_t handle, float  *a, float  *ev, f
 #ifdef __cplusplus
 inline void elpa_generalized_eigenvectors(elpa_t handle, double *a, double *b, double *ev, double *q, int is_already_decomposed, int *error)
 	{
-	elpa_generalized_eigenvectors_d(handle, a, b, ev, q, is_already_decomposed, error);	
+	elpa_generalized_eigenvectors_d(handle, a, b, ev, q, is_already_decomposed, error);
 	}
 
 inline void elpa_generalized_eigenvectors(elpa_t handle, float  *a, float  *b, float  *ev, float  *q, int is_already_decomposed, int *error)
 	{
-	elpa_generalized_eigenvectors_f(handle, a, b, ev, q, is_already_decomposed, error);	
+	elpa_generalized_eigenvectors_f(handle, a, b, ev, q, is_already_decomposed, error);
 	}
 
 inline void elpa_generalized_eigenvectors(elpa_t handle, std::complex<double> *a, std::complex<double> *b, double *ev, std::complex<double> *q, int is_already_decomposed, int *error)
 	{
-	elpa_generalized_eigenvectors_dc(handle, a, b, ev, q, is_already_decomposed, error);	
+	elpa_generalized_eigenvectors_dc(handle, a, b, ev, q, is_already_decomposed, error);
 	}
 
 inline void elpa_generalized_eigenvectors(elpa_t handle, std::complex<float>  *a, std::complex<float>  *b, float  *ev, std::complex<float>  *q, int is_already_decomposed, int *error)
 	{
-	elpa_generalized_eigenvectors_fc(handle, a, b, ev, q, is_already_decomposed, error);	
+	elpa_generalized_eigenvectors_fc(handle, a, b, ev, q, is_already_decomposed, error);
 	}
 #else
 #define elpa_generalized_eigenvectors(handle, a, b, ev, q, is_already_decomposed, error) _Generic((a), \
