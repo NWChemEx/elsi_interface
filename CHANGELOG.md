@@ -1,4 +1,13 @@
 # ELSI changelog
+
+## v.2.10.0 (October 2023)
+
+The internal ELPA solver has been updated to v2023.05.001. This can be enabled with the cmake option USE_ELPA_2023.
+The Chase solver (v.1.4.0) has been integrated into ELSI.
+A new method for calculating static excitation through the delta-SCF method has been implemented.
+An interface with Slate for matrix inversion was added.
+A method to calculate electronic excitations for core-level spectroscopy has been implemented.
+
 ## v2.9.1 (May 2022)
 
 Bug fix version to include the interface of integer4.
@@ -7,18 +16,18 @@ Add a script for compiling the doc file.
 
 ## v2.9.0 (April 2022)
 
-The indices have been updated to integer8 instead of integer4. 
-This allows us to use a relatively small number of MPI ranks for relatively large matrices. 
-This update is essential for accelerators (GPU,TPU,...). 
+The indices have been updated to integer8 instead of integer4.
+This allows us to use a relatively small number of MPI ranks for relatively large matrices.
+This update is essential for accelerators (GPU,TPU,...).
 The interface is updated so that both integer8 and integer4 should work.
 
-Add Cholesky extrapolation for density matrix when used with elsi restart files. 
+Add Cholesky extrapolation for density matrix when used with elsi restart files.
 ovlp_old and dm are read from disk and not stored in the elsi handle, thus, a separate interface was needed.
 
-The single precision is used for forward and backward transformation to the standard eigenvalue problem. 
+The single precision is used for forward and backward transformation to the standard eigenvalue problem.
 This further save the computational cost in the mixed precision calculations.
 
-We updated the ELPA version to 2021.11.001, the old ELPA version is still the default. 
+We updated the ELPA version to 2021.11.001, the old ELPA version is still the default.
 While the new version can be switched on with the cmake option USE_ELPA_2021.
 
 We provide a description and examples for elsipy.
