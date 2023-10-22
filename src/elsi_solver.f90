@@ -2648,27 +2648,27 @@ end subroutine
 !!
 !! UKH
 
-subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
-                                    k_weights,KS_eigenvalue,occ_numbers,chemical_potential, &
-                                    chemical_potential_lower, chemical_potential_upper, n_excited_electrons, &
+subroutine elsi_static_excitations(eh, n_electron, n_state, n_spin, n_kpt, &
+                                    k_wt, eval, occ, mu, &
+                                    mu_lower, mu_upper, n_excited_electrons, &
                                     excitation_type)
 
     implicit none
 
     type(elsi_handle), intent(in) :: eh
-    real(kind=r8), intent(in) :: n_electrons
-    integer(kind=i4), intent(in) :: n_states
+    real(kind=r8), intent(in) :: n_electron
+    integer(kind=i4), intent(in) :: n_state
     integer(kind=i4), intent(in) :: n_spin
-    integer(kind=i4), intent(in) :: n_k_points
-    real(kind=r8), intent(in) :: k_weights(n_k_points)
-    real(kind=r8), intent(in) :: KS_eigenvalue(n_states,n_spin,n_k_points)
-    real(kind=r8), intent(inout) :: chemical_potential
-    real(kind=r8), intent(inout) :: chemical_potential_lower
-    real(kind=r8), intent(inout) :: chemical_potential_upper
-    real(kind=r8), intent(out) :: occ_numbers(n_states,n_spin,n_k_points)
-    real(kind=r8) :: occ_numbers_tmp(n_states,n_spin,n_k_points)
-    real(kind=r8) :: occ_numbers_lower(n_states,n_spin,n_k_points)
-    real(kind=r8) :: occ_numbers_upper(n_states,n_spin,n_k_points)
+    integer(kind=i4), intent(in) :: n_kpt
+    real(kind=r8), intent(in) :: k_wt(n_kpt)
+    real(kind=r8), intent(in) :: eval(n_state,n_spin,n_kpt)
+    real(kind=r8), intent(inout) :: mu
+    real(kind=r8), intent(inout) :: mu_lower
+    real(kind=r8), intent(inout) :: mu_upper
+    real(kind=r8), intent(out) :: occ(n_state,n_spin,n_kpt)
+    real(kind=r8) :: occ_tmp(n_state,n_spin,n_kpt)
+    real(kind=r8) :: occ_lower(n_state,n_spin,n_kpt)
+    real(kind=r8) :: occ_upper(n_state,n_spin,n_kpt)
     real(kind=r8), intent(in) :: n_excited_electrons
     real(kind=r8) :: diff_electrons
     character(len=20) :: excitation_type
@@ -2681,21 +2681,21 @@ subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
     if (excitation_type .eq. 'scf') then
 
         ! Calculate occupation for default calculation
-        call elsi_compute_mu_and_occ(eh, n_electrons, n_states, &
-        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers, &
-        chemical_potential)
+        call elsi_compute_mu_and_occ(eh, n_electron, n_state, &
+        n_spin, n_kpt, k_wt, eval, occ, &
+        mu)
 
-        occ_numbers_tmp = occ_numbers
+        occ_tmp = occ
 
         ! call for n-x electrons
-        call elsi_compute_mu_and_occ(eh, n_electrons-n_excited_electrons, n_states, &
-        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers_lower, &
-        chemical_potential_lower)
+        call elsi_compute_mu_and_occ(eh, n_electron-n_excited_electrons, n_state, &
+        n_spin, n_kpt, k_wt, eval, occ_lower, &
+        mu_lower)
 
         ! call for n+x electrons
-        call elsi_compute_mu_and_occ(eh, n_electrons+n_excited_electrons, n_states, &
-        n_spin, n_k_points, k_weights, KS_eigenvalue, occ_numbers_upper, &
-        chemical_potential_upper)
+        call elsi_compute_mu_and_occ(eh, n_electron+n_excited_electrons, n_state, &
+        n_spin, n_kpt, k_wt, eval, occ_upper, &
+        mu_upper)
 
         ! This method causes an issue if n_electrons is odd. Additionally,
         ! It requires separate methods to treat q4c. See below for a refined
@@ -2722,36 +2722,36 @@ subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
         !     enddo
         ! endif
 
-        do i = 1, n_states, 1
-            occ_numbers(i,:,:) = occ_numbers_lower(i,:,:) + occ_numbers_upper(i,:,:) &
-                - occ_numbers_tmp(i,:,:)
+        do i = 1, n_state, 1
+            occ(i,:,:) = occ_lower(i,:,:) + occ_upper(i,:,:) &
+                - occ_tmp(i,:,:)
         enddo
 
         write(msg,"(A,E14.7,A)") "Chemical potential for n electrons: &
-            ",chemical_potential*hartree, " eV"
+            ",mu*hartree, " eV"
         call elsi_say(eh%bh,msg)
         write(msg,"(A,F4.2,A,E14.7,A)") "Chemical potential for n-", &
-            n_excited_electrons," electrons: ",chemical_potential_lower*hartree, " eV"
+            n_excited_electrons," electrons: ",mu_lower*hartree, " eV"
         call elsi_say(eh%bh,msg)
         write(msg,"(A,F4.2,A,E14.7,A)") "Chemical potential for n+", &
-            n_excited_electrons," electrons: ",chemical_potential_upper*hartree, " eV"
+            n_excited_electrons," electrons: ",mu_upper*hartree, " eV"
         call elsi_say(eh%bh,msg)
 
     elseif (excitation_type .eq. 'nscf') then
 
         ! Default
-        call elsi_check_electrons(eh%ph, n_electrons, n_states, n_spin, n_k_points, k_weights, &
-        KS_eigenvalue,occ_numbers, chemical_potential,diff_electrons)
+        call elsi_check_electrons(eh%ph, n_electron, n_state, n_spin, n_kpt, k_wt, &
+        eval, occ, mu, diff_electrons)
 
-        occ_numbers_tmp = occ_numbers
+        occ_tmp = occ
 
         ! Call for n-x electrons
-        call elsi_check_electrons(eh%ph, n_electrons-n_excited_electrons, n_states, n_spin, n_k_points, k_weights, &
-        KS_eigenvalue,occ_numbers_lower, chemical_potential_lower,diff_electrons)
+        call elsi_check_electrons(eh%ph, n_electron-n_excited_electrons, n_state, n_spin, n_kpt, k_wt, &
+        eval, occ_lower, mu_lower, diff_electrons)
 
         ! Call for n+x electrons
-        call elsi_check_electrons(eh%ph, n_electrons+n_excited_electrons, n_states, n_spin, n_k_points, k_weights, &
-        KS_eigenvalue,occ_numbers_upper, chemical_potential_upper,diff_electrons)
+        call elsi_check_electrons(eh%ph, n_electron+n_excited_electrons, n_state, n_spin, n_kpt, k_wt, &
+        eval, occ_upper, mu_upper, diff_electrons)
 
         ! This method causes an issue if n_electrons is odd. Additionally,
         ! It requires separate methods to treat q4c. See below for a refined
@@ -2778,9 +2778,9 @@ subroutine elsi_static_excitations(eh, n_electrons,n_states,n_spin,n_k_points, &
         !     enddo
         ! endif
 
-        do i = 1, n_states, 1
-            occ_numbers(i,:,:) = occ_numbers_lower(i,:,:) + occ_numbers_upper(i,:,:) &
-                - occ_numbers_tmp(i,:,:)
+        do i = 1, n_state, 1
+            occ(i,:,:) = occ_lower(i,:,:) + occ_upper(i,:,:) &
+                - occ_tmp(i,:,:)
         enddo
 
     endif
