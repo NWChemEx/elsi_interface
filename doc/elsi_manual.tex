@@ -21,7 +21,8 @@
 
 \begin{document}
 % Title
-\title{\includegraphics[scale=0.07]{elsi_logo.png}\\ \vspace{0.5cm} \textbf{ELSI Interface Users' Guide\\v2.9.1}}
+\title{\includegraphics[scale=0.07]{elsi_logo.png}\\ \vspace{0.5cm}
+\textbf{ELSI Interface Users' Guide\\v2.10.0}}
 \author{The ELSI Team\\ \url{https://elsi-interchange.org}}
 \maketitle
 
@@ -81,13 +82,17 @@ ELSI is a National Science Foundation Software Infrastructure for Sustained Inno
 % Chapter2
 \chapter{Installation of ELSI}
 \section{Prerequisites}
-\label{sec:prereq}
-The ELSI package contains the ELSI interface software as well as redistributed source code for the solver libraries ELPA (version 2020.05.001), libOMM (version 1.0.0), PEXSI (version 1.2.0), NTPoly (version 2.7.0), and ChASE (version 1.4.0). The installation of ELSI makes use of the \href{https://cmake.org}{CMake} software. Minimum requirements include:
+\label{sec:prereq} The ELSI package contains the ELSI interface software as
+well as redistributed source code for the solver libraries ELPA (versions
+2020.05.001, 2021.11.001 and 2023.05.001), libOMM (version 1.0.0), PEXSI
+     (version 1.2.0), NTPoly (version 2.7.0), and ChASE (version 1.4.0).
+     The installation of ELSI makes use of the
+     \href{https://cmake.org}{CMake} software. Minimum requirements
+     include:
 \begin{Verbatim}[commandchars=\\\{\}]
-\tcb{CMake}  [minimum version 3.0; newer version recommended]
-\tcb{Fortran compiler}  [Fortran 2003 compliant]
-\tcb{C compiler}  [C99 compliant]
-\tcb{MPI}  [MPI-3]
+\tcb{CMake} [minimum version 3.0; newer version recommended] \tcb{Fortran
+compiler} [Fortran 2003 compliant] \tcb{C compiler} [C99 compliant]
+\tcb{MPI} [MPI-3]
 \end{Verbatim}
 
 The PEXSi, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, and ChASE solvers are not enabled by default. Enabling the PEXSI and ChASE solvers requires:
@@ -117,7 +122,7 @@ Enabling the CUDA-based GPU acceleration in the ELPA and ChASE solvers requires:
 \tcb{CUDA}  [version 10.0 or newer recommended]
 \end{Verbatim}
 
-Optionally, if ``\texttt{ENABLE\_CHASE\_NCCL}'' is set to be  ``\texttt{ON}','  
+Optionally, if ``\texttt{ENABLE\_CHASE\_NCCL}'' is set to be  ``\texttt{ON}','
 ChASE solver with GPU acceleration requires:
 \begin{Verbatim}[commandchars=\\\{\}]
 \tcb{NCCL}  [version 2.0 or newer recommended]
@@ -184,7 +189,19 @@ In addition, it is highly recommended to specify the compiler flags in \texttt{C
 \label{subsec:config_solvers}
 The ELPA, libOMM, PEXSI, NTPoly, BSEPACK and ChASE solver libraries, as well as the SuperLU\_DIST and PT-SCOTCH libraries (both required by PEXSI), are redistributed with the current ELSI package.
 
-The redistributed version of ELPA comes with a few ``kernels'' written to take advantage of architecture-specific instruction sets, which may be chosen by the \texttt{ELPA2\_KERNEL} keyword. Available options are \texttt{AVX}, \texttt{AVX2}, and \texttt{AVX512}, for architectures supporting Intel AVX, AVX2, and AVX512 instruction sets, respectively. In ELPA, these kernels are employed to accelerate the calculation of eigenvectors, which is often a bottleneck when calculating a large portion of the eigenspectrum. In addition, ELPA supports GPU acceleration on NVIDIA devices via the CUDA programming model and the cuBLAS library. This feature may be enabled by the keyword \texttt{USE\_GPU\_CUDA}, which requires the CUDA runtime and cuBLAS libraries.
+The redistributed version of ELPA comes with a few ``kernels'' written to
+take advantage of architecture-specific instruction sets, which may be
+chosen by the \texttt{ELPA2\_KERNEL} keyword. Available options are
+\texttt{AVX}, \texttt{AVX2}, and \texttt{AVX512}, for architectures
+supporting Intel AVX, AVX2, and AVX512 instruction sets, respectively. In
+ELPA, these kernels are employed to accelerate the calculation of
+eigenvectors, which is often a bottleneck when calculating a large portion
+of the eigenspectrum. In addition, ELPA supports GPU acceleration on NVIDIA
+devices via the CUDA programming model and the cuBLAS library. This feature
+may be enabled by the keyword \texttt{USE\_GPU\_CUDA}, which requires the
+CUDA runtime and cuBLAS libraries. Different versions of internally built
+ELPA can be enabled by the cmake options \texttt{USE\_ELPA\_2021} and
+\texttt{USE\_ELPA\_2023}.
 
 The PEXSI, EigenExa, SLEPc-SIPs, BSEPACK, MAGMA, and ChASE solvers are not enabled by default. They may be activated by the keywords \texttt{ENABLE\_PEXSI}, \texttt{ENABLE\_EIGENEXA}, \texttt{ENABLE\_SIPS}, \texttt{ENABLE\_BSEPACK}, \texttt{ENABLE\_MAGMA} and \texttt{ENABLE\_CHASE}, respectively. PEXSI 1.2.0, EigenExa 2.11, SLEPc 3.9, 3.10, 3.11, 3.12, 3.13, BSEPACK 0.1, and MAGMA 2.5 have been tested with this version of ELSI. Older/newer versions may or may not be compatible. The PETSc library, required by SLEPc, must be compiled with MPI support, and (at least) with MUMPS and ParMETIS enabled.
 
@@ -203,8 +220,9 @@ All external libraries and include paths should be set via \texttt{INC\_PATHS}, 
 Building ELSI test programs may be enabled by \texttt{ENABLE\_TESTS}. Then, the compilation of ELSI may be verified by ``\texttt{make test}'' or ``\texttt{ctest}''. Note that the tests may not run if launching MPI jobs is prohibited on the user's working platform.
 
 \subsection{List of All Configure Options}
-\label{subsec:config_options}
-The options accepted by the ELSI CMake build system are listed here in alphabetical order. Some additional explanations are made below the table.
+\label{subsec:config_options} The options accepted by the ELSI CMake build
+system are listed here in alphabetical order. Some additional explanations
+are made below the table.
 
 \begin{longtable}[]{|p{40mm}|p{15mm}|p{20mm}|p{87mm}|}
 \hline
@@ -231,6 +249,12 @@ The options accepted by the ELSI CMake build system are listed here in alphabeti
 \texttt{CMAKE\_Fortran\_FLAGS}    & string  & none        & Fortran flags\\
 \hline
 \texttt{CMAKE\_INSTALL\_PREFIX}   & path    & /usr/local  & Path to install ELSI\\
+\hline
+\texttt{USE\_ELPA\_2021}          & boolean & OFF         & Enable ELPA
+2021\\
+\hline
+\texttt{USE\_ELPA\_2023}          & boolean & OFF         & Enable ELPA
+2023\\
 \hline
 \texttt{ELPA2\_KERNEL}            & string  & none        & ELPA2 kernel\\
 \hline
@@ -1169,10 +1193,10 @@ end do
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_tol}(handle, resid\_tol)}\\
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_filter\_deg}(handle, deg)}\\
 	\multicolumn{4}{l}{\api{elsi\_set\_chase\_extra\_space}(handle, extra\_ratio)}\\
-	\multicolumn{4}{l}{\api{elsi\_set\_chase\_min\_extra\_space}(handle, min\_s)}\\			
-	\multicolumn{4}{l}{\api{elsi\_set\_chase\_deg\_opt}(handle, is\_deg\_opt)}\\	
-	\multicolumn{4}{l}{\api{elsi\_set\_chase\_evecs\_recycl}(handle, is\_recycl)}\\				
-	\multicolumn{4}{l}{\api{elsi\_set\_chase\_cholqr}(handle, is\_cholqr)}\\					
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_min\_extra\_space}(handle, min\_s)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_deg\_opt}(handle, is\_deg\_opt)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_evecs\_recycl}(handle, is\_recycl)}\\
+	\multicolumn{4}{l}{\api{elsi\_set\_chase\_cholqr}(handle, is\_cholqr)}\\
 	\multicolumn{4}{l}{}\\
 	\hline
 	\multicolumn{1}{|l|}{\textbf{Argument}} & \multicolumn{1}{l|}{\textbf{Data Type}} & \multicolumn{1}{l|}{\textbf{Default}} & \multicolumn{1}{l|}{\textbf{Explanation}}\\
@@ -1180,21 +1204,21 @@ end do
 	\texttt{resid\_tol} & real double &  $10^{-8}$ & Convergence tolerance of the residuals of the desired eigenpairs.\\
 	\hline
 	\texttt{deg} & integer &  $20$ &  Initial degree of Chebyshev polynomial in ChASE. \\
-    \hline	
+    \hline
 	\texttt{extra\_ratio} & real double &  $0.25$ & Percentage of extra eigenvalues added to the
                                                         searching space filtered by the Chebyshev polynomial. The size of the
                                                         search space is then ((1+\texttt{extra\_ratio})$\times$ \texttt{n\_state}). \\
-	\hline	    
+	\hline
 	\texttt{min\_s} & integer &  $10$ & Minimal number of extra eigenvalues to be added to
                                             the search space filtered by the Chebyshev polynomial. \\
 	\hline
 	\texttt{is\_deg\_opt} & integer &  $1$ &  Controls the activation of the optimization
                                                  mechanism of the degree of the Cheby. polynomimal. 0: Disabled. 1: Enabled. \\
 	\hline
-	\texttt{is\_recycl} & integer &  $1$ &  Controls the use of approximate eigenvectors when they are available. 0: No. 1: Yes. \\	
+	\texttt{is\_recycl} & integer &  $1$ &  Controls the use of approximate eigenvectors when they are available. 0: No. 1: Yes. \\
 	\hline
-	\texttt{is\_cholqr} & integer &  $1$ &  Controls the use of flexible Cholesky QR in ChASE. 0: use Househoulder QR. 1: Yes. \\	
-\hline							
+	\texttt{is\_cholqr} & integer &  $1$ &  Controls the use of flexible Cholesky QR in ChASE. 0: use Househoulder QR. 1: Yes. \\
+\hline
 \end{tabular}
 
 \textbf{Remarks}
@@ -1204,7 +1228,7 @@ minimal value for the residual after which the corresponding eigenpair
 is declared converged. As a rule of thumb a minimum value of $10^{-8}$
 and $10^{-4}$ are suggested for Double Precision and Single Precision,
 respectively. The smallest safe value for this parameter is
-$10^{-14}$. For smaller values, the ChASE algorithm may fail to converge. 
+$10^{-14}$. For smaller values, the ChASE algorithm may fail to converge.
 
 
 (2) \texttt{deg} controls the polynomial degree for the Chebyshev
@@ -1223,14 +1247,14 @@ that the overall size of the search space is \texttt{n\_state} +
 of the value of \texttt{n\_state} is more than sufficient. The best
 case scenario for optimal convergence is when there is a large
 spectrum gap between \texttt{n\_state} and \texttt{n\_state} +
-\texttt{extra\_ratio} $\times$ \texttt{n\_state}. 
+\texttt{extra\_ratio} $\times$ \texttt{n\_state}.
 
 (4) \texttt{is\_deg\_opt} is a parameter controlling that the filter
 uses a vector of degrees optimized for each single filtered
 vector. It is advisable to keep the degree optimization enabled in order to avoid
 wasting extra FLOPs to reach convergence. In some cases where the
 spectrum of the problem is particularly challenging, the optimization
-could be disabled to avoid undesired fluctuation in the eigenpairs residuals. 
+could be disabled to avoid undesired fluctuation in the eigenpairs residuals.
 
 (5) \texttt{is\_recycl} controls those cases when the user can provide
 ChASE with approximate eigenvectors. This situation is typical for
@@ -1243,14 +1267,14 @@ SCF cycle. By solving the entire sequence of eigenproblems in this
 way, ChASE can gain substantial speedups sometimes even halfing the
 time to solution. When \texttt{is\_recycl} is set to $1$, ChASE
 expects to receive in input two arrays holding approximate vectors and
-values. 
+values.
 
 (6)  \texttt{is\_cholqr} can be used to enable/disable a flexible Cholesky QR in ChASE.
 Based on an estimation of condition number of filtered vectors, this flexible Cholesky QR is
 able to select different variants of CholeskyQR on the fly to attain the best performance while
 maintain a good numerical stability. This mechanism is enabled by default, and it can be
 disabled by setting  \texttt{is\_cholqr} to $0$. Then a numerical stable Househoulder QR
-factorization (either from LAPACK or ScaLAPACK) would be used. 
+factorization (either from LAPACK or ScaLAPACK) would be used.
 
 \section{Getting Additional Results from ELSI}
 \label{sec:getter}
@@ -2035,16 +2059,28 @@ call \tcb{elsi_finalize} (eh)
 \end{Verbatim}
 \end{tcolorbox}
 
+\subsection*{Static excitations through the Delta-SCF method}
+\begin{tcolorbox}
+\begin{Verbatim}[commandchars=\\\{\}]
+call \tcb{elsi_static_excitations} (eh, n_electron, n_state, n_spin, n_kpt,
+k_wt, eval, occ, mu, mu_lower, mu_upper, n_excited_electrons, excitation_type)
+\end{Verbatim}
+\end{tcolorbox}
+
+\textbf{Remarks}\\
+(1) For the \texttt{elsi\_static\_excitations} subroutine,
+\texttt{occ} outputs the occupation number matrix for the excited state
+with a number of \texttt{n\_excited\_electrons} excited electrons.
+
 % Reference
-\bibliographystyle{elsarticle-num}
-\bibliography{elsi_manual}
+\bibliographystyle{elsarticle-num} \bibliography{elsi_manual}
 
 \chapter*{License and Copyright}
 ELSI interface software is licensed under the 3-clause BSD license:
 
 \begin{tcolorbox}
 \begin{Verbatim}
-Copyright (c) 2015-2021, the ELSI team.
+Copyright (c) 2015-2023, the ELSI team.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
@@ -2072,6 +2108,6 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \end{Verbatim}
 \end{tcolorbox}
 
-The source code of ELPA 2020.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), BSEPACK 0.1 (BSD3), ChASE 1.4.0 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
+The source code of ELPA 2020.05.001, 2021.11.001 and 2023.05.001 (LGPL3), libOMM 1.0.0 (BSD2), NTPoly 2.7.0 (MIT), PEXSI 1.2.0 (BSD3), PT-SCOTCH 6.1.0 (CeCILL-C), SuperLU\_DIST 6.2.0 (BSD3), BSEPACK 0.1 (BSD3), ChASE 1.4.0 (BSD3) are redistributed through this version of ELSI. Individual license of each library can be found in the corresponding subfolder.
 
 \end{document}
