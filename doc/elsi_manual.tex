@@ -2060,6 +2060,11 @@ call \tcb{elsi_finalize} (eh)
 \end{tcolorbox}
 
 \subsection*{Static excitations through the Delta-SCF method}
+
+This subroutine allows the user to excite a \texttt{n\_excited\_electrons}
+number of integer or fractional electrons from the valence band maximum to
+the conduction band minimum.
+
 \begin{tcolorbox}
 \begin{Verbatim}[commandchars=\\\{\}]
 call \tcb{elsi_static_excitations} (eh, n_electron, n_state, n_spin, n_kpt,
@@ -2068,9 +2073,13 @@ k_wt, eval, occ, mu, mu_lower, mu_upper, n_excited_electrons, excitation_type)
 \end{tcolorbox}
 
 \textbf{Remarks}\\
-(1) For the \texttt{elsi\_static\_excitations} subroutine,
-\texttt{occ} outputs the occupation number matrix for the excited state
-with a number of \texttt{n\_excited\_electrons} excited electrons.
+(1) This subroutine should be called at each SCF iteration.\\
+(2) \texttt{occ} outputs the occupation number matrix for the excited state with a number of
+\texttt{n\_excited\_electrons} excited electrons. \\
+(3) \texttt{excitation\_type} corresponds to either \texttt{scf} or
+\texttt{nscf}, the former for self-consistent calculations and the latter
+for non-self consistent calculations such as bandstructures, which should
+be followed by a converged SCF calculation.
 
 % Reference
 \bibliographystyle{elsarticle-num} \bibliography{elsi_manual}
