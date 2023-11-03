@@ -4,7 +4,7 @@ SET(CMAKE_Fortran_COMPILER "mpifort" CACHE STRING "MPI Fortran compiler")
 SET(CMAKE_C_COMPILER "mpicc" CACHE STRING "MPI C compiler")
 SET(CMAKE_CXX_COMPILER "mpicxx" CACHE STRING "MPI C++ compiler")
 
-SET(CMAKE_Fortran_FLAGS "-O3" CACHE STRING "Fortran flags")
+SET(CMAKE_Fortran_FLAGS "-O3 -ffree-line-length-none -fallow-argument-mismatch" CACHE STRING "Fortran flags")
 SET(CMAKE_C_FLAGS "-O3 -std=c99" CACHE STRING "C flags")
 SET(CMAKE_CXX_FLAGS "-O3 -std=c++11" CACHE STRING "C++ flags")
 
