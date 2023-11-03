@@ -107,6 +107,62 @@ build.intel-shared:
     name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
     entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
   script:
+    - ulimit -s unlimited
+    - export MKL_DYNAMIC=FALSE
+    - export MKL_NUM_THREADS=1
+    - cd external/SCOTCH/src/libscotch
+    - bison -p scotchyy -y -b y -d -v -o ./tmp2.c ./parser_yy.y
+    - cd ../../../../
+    - cat ./toolchains/intel.cmake
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
+    - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/intel.cmake -DBUILD_SHARED_LIBS=ON ..
+    - make -j4
+  artifacts:
+    paths:
+      - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 days
+
+### Intel compilers + MPI + MKL + external solver libraries (debug) ###
+build.intel-debug:
+  stage: build
+  rules:
+    - when: on_success
+  script:
+    - module load intel-compilers-2018.4
+    - module load intel-mpi-2018.4
+    - module load intel-mkl-2018.4
+    - export MKL_DYNAMIC=FALSE
+    - export MKL_NUM_THREADS=1
+    - cat ./toolchains/intel_debug.cmake
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
+    - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/intel_debug.cmake ..
+    - make -j4
+  artifacts:
+    paths:
+    - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 day
+
+##### TEST STAGE #####
+
+### GNU compilers + MPICH + Netlib BLAS, LAPACK, ScaLAPACK ###
+test.gnu:
+  stage: test
+  dependencies:
+    - build.gnu
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
+  script:
     - export PATH=$MPICH_HOME/bin/:$PATH
     - export LD_LIBRARY_PATH=$MPICH_HOME/lib:$LD_LIBRARY_PATH
     - cd build.gnu
