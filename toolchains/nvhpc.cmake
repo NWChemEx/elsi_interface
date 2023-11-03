@@ -12,6 +12,7 @@ SET(ENABLE_PEXSI ON CACHE BOOL "Enable PEXSI")
 SET(ENABLE_CHASE ON CACHE BOOL "Enable ChASE eigensolver")
 SET(ENABLE_TESTS ON CACHE BOOL "Enable Fortran tests")
 SET(ENABLE_C_TESTS ON CACHE BOOL "Enable C tests")
+SET(USE_ELPA_2023 ON CACHE BOOL "ENABLE ELPA 2023")
 
 SET(LIB_PATHS "/home/yy244/compilers/nvhpc_2020_207_Linux_x86_64_cuda_11.0/Linux_x86_64/20.7/comm_libs/openmpi/openmpi-3.1.5/lib /home/yy244/compilers/nvhpc_2020_207_Linux_x86_64_cuda_11.0/Linux_x86_64/20.7/compilers/lib" CACHE STRING "External library paths")
 #SET(LIB_PATHS "/home/wy29/opt/nvidia/hpc_sdk/Linux_x86_64/20.7/comm_libs/openmpi/openmpi-3.1.5/lib /home/wy29/opt/nvidia/hpc_sdk/Linux_x86_64/20.7/compilers/lib" CACHE STRING "External library paths")
