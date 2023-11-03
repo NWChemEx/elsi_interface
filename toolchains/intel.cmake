@@ -9,7 +9,7 @@ SET(CMAKE_C_FLAGS "-O3 -ip -fp-model precise -std=c99" CACHE STRING "C flags")
 SET(CMAKE_CXX_FLAGS "-O3 -ip -fp-model precise -std=c++11" CACHE STRING "C++ flags")
 
 SET(ENABLE_PEXSI ON CACHE BOOL "Enable PEXSI")
-SET(ENABLE_CHASE ON CACHE BOOL "Enable ChASE eigensolver")
+SET(ENABLE_CHASE OFF CACHE BOOL "Enable ChASE eigensolver")
 SET(CHASE_OUTPUT ON CACHE BOOL "Enable ChASE solver with output")
 SET(ENABLE_TESTS ON CACHE BOOL "Enable Fortran tests")
 SET(ENABLE_C_TESTS ON CACHE BOOL "Enable C tests")

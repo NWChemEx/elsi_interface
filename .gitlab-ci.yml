@@ -1,87 +1,262 @@
 before_script:
-  - module use /home/wy29/opt/modulefiles
-  - module use /home/yy244/yy_modules
-  - module purge
-  - module load gcc-7.5.0
-  - module load cmake_3.20.5
   - export OMP_NUM_THREADS=1
+  - ulimit -c 0
+  - ulimit -a
 
 variables:
   CI_DEBUG_TRACE: "true"
 
-### GNU compilers + OpenMPI + Netlib BLAS, LAPACK, ScaLAPACK ###
-gnu:
+stages:
+  - build
+  - test
+
+##### BUILD STAGE #####
+
+### GNU compilers + MPICH + Netlib BLAS, LAPACK, ScaLAPACK ###
+build.gnu:
+  stage: build
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
   script:
-    - module load openmpi-4.1.0
+    - export PATH=$MPICH_HOME/bin/:$PATH
+    - export LD_LIBRARY_PATH=$MPICH_HOME/lib:$LD_LIBRARY_PATH
+    - cd external/SCOTCH/src/libscotch
+    - bison -p scotchyy -y -b y -d -v -o ./tmp2.c ./parser_yy.y
+    - cd ../../../../
     - cat ./toolchains/gnu.cmake
-    - rm -rf build
-    - mkdir build
-    - cd build
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/gnu.cmake ..
     - make -j4
-    - ctest --output-on-failure
+  artifacts:
+    when: always
+    paths:
+      - $CI_JOB_NAME/
+    expire_in: 1 days
 
 ### NVIDIA HPC SDK (20.7) ###
-nvhpc:
+build.nvhpc:
+  stage: build
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/centos-nvhpc:latest
   script:
-    - module unload gcc-7.5.0
-    - module load gcc-7.5
-    - module load glibc-2.14
-    - module load nvhpc_yy/20.7
-    - module list
     - cat ./toolchains/nvhpc.cmake
-    - export LD_PRELOAD=/home/yy244/compilers/gcc_install/7.5/lib64/libstdc++.so.6
-    - rm -rf build
-    - mkdir build
-    - cd build
+    - export LD_PRELOAD=/usr/lib64/libstdc++.so.6
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/nvhpc.cmake ..
     - make -j4
-    - ctest --output-on-failure
+  artifacts:
+    paths:
+      - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 days
 
 ### Intel compilers + MPI + MKL ###
-intel:
+build.intel:
+  stage: build
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
   script:
-    - module load intel-compilers-2018.4
-    - module load intel-mpi-2018.4
-    - module load intel-mkl-2018.4
+    - ulimit -s unlimited
     - export MKL_DYNAMIC=FALSE
     - export MKL_NUM_THREADS=1
+    - cd external/SCOTCH/src/libscotch
+    - bison -p scotchyy -y -b y -d -v -o ./tmp2.c ./parser_yy.y
+    - cd ../../../../
     - cat ./toolchains/intel.cmake
-    - rm -rf build
-    - mkdir build
-    - cd build
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/intel.cmake ..
     - make -j4
-    - ctest --output-on-failure
+  artifacts:
+    paths:
+      - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 days
 
 ### Intel compilers + MPI + MKL (shared library) ###
-intel-shared:
+build.intel-shared:
+  stage: build
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
   script:
-    - module load intel-compilers-2018.4
-    - module load intel-mpi-2018.4
-    - module load intel-mkl-2018.4
+    - ulimit -s unlimited
     - export MKL_DYNAMIC=FALSE
     - export MKL_NUM_THREADS=1
+    - cd external/SCOTCH/src/libscotch
+    - bison -p scotchyy -y -b y -d -v -o ./tmp2.c ./parser_yy.y
+    - cd ../../../../
     - cat ./toolchains/intel.cmake
-    - rm -rf build
-    - mkdir build
-    - cd build
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/intel.cmake -DBUILD_SHARED_LIBS=ON ..
     - make -j4
-    - ctest --output-on-failure
+  artifacts:
+    paths:
+      - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 days
 
 ### Intel compilers + MPI + MKL + external solver libraries (debug) ###
-intel-debug:
+build.intel-debug:
+  stage: build
+  rules:
+    - when: on_success
   script:
+    - module use /home/wy29/opt/modulefiles
+    - module use /home/yy244/yy_modules
+    - module purge
+    - module load gcc-7.5.0
+    - module load glibc-2.14
+    - module load cmake_3.20.5
     - module load intel-compilers-2018.4
     - module load intel-mpi-2018.4
     - module load intel-mkl-2018.4
     - export MKL_DYNAMIC=FALSE
     - export MKL_NUM_THREADS=1
     - cat ./toolchains/intel_debug.cmake
-    - rm -rf build
-    - mkdir build
-    - cd build
+    - rm -rf $CI_JOB_NAME
+    - mkdir $CI_JOB_NAME
+    - cd $CI_JOB_NAME
     - cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/intel_debug.cmake ..
     - make -j4
+  artifacts:
+    paths:
+    - $CI_JOB_NAME/
+    when: always
+    expire_in: 1 day
+
+##### TEST STAGE #####
+
+### GNU compilers + MPICH + Netlib BLAS, LAPACK, ScaLAPACK ###
+test.gnu:
+  stage: test
+  dependencies:
+    - build.gnu
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
+  script:
+    - export PATH=$MPICH_HOME/bin/:$PATH
+    - export LD_LIBRARY_PATH=$MPICH_HOME/lib:$LD_LIBRARY_PATH
+    - cd build.gnu
     - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 1 days
+
+### NVIDIA HPC SDK (20.7) ###
+test.nvhpc:
+  stage: test
+  dependencies:
+    - build.nvhpc
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/centos-nvhpc:latest
+  script:
+    - export LD_PRELOAD=/usr/lib64/libstdc++.so.6
+    - cd build.nvhpc
+    - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 1 days
+
+### Intel compilers + MPI + MKL ###
+test.intel:
+  stage: test
+  dependencies:
+    - build.intel
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
+  script:
+    - ulimit -s unlimited
+    - export MKL_DYNAMIC=FALSE
+    - export MKL_NUM_THREADS=1
+    - cd build.intel
+    - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 1 days
+
+### Intel compilers + MPI + MKL (shared library) ###
+test.intel-shared:
+  stage: test
+  dependencies:
+    - build.intel-shared
+  rules:
+    - when: on_success
+  tags:
+    - docker
+  image:
+    name: uthpalaherath/ubuntu20-intel2022-mpich3.3.2-gnu10.5:latest
+    entrypoint: [ '/bin/bash', '-c', 'ln -snf /bin/bash /bin/sh && /bin/bash -c $0' ]
+  script:
+    - ulimit -s unlimited
+    - export MKL_DYNAMIC=FALSE
+    - export MKL_NUM_THREADS=1
+    - cd build.intel-shared
+    - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 1 days
+
+### Intel compilers + MPI + MKL + external solver libraries (debug) ###
+test.intel-debug:
+  stage: test
+  dependencies:
+    - build.intel-debug
+  rules:
+    - when: on_success
+  script:
+    - module use /home/wy29/opt/modulefiles
+    - module use /home/yy244/yy_modules
+    - module purge
+    - module load gcc-7.5.0
+    - module load glibc-2.14
+    - module load cmake_3.20.5
+    - module load intel-compilers-2018.4
+    - module load intel-mpi-2018.4
+    - module load intel-mkl-2018.4
+    - export MKL_DYNAMIC=FALSE
+    - export MKL_NUM_THREADS=1
+    - cd build.intel-debug
+    - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 1 day
