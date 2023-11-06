@@ -126,6 +126,8 @@ build.intel-debug:
   stage: build
   rules:
     - when: on_success
+  tags:
+    - node17.timewarp
   script:
     - module use /home/wy29/opt/modulefiles
     - module use /home/yy244/yy_modules
@@ -239,6 +241,8 @@ test.intel-shared:
 ### Intel compilers + MPI + MKL + external solver libraries (debug) ###
 test.intel-debug:
   stage: test
+  tags:
+    - node17.timewarp
   dependencies:
     - build.intel-debug
   rules:

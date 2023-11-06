@@ -88,10 +88,14 @@ IF(USE_GPU_CUDA)
   LIST(APPEND elpa_src
     src/cudaFunctions.cu
     src/cuUtils.cu
+    src/mod_hip_stub.f90
+    src/interface_c_hip_kernel_stub.f90
+    src/interface_c_sycl_kernel_stub.F90
     src/elpa_generated_fortran_interfaces.f90
-    src/ev_tridi_band_gpu_complex.cu
-    src/ev_tridi_band_gpu_real.cu
-    src/interface_c_kernel.f90
+    src/ev_tridi_band_nvidia_gpu_complex.cu
+    src/ev_tridi_band_nvidia_gpu_real.cu
+    src/interface_c_gpu_kernel.f90
+    src/interface_c_cuda_kernel.f90
     src/kernels/kernels_complex.f90
     src/kernels/kernels_real.f90
     src/mod_compute_hh_trafo_cuda.f90
