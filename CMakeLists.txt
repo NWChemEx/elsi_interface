@@ -120,7 +120,7 @@ ELSE()
         MESSAGE(STATUS "Enabling internal ELPA-2023.05.001")
         MESSAGE(STATUS "WARNING: Internal ELPA may not be as efficient and updated as the external build!")
         ADD_SUBDIRECTORY(external/ELPA-2023.05.001-nompi)
-    ENDIF
+    ENDIF()
   ELSE()
     MESSAGE(STATUS "Enabling internal ELPA-2020.05.001 (depricated)")
     MESSAGE(STATUS "WARNING: Internal ELPA may not be as efficient and updated as the external build!")
