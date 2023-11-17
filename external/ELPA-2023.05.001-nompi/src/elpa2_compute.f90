@@ -1,0 +1,19571 @@
+
+
+
+
+
+
+
+
+
+
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), fomerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA2 -- 2-stage solver for ELPA
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+!
+! Author: Andreas Marek, MPCDF
+
+
+module ELPA2_compute
+
+! Version 1.1.2, 2011-02-21
+
+  use ELPA_utilities
+  USE ELPA1_compute
+  use elpa_pdgeqrf
+  use precision
+  use elpa_mpi
+  use aligned_mem
+
+  implicit none
+
+  PRIVATE ! By default, all routines contained are private
+
+  public :: bandred_real_double
+  public :: tridiag_band_real_double
+  public :: trans_ev_tridi_to_band_real_double
+  public :: trans_ev_band_to_full_real_double
+
+  public :: bandred_real_single
+  public :: tridiag_band_real_single
+  public :: trans_ev_tridi_to_band_real_single
+  public :: trans_ev_band_to_full_real_single
+
+  public :: bandred_complex_double
+  public :: tridiag_band_complex_double
+  public :: trans_ev_tridi_to_band_complex_double
+  public :: trans_ev_band_to_full_complex_double
+
+  public :: bandred_complex_single
+  public :: tridiag_band_complex_single
+  public :: trans_ev_tridi_to_band_complex_single
+  public :: trans_ev_band_to_full_complex_single
+  public :: band_band_real_double
+!  public :: divide_band
+
+  integer(kind=ik), public :: which_qr_decomposition = 1     ! defines, which QR-decomposition algorithm will be used
+                                                    ! 0 for unblocked
+                                                    ! 1 for blocked (maxrank: nblk)
+  contains
+
+! real double precision
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+!cannot use "../src/elpa2/../general/error_checking.inc" because filename with path can be too long for gfortran (max line length)
+
+
+
+
+
+! - works with mimic loop
+! - is it the sharing of device pointers?
+
+
+subroutine bandred_&
+&real&
+&_&
+&double &
+(obj, na, a_mat, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, tmat, &
+wantDebug, useGPU, success, &
+useQR, &
+max_threads, isSkewsymmetric)
+
+!-------------------------------------------------------------------------------
+!  bandred_real/complex: Reduces a distributed symmetric matrix to band form
+!
+!  Parameters
+!
+!  na          Order of matrix
+!
+!  a_mat(matrixRows,matrixCols)    Distributed matrix which should be reduced.
+!              Distribution is like in Scalapack.
+!              Opposed to Scalapack, a_mat(:,:) must be set completely (upper and lower half)
+!              a_mat(:,:) is overwritten on exit with the band and the Householder vectors
+!              in the upper half.
+!
+!  matrixRows         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith of output matrix
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!  tmat(nbw,nbw,numBlocks)    where numBlocks = (na-1)/nbw + 1
+!              Factors for the Householder vectors (returned), needed for back transformation
+!
+!-------------------------------------------------------------------------------
+
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa1_compute
+  use precision
+  use elpa_blas_interfaces
+  use elpa_abstract_impl
+  !use cuda_functions
+  !use hip_functions
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)  :: obj
+  integer(kind=ik)                            :: na, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols
+
+  real(kind=rck)                     :: a_mat(matrixRows,*)
+  real(kind=rck)                     :: tmat(nbw,nbw,*)
+
+  real(kind=rk)                               :: eps
+  logical, intent(in)                         :: useGPU
+  logical, intent(in)                         :: isSkewsymmetric
+  character(20)                               :: gpuString
+
+  integer(kind=ik)                            :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                      :: mpierr,  my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI
+  integer(kind=ik)                            :: l_cols, l_rows, max_l_rows, max_l_cols
+  integer(kind=ik),allocatable                :: blockinfo(:,:)
+  integer(kind=ik)                            :: vmrCols
+  integer(kind=ik)                            :: i, j, lcs, lce, lre, lc, lr, cur_pcol, n_cols, nrow
+  integer(kind=ik)                            :: istep, ncol, lch, lcx, iblock, nblocks, c_start, &
+                                                blc_start, blc_end, blc_len
+  integer(kind=ik)                            :: tile_size, l_rows_tile, l_cols_tile
+
+  real(kind=rck)                    :: vrl, tau
+  real(kind=rck)                    :: vav(nbw,nbw)
+
+  real(kind=rck), allocatable        :: tmpGPU(:)
+  real(kind=rck), pointer            :: vmrGPU(:), umcGPU(:)
+  real(kind=rck), pointer            :: vmrGPU_2d(:,:), umcGPU_2d(:,:)
+  real(kind=rck), allocatable        :: vmrCPU(:,:), umcCPU(:,:), vmrCPU_qr(:,:)
+  real(kind=rck), allocatable        :: vr(:)
+  real(kind=rck)                     :: taublock(nbw), vrlblock(nbw)
+  real(kind=rck), allocatable, target:: ex_buff(:)
+  real(kind=rck), pointer, contiguous:: ex_buff2d(:,:)
+
+  ! needed for blocked QR decomposition
+  integer(kind=ik)                            :: PQRPARAM(11), work_size
+  real(kind=rk)                               :: dwork_size(1)
+  real(kind=rk), allocatable                  :: work_blocked(:), tauvector(:), blockheuristic(:)
+  integer(kind=C_intptr_T)                    :: a_dev, vmr_dev, umc_dev, tmat_dev, vav_dev
+  integer(kind=C_intptr_T)                    :: a_dev0, a_dev1, vmr_dev0, vmr_dev1, umc_dev0, umc_dev1
+  type(c_ptr)                                 :: a_dev_ptr, vmr_dev_ptr, umc_dev_ptr
+  real(kind=rck), pointer            :: vmr_dev_fortran_ptr, umc_dev_fortran_ptr, a_dev_fortran_ptr
+  type(c_ptr)                                 :: vmr_host, umc_host
+  real(kind=rck), pointer            :: vmr_debug(:), umc_debug(:)
+  integer(kind=ik)                            :: ierr
+  integer(kind=ik)                            :: cur_l_rows, cur_l_cols
+  integer(kind=ik)                            :: vmr_size, umc_size
+  integer(kind=ik)                            :: l_rows2, vmr_size2, umc_size2
+  integer(kind=c_intptr_t)                    :: lc_start, lc_end
+  integer(kind=ik)                            :: lr_end
+  !integer(kind=ik)                            :: na_cols
+  !integer(kind=BLAS_KIND)                     :: na_colsBLAS
+
+  logical, intent(in)                         :: wantDebug
+  logical, intent(out)                        :: success
+  logical                                     :: successGPU
+  integer(kind=ik)                            :: istat
+  character(200)                              :: errorMessage
+  integer(kind=ik)                            :: min_tile_size, error
+
+  logical, intent(in)                         :: useQR
+  integer(kind=ik)                            :: mystart, myend, m_way, n_way, work_per_thread, m_id, n_id, n_threads, &
+                                                ii, off, lrex
+  integer(kind=c_intptr_t), parameter           :: size_of_datatype = size_of_&
+                                                                    &double&
+                                                                    &_&
+                                                                    &real
+
+  logical                                     :: useGPU_reduction_lower_block_to_tridiagonal
+  integer(kind=ik),intent(in)                 :: max_threads
+  integer(kind=ik)                            :: max_threads_used
+  logical                                     :: do_memcpy
+  integer(kind=ik)                            :: i_blk,blk_off, blk_end
+
+  integer(kind=MPI_KIND)                      :: bcast_request, allreduce_request1, allreduce_request2, &
+                                                 allreduce_request3, allreduce_request4, allreduce_request5, &
+                                                 allreduce_request6
+  integer(kind=MPI_KIND), allocatable         :: breq(:)
+  
+  logical                                     :: useNonBlockingCollectivesCols
+  logical                                     :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                         :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  integer(kind=c_int)                         :: myThreadID, mimick
+  integer(kind=c_int)                         :: memcols
+
+  integer(kind=c_intptr_t)                    :: gpuHandle, my_stream
+
+
+  max_threads_used = max_threads
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("bandred_&
+  &real&
+  &" // &
+  "_double" // &
+  gpuString )
+
+  call obj%get("nbc_row_elpa2_full_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_full_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+ 
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+ 
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  useGPU_reduction_lower_block_to_tridiagonal = .false.
+ 
+  if (useGPU) then
+    useGPU_reduction_lower_block_to_tridiagonal = .true.
+    if (useQR) then
+      !in this case switch off GPU usage for step "reduce current block to lower triangular form"
+      ! since this is done by QR decomposition
+      useGPU_reduction_lower_block_to_tridiagonal = .false.
+    endif
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+  success = .true.
+
+
+  ! Semibandwith nbw must be a multiple of blocksize nblk
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &real&
+                             &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &real&
+                             &: ELPA2 works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  ! na_rows in used nowhere; only na_cols
+  if (useGPU) then
+
+    ! Here we convert the regular host array into a pinned host array
+    successGPU = gpu_malloc(a_dev, matrixRows*matrixCols* size_of_datatype)
+    call check_alloc_GPU_f("bandred: a_dev", 344,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(vav),kind=c_intptr_t), &
+                  nbw * nbw * size_of_datatype,&
+                  gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: vav", 352,  successGPU)
+
+    successGPU = gpu_malloc(vav_dev, nbw*nbw* size_of_datatype)
+    call check_alloc_GPU_f("bandred: vav_dev", 358,  successGPU)
+  endif ! useGPU
+
+  ! Matrix is split into tiles; work is done only for tiles on the diagonal or above
+
+  tile_size = nblk*least_common_multiple(np_rows,np_cols) ! minimum global tile size
+
+  ! make tile_size a smallest possible multiple of previously defined tile size, such that it is
+  ! larger or equal to min_tile_size
+  ! min_tile_size has been originally hardcoded as 128 * max(np_rows, np_cols), so it is now the implicit value
+  ! it can, however, be set by the user
+  call obj%get("min_tile_size", min_tile_size ,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for min_tile_size. Aborting..."
+    success = .false.
+    return
+  endif
+  if(min_tile_size == 0) then
+    ! not set by the user, use the default value
+    min_tile_size = 128*max(np_rows, np_cols)
+  endif
+  tile_size = ((min_tile_size-1)/tile_size+1)*tile_size
+
+  l_rows_tile = tile_size/np_rows ! local rows of a tile
+  l_cols_tile = tile_size/np_cols ! local cols of a tile
+
+  if (useQR) then
+
+    if (which_qr_decomposition == 1) then
+      call qr_pqrparam_init(obj,pqrparam(1:11),    nblk,'M',0,   nblk,'M',0,   nblk,'M',1,'s')
+      allocate(tauvector(na), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: tauvector", 390,  istat,  errorMessage)
+
+      allocate(blockheuristic(nblk), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: blockheuristic", 393,  istat,  errorMessage)
+
+      l_rows = local_index(na, my_prow, np_rows, nblk, -1)
+      allocate(vmrCPU_qr(max(l_rows,1),na), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU_qr", 397,  istat,  errorMessage)
+
+      vmrCols = na
+
+      call qr_pdgeqrf_2dcomm_&
+           &double&
+           &(obj, a_mat(1:matrixRows,1:matrixCols), matrixCols, matrixRows, vmrCPU_qr(1:max(l_rows,1),1:vmrCols), max(l_rows,1), &
+                             vmrCols, tauvector(1:na), na, tmat(1:nbw,1:nbw,1), nbw, &
+                             nbw, dwork_size(1:1), 1, -1, na, nbw, nblk, nblk, na, na, 1, 0, PQRPARAM(1:11), &
+                             mpi_comm_rows, mpi_comm_cols, blockheuristic)
+
+      work_size = int(dwork_size(1))
+      allocate(work_blocked(work_size), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: work_blocked", 419,  istat,  errorMessage)
+      work_blocked = 0.0_rk
+      deallocate(vmrCPU_qr, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: vmrCPU_qr", 422,  istat,  errorMessage)
+
+    endif ! which_qr_decomposition
+
+  endif ! useQr
+
+  blk_end = (na-1)/nbw
+  if (useGPU) then
+ 
+      successGPU = gpu_host_register(int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: a_mat", 437,  successGPU)
+
+    cur_l_rows = 0
+    cur_l_cols = 0
+
+    successGPU = gpu_memcpy(a_dev, int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("bandred: a_dev", 464,  successGPU)
+
+    successGPU = gpu_malloc(tmat_dev, nbw*nbw*size_of_datatype)
+    call check_alloc_GPU_f("bandred: tmat_dev", 468,  successGPU)
+
+
+
+
+
+    istep = (na-1)/nbw
+    blk_end = (na-1)/nbw
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size = cur_l_rows*2*n_cols
+    umc_size = cur_l_cols*2*n_cols
+
+    istep = (na-1)/nbw - 1
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows2 = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows2,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size2 = cur_l_rows*2*n_cols
+    umc_size2 = cur_l_cols*2*n_cols
+
+    l_rows = max(l_rows,l_rows2)
+    vmr_size = max(vmr_size,vmr_size2)
+    umc_size = max(umc_size,umc_size2)
+
+    allocate(vr(l_rows + 1), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("bandred: vr", 505,  istat,  errorMessage)
+
+      successGPU = gpu_malloc_host(vmr_host,vmr_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: vmr_host", 511,  successGPU)
+      call c_f_pointer(vmr_host, vmrGPU, (/vmr_size/))
+
+    successGPU = gpu_malloc(vmr_dev, vmr_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: vmr_dev", 520,  successGPU)
+
+
+      successGPU = gpu_malloc_host(umc_host,umc_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: umc_host", 527,  successGPU)
+      call c_f_pointer(umc_host, umcGPU, (/umc_size/))
+
+    successGPU = gpu_malloc(umc_dev, umc_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: umc_dev", 536,  successGPU)
+
+
+
+  endif ! useGPU
+
+  do istep = blk_end, 1, -1
+
+    n_cols = MIN(na,(istep+1)*nbw) - istep*nbw ! Number of columns in current step
+
+    ! Number of local columns/rows of remaining matrix
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+
+
+    max_l_rows = max(l_rows,1)
+    max_l_cols = max(l_cols,1)
+
+    ! Allocate vmr and umc to their exact sizes so that they can be used in bcasts and reduces
+
+    if (useGPU) then
+      vmr_size = max_l_rows * 2 * n_cols
+      umc_size = max_l_cols * 2 * n_cols
+    else ! GPU not used
+
+      ! unify the the name vmr and vmrCPU, as well as vmrGPU
+      ! the same for umcCPU and umcGPU
+      ! Allocate vmr and umcCPU to their exact sizes so that they can be used in bcasts and reduces
+
+      allocate(vmrCPU(max_l_rows,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU", 607,  istat,  errorMessage)
+
+      allocate(umcCPU(max_l_cols,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: umcCPU", 610,  istat,  errorMessage)
+
+      allocate(vr(l_rows+1), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vr", 613,  istat,  errorMessage)
+
+    endif ! use GPU
+
+    if (useGPU) then
+      vmrGPU(1 : max_l_rows * n_cols) = 0.0_rck
+      umcGPU(1 : umc_size) = 0.0_rck
+    else ! useGPU
+      vmrCPU(1:l_rows,1:n_cols) = 0.0_rck
+    endif ! useGPU
+
+
+    vr(:) = 0.0_rck
+    tmat(:,:,istep) = 0.0_rck
+    if (useGPU) then
+      lc_start = local_index(istep*nbw+1, my_pcol, np_cols, nblk, -1)
+      lc_end   = local_index(istep*nbw+n_cols, my_pcol, np_cols, nblk, -1)
+      lr_end   = local_index((istep-1)*nbw + n_cols, my_prow, np_rows, nblk, -1)
+
+      if (lc_start .le. 0) lc_start = 1
+
+      do_memcpy = .false.
+
+      ! Note: mod(nbw,nblk) == 0
+      do i_blk = 1, nbw/nblk
+        blk_off = (i_blk-1) * nblk
+        cur_pcol = pcol(istep*nbw+1+blk_off, nblk, np_cols)
+
+        if (my_pcol == cur_pcol) then
+          do_memcpy = .true.
+        endif
+      enddo
+
+      if (do_memcpy) then
+
+          successGPU = gpu_memcpy2d(int(loc(a_mat(1, lc_start)),kind=c_intptr_t), &
+                        int((matrixRows*size_of_datatype),kind=c_intptr_t), &
+                        (a_dev + int( ( (lc_start-1) * matrixRows*size_of_datatype),kind=c_intptr_t )), &
+                        int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                        int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                        int((lc_end - lc_start+1),kind=c_intptr_t),int(gpuMemcpyDeviceToHost,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_dev -> a_mat", 680,  successGPU)
+
+      endif ! do_memcpy
+    endif ! useGPU
+
+    ! Reduce current block to lower triangular form
+    if (useQR) then
+      if (which_qr_decomposition == 1) then
+        vmrCols = 2*n_cols
+        call qr_pdgeqrf_2dcomm_&
+             &double&
+             &(obj, a_mat(1:matrixRows,1:matrixCols), matrixRows, matrixCols, vmrCPU(1:max_l_rows,1:vmrCols) ,   &
+                                max_l_rows, vmrCols, tauvector(1:na), na, &
+                                 tmat(1:nbw,1:nbw,istep), nbw, nbw, work_blocked(1:work_size), work_size, &
+                                 work_size, na, n_cols, nblk, nblk,        &
+                                 istep*nbw+n_cols-nbw, istep*nbw+n_cols, 1,&
+                                 0, PQRPARAM(1:11), mpi_comm_rows, mpi_comm_cols,&
+                                 blockheuristic)
+      endif
+
+    else !useQR
+
+       call obj%timer%start("hh_block")
+       
+       allocate(blockinfo(4,n_cols/nblk+1))
+       iblock=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc
+          if((lc.eq.n_cols).or.(mod(ncol,nblk).eq.0)) then
+             cur_pcol = pcol(ncol, nblk, np_cols) ! Processor column owning current block
+             !new block
+             iblock=iblock+1
+             lch = local_index(ncol, my_pcol, np_cols, nblk, -1) ! HV local column number
+             blockinfo(1,iblock)=cur_pcol !owner of this block
+             blockinfo(2,iblock)=((lch-1)/nblk)*nblk+1 !first a_mat index of this block
+             blockinfo(3,iblock)=mod(ncol-1,nblk)+1 !length of block
+             blockinfo(4,iblock)=lc !last local cell indes of this block
+          end if
+       end do
+       nblocks=iblock
+          
+       allocate(ex_buff(l_rows*n_cols))
+       lrex  = l_rows
+       ex_buff2d(1:lrex,1:n_cols) => ex_buff
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                ex_buff2d(1:lrex,blc_start+off-1)=a_mat(1:lrex,c_start+off-1)
+             end do
+          end if
+       end do
+       call obj%timer%start("hh_trans")
+       off=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc ! absolute column number of householder Vector
+          nrow = ncol - nbw ! Absolute number of pivot row  
+          if (nrow == 1) then !done
+             taublock(1)=0. 
+             exit
+          end if
+          
+          lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+          off=off+1
+          call get_hh_vec(ex_buff2d(1:lr,n_cols-off+1),vr,tau,vrl)
+          
+          call apply_ht(tau,vr,ex_buff2d(:,1:n_cols-off))
+          if (useGPU_reduction_lower_block_to_tridiagonal) then
+             vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) = vr(1:lr)
+          else
+             vmrCPU(1:lr,lc) = vr(1:lr)
+          endif
+          taublock(lc) = tau
+          vrlblock(lc)=vrl
+       end do
+       call obj%timer%stop("hh_trans")
+          
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                lc=blc_start+off-1
+                lch=c_start+off-1
+                ncol = istep*nbw + lc ! absolute column number of householder Vector
+                nrow = ncol - nbw ! Absolute number of pivot row   
+                lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+
+                if (nrow.gt.1) then
+                   if (useGPU_reduction_lower_block_to_tridiagonal) then
+                      a_mat(1:lr,lch)=vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) 
+                   else
+                      a_mat(1:lr,lch)=vmrCPU(1:lr,lc)  
+                   endif
+                   if (my_prow==prow(nrow, nblk, np_rows)) a_mat(lr,lch) = vrlblock(lc)
+                   a_mat(lr+1:lrex,c_start+off-1)=ex_buff2d(lr+1:lrex,blc_start+off-1)
+                else
+                   a_mat(1:lrex,c_start+off-1)=ex_buff2d(1:lrex,blc_start+off-1)
+                end if
+             end do
+          end if
+       end do
+
+          
+       deallocate(blockinfo)
+       deallocate(ex_buff)
+
+       call obj%timer%stop("hh_block")
+
+       if (useGPU_reduction_lower_block_to_tridiagonal) then
+        ! store column tiles back to GPU
+        if (do_memcpy) then
+
+            successGPU = gpu_memcpy2d((a_dev+ &
+                         int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                         int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                         int((lc_end - lc_start+1),kind=c_intptr_t), &
+                         int(gpuMemcpyHostToDevice,kind=c_int))
+            call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 893,  successGPU)
+
+        endif ! do_memcopy
+      endif ! (useGPU_reduction_lower_block_to_tridiagonal
+
+      ! Calculate scalar products of stored Householder vectors.
+      ! This can be done in different ways, we use dsyrk
+
+      vav = 0
+      call obj%timer%start("blas0")
+      if (useGPU_reduction_lower_block_to_tridiagonal) then
+        if (l_rows > 0) then
+          call DSYRK('U', 'T',            &
+                           int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                           vmrGPU, int(max(l_rows, 1),kind=BLAS_KIND), &
+                           ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      else ! useGPU_reduction_to_tridiagonal
+        if (l_rows > 0) then
+          call DSYRK('U', 'T',           &
+                            int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, vmrCPU, &
+                            int(max(l_rows, 1),kind=BLAS_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      endif
+      call obj%timer%stop("blas0")
+      call symm_matrix_allreduce_&
+         &double &
+                         (obj, n_cols,vav, nbw, nbw,mpi_comm_rows, .true., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+        return
+      endif
+
+         ! Calculate triangular matrix T for block Householder Transformation
+      call obj%timer%start("blas1")
+      do lc=n_cols,1,-1
+         tau = taublock(lc)
+         tmat(lc,lc,istep)=tau
+         if (lc < n_cols) then
+            call DTRMV('U', 'T', 'N',&
+                 int(n_cols-lc,kind=BLAS_KIND), tmat(lc+1,lc+1,istep), &
+                 int(nbw,kind=BLAS_KIND), vav(lc+1,lc), 1_BLAS_KIND)
+            
+            tmat(lc,lc+1:n_cols,istep) = -tau * vav(lc+1:n_cols,lc)
+         endif
+      enddo
+      call obj%timer%stop("blas1")
+    endif !useQR
+
+    if (useGPU .and. useQR ) then
+      ! copy the data for furhter usage
+      ! qr worked on *CPU arrarys
+      !vmrGPU(1:max_l_rows * n_cols) = vmrCPU(1:max_l_rows,1:n_cols)
+      if (do_memcpy) then
+          successGPU = gpu_memcpy2d((a_dev+ &
+                       int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                       int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                       int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                       int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                       int((lc_end - lc_start+1),kind=c_intptr_t), &
+                       int(gpuMemcpyHostToDevice,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 1010,  successGPU)
+      endif ! do_memcpy
+    endif ! useGPU .and. useQR
+
+    ! Transpose vmr -> vmc (stored in umc, second half)
+    if (useGPU) then
+      call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &double &
+                        (obj, vmrGPU(:), max_l_rows, mpi_comm_rows, &
+                         umcGPU(max_l_cols * n_cols + 1:), max_l_cols, &
+                         mpi_comm_cols, 1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+                         success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    else ! useGPU
+      call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &double &
+                                        (obj, vmrCPU, max_l_rows, mpi_comm_rows, &
+                                         umcCPU(1,n_cols+1), max_l_cols, mpi_comm_cols, &
+                                         1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+      success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    endif ! useGPU
+
+    ! Calculate umc = A**T * vmr
+    ! Note that the distributed A has to be transposed
+    ! Opposed to direct tridiagonalization there is no need to use the cache locality
+    ! of the tiles, so we can use strips of the matrix
+
+
+    !Code for Algorithm 4
+
+    ! n_way is actually a branch for the number of OpenMP threads
+    n_way = 1
+
+      if (.not.useGPU) then
+        umcCPU(1:l_cols,1:n_cols) = 0.0_rck
+        vmrCPU(1:l_rows,n_cols+1:2*n_cols) = 0.0_rck
+      endif ! useGPU
+
+      if (l_cols > 0 .and. l_rows > 0) then
+
+        if (useGPU) then
+
+            successGPU = gpu_memset(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                        0, max_l_rows*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: vmr_dev", 1291,  successGPU)
+
+
+          successGPU = gpu_memcpy(vmr_dev, int(loc(vmrGPU(1)),kind=c_intptr_t), &
+                        max_l_rows*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: vmrGPU -> vmr_dev", 1323,  successGPU)
+
+
+            successGPU = gpu_memset(umc_dev, 0, l_cols*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: umc_dev", 1341,  successGPU)
+
+
+
+          successGPU = gpu_memcpy(umc_dev+l_cols*n_cols*size_of_datatype, &
+                        int(loc(umcGPU(1+l_cols*n_cols)),kind=c_intptr_t), &
+                        (umc_size-l_cols*n_cols)*size_of_datatype, &
+                        gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev", 1384,  successGPU)
+        endif ! useGPU
+
+        do i=0,(istep*nbw-1)/tile_size
+
+          lcs = i*l_cols_tile+1
+          lce = min(l_cols,(i+1)*l_cols_tile)
+          if (lce<lcs) cycle
+          lre = min(l_rows,(i+1)*l_rows_tile)
+
+          if (useGPU) then
+            call obj%timer%start("gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_DGEMM('T', 'N',                   &
+                                       lce-lcs+1, n_cols, lre,     &
+                                       ONE, (a_dev + ((lcs-1)*matrixRows* &
+                                       size_of_datatype)),         &
+                                       matrixRows, vmr_dev,max_l_rows,    &
+                                       ONE, (umc_dev+ (lcs-1)*     &
+                                           size_of_datatype),      &
+                                       max_l_cols, gpuHandle)
+
+            call obj%timer%stop("gpublas")
+
+            if(i == 0) cycle
+            call obj%timer%start("gpublas")
+
+            lre = min(l_rows,i*l_rows_tile)
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            if (isSkewsymmetric) then
+              call gpublas_DGEMM('N', 'N', lre,n_cols, lce-lcs+1, -ONE, &
+                            (a_dev+ ((lcs-1)*matrixRows*                 &
+                                  size_of_datatype)),             &
+                       matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                              size_of_datatype),              &
+                              max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                            size_of_datatype),              &
+                              max_l_rows, gpuHandle)
+            else
+              call gpublas_DGEMM('N', 'N', lre,n_cols, lce-lcs+1, ONE, &
+                                          (a_dev+ ((lcs-1)*matrixRows*                 &
+                                                size_of_datatype)),             &
+                                     matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                                            size_of_datatype),              &
+                                            max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                                          size_of_datatype),              &
+                                            max_l_rows, gpuHandle)
+            endif
+            call obj%timer%stop("gpublas")
+          else ! useGPU
+
+            call obj%timer%start("blas")
+            call DGEMM('T', 'N',       &
+                                int(lce-lcs+1,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lre,kind=BLAS_KIND), &
+                                ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND), &
+                                vmrCPU, int(max_l_rows,kind=BLAS_KIND), ONE, umcCPU(lcs,1), &
+                                int(max_l_cols,kind=BLAS_KIND) )
+            call obj%timer%stop("blas")
+            if (i == 0) cycle
+            lre = min(l_rows,i*l_rows_tile)
+            call obj%timer%start("blas")
+
+            if (isSkewsymmetric) then
+              call DGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  -ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                           &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+
+            else
+              call DGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                            &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+            endif
+            call obj%timer%stop("blas")
+          endif ! useGPU
+        enddo ! i=0,(istep*nbw-1)/tile_size
+
+        if (useGPU) then
+          if (tile_size < istep*nbw .or. n_way > 1) then
+            successGPU = gpu_memcpy(int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                          vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                          (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyDeviceToHost)
+            call check_memcpy_GPU_f("bandred: vmr_dev -> vmrGPU", 1503,  successGPU)
+          endif
+
+          successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                        umc_dev, l_cols*n_cols*size_of_datatype, gpuMemcpyDeviceToHost)
+          call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU", 1523,  successGPU)
+        endif ! useGPU
+      endif ! l_cols>0 .and. l_rows>0
+
+    ! Sum up all ur(:) parts along rows and add them to the uc(:) parts
+    ! on the processors containing the diagonal
+    ! This is only necessary if ur has been calculated, i.e. if the
+    ! global tile size is smaller than the global remaining matrix
+
+    ! Or if we used the Algorithm 4
+    if (tile_size < istep*nbw .or. n_way > 1) then
+
+      if (useGPU) then
+        call elpa_reduce_add_vectors_&
+             &real&
+             &_&
+             &double &
+                             (obj, vmrGPU(max_l_rows * n_cols + 1:),max_l_rows,  &
+                              mpi_comm_rows, umcGPU,                            &
+                              max_l_cols, mpi_comm_cols, istep*nbw, n_cols, nblk, max_threads_used)
+      else ! useGPU
+        call elpa_reduce_add_vectors_&
+        &real&
+        &_&
+        &double &
+                                         (obj, vmrCPU(1,n_cols+1),max_l_rows,mpi_comm_rows, &
+                                          umcCPU, max_l_cols, mpi_comm_cols, &
+                                          istep*nbw, n_cols, nblk, max_threads_used)
+      endif ! useGPU
+    endif ! tile_size < istep*nbw .or. n_way > 1
+
+    if (l_cols > 0) then
+
+      if (useGPU) then
+
+        if (allocated(tmpGPU)) then
+          deallocate(tmpGPU, stat=istat, errmsg=errorMessage)
+          call check_deallocate_f("bandred: tmpGPU", 1585,  istat,  errorMessage)
+        endif
+
+      else ! useGPU
+
+
+      endif ! useGPU
+    endif ! l_cols > 0
+    ! U = U * Tmat**T
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(umc_dev, int(loc(umcGPU(1)),kind=c_intptr_t), &
+                    l_cols*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev ", 1630,  successGPU)
+
+      successGPU = gpu_memcpy(tmat_dev,int(loc(tmat(1,1,istep)),kind=c_intptr_t), &
+                    nbw*nbw*size_of_datatype,gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: tmat -> tmat_dev ", 1634,  successGPU)
+
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_DTRMM('Right', 'Upper', 'T', 'Nonunit',  &
+                          l_cols, n_cols, ONE, tmat_dev, nbw, umc_dev, max_l_cols, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_DGEMM('T', 'N',             &
+                               n_cols, n_cols, l_cols, ONE, umc_dev, max_l_cols, &
+                               (umc_dev+(max_l_cols * n_cols )*size_of_datatype),max_l_cols, &
+                               ZERO, vav_dev, nbw, gpuHandle)
+
+      call gpublas_DTRMM('Right', 'Upper', 'T', 'Nonunit',    &
+         n_cols, n_cols, ONE, tmat_dev, nbw, vav_dev, nbw, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(vav),kind=c_intptr_t), &
+                  vav_dev, nbw*nbw*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: vav_dev -> vav ", 1671,  successGPU)
+    else ! useGPU
+
+      call obj%timer%start("blas")
+
+      call DTRMM('Right', 'Upper', 'T', 'Nonunit',     &
+                          int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep), &
+                          int(nbw,kind=BLAS_KIND), &
+                          umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+
+      call DGEMM('T', 'N',              &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), &
+                          ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND), umcCPU(1,n_cols+1), &
+                          int(max_l_cols,kind=BLAs_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+
+      call DTRMM('Right', 'Upper', 'T', 'Nonunit',    &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep),    &
+                          int(nbw,kind=BLAS_KIND), vav, int(nbw,kind=BLAS_KIND) )
+      call obj%timer%stop("blas")
+
+    endif ! useGPU
+
+    if (isSkewsymmetric) then
+      call ssymm_matrix_allreduce_&
+      &double &
+      (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling ssymm_matrix_allreduce"
+        return
+      endif
+    else
+      call symm_matrix_allreduce_&
+      &double &
+      (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm_matrix_allreduce"
+        return
+      endif
+    endif
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(vav_dev, int(loc(vav),kind=c_intptr_t), &
+                       nbw*nbw*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vav -> vav_dev ", 1742,  successGPU)
+    endif
+
+
+    ! U = U - 0.5 * V * VAV
+
+    if (useGPU) then
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      if (isSkewsymmetric) then
+        call gpublas_DGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                  0.5_rk,                      &
+                                  (umc_dev+(max_l_cols * n_cols )* &
+                                  size_of_datatype),   &
+                                  max_l_cols, vav_dev,nbw,        &
+                                  ONE, umc_dev, max_l_cols, gpuHandle)
+      else
+        call gpublas_DGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                 -0.5_rk,                      &
+                                 (umc_dev+(max_l_cols * n_cols )* &
+                                 size_of_datatype),   &
+                                 max_l_cols, vav_dev,nbw,        &
+                                 ONE, umc_dev, max_l_cols, gpuHandle)
+      endif
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                  umc_dev, umc_size*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU ", 1803,  successGPU)
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+           &real&
+           &_&
+           &double &
+                       (obj, umcGPU(:), max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                        success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+          return
+        endif
+      else
+        call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &double &
+                       (obj, umcGPU, max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+          return
+        endif
+      endif
+
+      successGPU = gpu_memcpy(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                  int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                  (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vmr -> vmrGPU ", 1860,  successGPU)
+    else ! useGPU
+      call obj%timer%start("blas")
+      if (isSkewsymmetric) then
+        call DGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                            0.5_rk, umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav,                        &
+                            int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND) )
+      else
+        call DGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                            -0.5_rk, umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav,                       &
+                            int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND) )
+      endif
+
+      call obj%timer%stop("blas")
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+          &real&
+        &_&
+        &double &
+                                 (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                        vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                        success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+            return
+          endif
+      else
+       call elpa_transpose_vectors_&
+       &real&
+       &_&
+       &double &
+                                (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                          vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                          1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                          success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+            return
+          endif
+      endif
+    endif  ! useGPU
+
+    ! A = A - V*U**T - U*V**T
+
+
+    do i=0,(istep*nbw-1)/tile_size
+      lcs = i*l_cols_tile+1
+      lce = min(l_cols,(i+1)*l_cols_tile)
+      lre = min(l_rows,(i+1)*l_rows_tile)
+      if (lce<lcs .or. lre<1) cycle
+
+      if (useGPU) then
+        call obj%timer%start("gpublas")
+
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_DGEMM('N', 'T',     &
+                                   lre, lce-lcs+1, 2*n_cols, -ONE, &
+                                   vmr_dev, max_l_rows, (umc_dev +(lcs-1)*  &
+                                   size_of_datatype), &
+                                   max_l_cols, ONE, (a_dev+(lcs-1)*matrixRows* &
+                                   size_of_datatype), matrixRows, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+
+        call obj%timer%start("blas")
+        call DGEMM('N', 'T', int(lre,kind=BLAS_KIND),int(lce-lcs+1,kind=BLAS_KIND), &
+                            int(2*n_cols,kind=BLAS_KIND), &
+                            -ONE, &
+                            vmrCPU, int(max_l_rows,kind=BLAS_KIND), umcCPU(lcs,1), &
+                            int(max_l_cols,kind=BLAS_KIND), &
+                            ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+     endif ! useGPU
+    enddo ! i=0,(istep*nbw-1)/tile_size
+
+    if (.not.(useGPU)) then
+      if (allocated(vr)) then
+        deallocate(vr, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vr", 2029,  istat,  errorMessage)
+      endif
+
+      if (allocated(umcCPU)) then
+        deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: umcCPU", 2034,  istat,  errorMessage)
+      endif
+
+      if (allocated(vmrCPU)) then
+        deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vmrCPU", 2039,  istat,  errorMessage)
+      endif
+    endif !useGPU
+
+
+ enddo ! istep - loop
+
+  if (useGPU) then
+
+    ! copy a_dev to a_mat
+    ! we do it here, since a is needed on the host in the following routine
+    ! (band to tridi). Previously, a has been kept on the device and then
+    ! copied in redist_band (called from tridiag_band). However, it seems to
+    ! be easier to do it here.
+    successGPU = gpu_memcpy(int(loc(a_mat),kind=c_intptr_t), &
+                  int(a_dev,kind=c_intptr_t), &
+                  int(matrixRows*matrixCols* size_of_datatype, kind=c_intptr_t), &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("bandred: a_dev -> a_mat ", 2137,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(a_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: a_mat ", 2144,  successGPU)
+
+
+    successGPU = gpu_free(a_dev)
+    call check_dealloc_GPU_f("bandred: a_dev ", 2155,  successGPU)
+
+    successGPU = gpu_free(vav_dev)
+    call check_dealloc_GPU_f("bandred: vav_dev ", 2158,  successGPU)
+
+    successGPU = gpu_free(tmat_dev)
+    call check_dealloc_GPU_f("bandred: tmat_dev ", 2161,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(vav),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: vav", 2167,  successGPU)
+
+      if (associated(umcGPU)) then
+        nullify(umcGPU)
+
+        successGPU = gpu_free_host(umc_host)
+        call check_host_dealloc_GPU_f("bandred: umc_host ", 2180,  successGPU)
+        successGPU = gpu_free(umc_dev)
+        call check_dealloc_GPU_f("bandred: umc_dev ", 2182,  successGPU)
+      endif
+
+      if (associated(vmrGPU)) then
+        nullify(vmrGPU)
+
+        successGPU = gpu_free_host(vmr_host)
+        call check_host_dealloc_GPU_f("bandred: vmr_host ", 2189,  successGPU)
+
+        successGPU = gpu_free(vmr_dev)
+        call check_dealloc_GPU_f("bandred: vmr_dev ", 2192,  successGPU)
+      endif
+
+  endif ! useGPU
+  
+  if (allocated(vr)) then
+    deallocate(vr, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vr", 2215,  istat,  errorMessage)
+  endif
+
+  if (allocated(umcCPU)) then
+    deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: umcCPU", 2221,  istat,  errorMessage)
+  endif
+
+  if (allocated(vmrCPU)) then
+    deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vmrCPU", 2226,  istat,  errorMessage)
+  endif
+
+  if (useQR) then
+    if (which_qr_decomposition == 1) then
+      deallocate(work_blocked, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: work_blocked", 2233,  istat,  errorMessage)
+
+      deallocate(tauvector, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: tauvector", 2236,  istat,  errorMessage)
+    endif
+  endif
+  
+  call obj%timer%stop("bandred_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+contains
+  subroutine get_hh_vec(vec_in,vr,tau,vrl)
+    real(kind=rck):: vr(:), vec_in(:), tau, vrl
+    real(kind=rck):: aux1(2), xf
+    real(kind=rk):: vnorm2
+    ! Get Vector to be transformed; distribute last element and norm of
+    ! remaining elements to all procs in current column
+    
+    if (my_prow==prow(nrow, nblk, np_rows)) then
+       aux1(1) = dot_product(vec_in(1:lr-1),vec_in(1:lr-1))
+       aux1(2) = vec_in(lr)
+    else
+       aux1(1) = dot_product(vec_in(1:lr),vec_in(1:lr))
+       aux1(2) = 0.0_rck
+    endif
+
+
+    vnorm2 = aux1(1)
+    vrl    = aux1(2)
+
+    ! Householder transformation
+    call hh_transform_&
+         &real&
+         &_&
+         &double &
+         (obj, vrl, vnorm2, xf, tau, wantDebug)
+    ! Scale vr and store Householder Vector for back transformation
+
+    vr(1:lr) = vec_in(1:lr) * xf
+    if (my_prow==prow(nrow, nblk, np_rows)) vr(lr) = 1.0_rck
+
+  end subroutine get_hh_vec
+  
+
+  subroutine apply_ht(tau,vr,ex_buff2d)
+    real(kind=rck):: tau, vr(:), ex_buff2d(:,:)
+    real(kind=rck):: tauc
+    real(kind=rck):: aux1(nbw)
+    integer:: nlc, imax
+    logical:: use_blas
+
+    imax=ubound(ex_buff2d,2)
+    
+    if((imax.lt.3).or.(max_threads.gt.1)) then
+       !don't use BLAS for very small imax because overhead is too high
+       !don't use BLAS with OpenMP because measurements showed that threading is not effective for these routines
+       use_blas=.false.
+    else
+       use_blas=.true.
+    end if
+    
+    !we need to transform the remaining ex_buff
+    if (lr>0) then
+       if(use_blas) then !note that aux1 is conjg between > and < thresh_blas!!
+          call DGEMV('T',int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND), &
+               ONE, ex_buff2d, size(ex_buff2d,1,kind=BLAS_KIND), vr, 1_BLAS_KIND, ZERO, aux1, &
+               1_BLAS_KIND)
+       else
+          do nlc=1,imax
+             aux1(nlc) = dot_product(vr(1:lr),ex_buff2d(1:lr,nlc))
+          end do
+       end if
+    else
+       aux1(1:imax) = 0.
+    end if
+
+    ! Get global dot products
+
+    if(lr.le.0) return !no data on this processor
+
+    ! Transform
+    tauc=-tau
+    if(use_blas) then
+       call DGER(int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND),tauc,vr,1_BLAS_KIND,&
+            aux1,1_BLAS_KIND,ex_buff2d,ubound(ex_buff2d,1,kind=BLAS_KIND))
+    else
+       do nlc=1,imax         
+          ex_buff2d(1:lr,nlc) = ex_buff2d(1:lr,nlc) + tauc*aux1(nlc)*vr(1:lr)
+       end do
+    end if
+
+  end subroutine apply_ht
+  
+end subroutine bandred_&
+&real&
+&_&
+&double
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+
+subroutine symm_matrix_allreduce_&
+&double &
+                    (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  symm_matrix_allreduce: Does an mpi_allreduce for a symmetric matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+!-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)             :: n, lda, ldb, comm
+  real(kind=rk8)     :: a(lda,*)
+  integer(kind=ik)             :: i, nc
+  integer(kind=MPI_KIND)       :: mpierr
+  real(kind=rk8)     :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)       :: allreduce_request1
+  logical                      :: useNonBlockingCollectives
+  logical                      :: useNonBlockingCollectivesCols
+  logical                      :: useNonBlockingCollectivesRows
+  logical, intent(in)          :: isRows
+  integer(kind=c_int)          :: non_blocking_collectives_rows, error, &
+                                  non_blocking_collectives_cols
+  logical                      :: success
+
+  success = .true.
+
+  call obj%timer%start("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+
+  call obj%get("nbc_row_sym_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_sym_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+
+!      h2=h1
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = a(1:i-1,i)
+    nc = nc+i
+  enddo
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = a(1:i-1,i)
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+
+end subroutine symm_matrix_allreduce_&
+&double
+
+
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+
+subroutine ssymm_matrix_allreduce_&
+&double &
+                    (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  symm_matrix_allreduce: Does an mpi_allreduce for a symmetric matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+!-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)             :: n, lda, ldb, comm
+  real(kind=rk8)     :: a(lda,*)
+  integer(kind=ik)             :: i, nc
+  integer(kind=MPI_KIND)       :: mpierr
+  real(kind=rk8)     :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)       :: allreduce_request1
+  logical                      :: useNonBlockingCollectives
+  logical                      :: useNonBlockingCollectivesCols
+  logical                      :: useNonBlockingCollectivesRows
+  logical, intent(in)          :: isRows
+  integer(kind=c_int)          :: non_blocking_collectives_rows, error, &
+                                  non_blocking_collectives_cols
+  logical                      :: success
+
+  success = .true.
+
+  call obj%timer%start("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+
+  call obj%get("nbc_row_sym_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_sym_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+
+!      h2=h1
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = - a(1:i-1,i)
+    nc = nc+i
+  enddo
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = a(1:i-1,i)
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_double"&
+          )
+
+end subroutine ssymm_matrix_allreduce_&
+&double
+
+
+
+
+
+
+
+
+
+
+subroutine trans_ev_band_to_full_&
+    &real&
+    &_&
+    &double &
+    (obj, na, nqc, nblk, nbw, a_mat, lda, tmat, q_mat, &
+     ldq, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, useGPU, &
+     useQr, success)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_band_to_full_real/complex:
+!  Transforms the eigenvectors of a band matrix back to the eigenvectors of the original matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a_mat, number of rows of matrix q_mat
+!
+!  nqc         Number of columns of matrix q_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith
+!
+!  a_mat(lda,matrixCols)    Matrix containing the Householder vectors (i.e. matrix a_mat after bandred_real/complex)
+!              Distribution is like in Scalapack.
+!
+!  lda         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat and q_mat
+!
+!  tmat(nbw,nbw,numBlocks) Factors returned by bandred_real/complex
+!
+!  q_mat           On input: Eigenvectors of band matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q_mat
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!-------------------------------------------------------------------------------
+  use precision
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa_abstract_impl
+  use elpa_blas_interfaces
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)     :: obj
+  logical, intent(in)                            :: useGPU
+  logical, intent(in)                            :: useQR
+  integer(kind=ik)                               :: na, nqc, lda, ldq, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, &
+                                                    mpi_comm_cols
+  real(kind=rck)                        :: a_mat(lda,*)
+  real(kind=rck)                        :: q_mat(ldq,*), tmat(nbw,nbw,*)
+
+  integer(kind=ik)                               :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                         :: my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI, mpierr
+  integer(kind=ik)                               :: max_blocks_row, max_blocks_col, max_local_rows, &
+                                                    max_local_cols
+  integer(kind=ik)                               :: l_cols, l_rows, l_colh, n_cols
+  integer(kind=ik)                               :: istep, lc, ncol, nrow, nb, ns
+
+  real(kind=rck), allocatable           :: hvb(:)
+  real(kind=rck), pointer               :: hvm(:,:), tmp1(:), tmp2(:)
+  real(kind=rck), pointer               :: tmp_debug(:)
+  ! hvm_dev is fist used and set in this routine
+  ! q_mat is changed in trans_ev_tridi on the host, copied to device and passed here. this can be adapted
+  ! tmp_dev is first used in this routine
+  ! tmat_complete_dev is not passed along from bandred_real
+  integer(kind=C_intptr_T)                       :: hvm_dev, q_dev, tmp_dev, tmat_complete_dev, dev_offset
+
+  type(c_ptr)                                    :: hvm_host, tmp1_host, tmp2_host
+
+
+
+  integer(kind=ik)                               :: i
+
+  real(kind=rck), allocatable, target   :: tmat_complete(:,:), t_tmp(:,:), t_tmp2(:,:)
+  integer(kind=ik)                               :: t_cols, t_rows, ii, jj
+  integer(kind=ik)                               :: cwy_blocking
+
+  integer(kind=ik)                               :: istat
+  character(200)                                 :: errorMessage
+  character(20)                                  :: gpuString
+  logical                                        :: successGPU
+  integer(kind=c_intptr_t), parameter            :: size_of_datatype = size_of_&
+                                                                       &double&
+                                                                       &_&
+                                                                       &real
+  integer(kind=ik)                               :: blocking_factor, error, blk_end
+  integer(kind=MPI_KIND)                         :: bcast_request1, allreduce_request1, allreduce_request2
+  logical                                        :: useNonBlockingCollectivesCols
+  logical                                        :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                            :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  logical                                        :: success
+  integer(kind=c_intptr_t)                       :: gpuHandle, my_stream
+
+  success = .true.
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_band_to_full_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  call obj%get("nbc_row_elpa2_band_to_full", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_band_to_full", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  call obj%get("blocking_in_band_to_full",blocking_factor,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem getting option for blocking_in_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+
+  call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+  call obj%timer%stop("mpi_communication")
+
+  max_blocks_row = ((na -1)/nblk)/np_rows + 1 ! Rows of a_mat
+  max_blocks_col = ((nqc-1)/nblk)/np_cols + 1 ! Columns of q_mat!
+
+  max_local_rows = max_blocks_row*nblk
+  max_local_cols = max_blocks_col*nblk
+
+  cwy_blocking = blocking_factor * nbw
+
+  if (useGPU) then
+    ! copy q_mat to q_dev
+    successGPU = gpu_malloc(q_dev,ldq*matrixCols*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: q_dev", 289,  successGPU)
+      successGPU = gpu_host_register(int(loc(q_mat),kind=c_intptr_t),&
+                    ldq*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: q_mat", 295,  successGPU)
+
+    successGPU = gpu_memcpy(q_dev,int(loc(q_mat),kind=c_intptr_t),&
+                  ldq*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_mat -> q_dev", 317,  successGPU)
+
+      successGPU = gpu_malloc_host(tmp1_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp1_host", 324,  successGPU)
+      call c_f_pointer(tmp1_host, tmp1, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(tmp2_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp2_host", 328,  successGPU)
+      call c_f_pointer(tmp2_host, tmp2, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(hvm_host,max_local_rows*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: hvm_host", 332,  successGPU)
+      call c_f_pointer(hvm_host, hvm, (/max_local_rows,cwy_blocking/))
+  else ! useGPU
+    allocate(tmp1(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp1", 343,  istat,  errorMessage)
+
+    allocate(tmp2(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp2", 346,  istat,  errorMessage)
+
+    allocate(hvm(max_local_rows,cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: hvm", 349,  istat,  errorMessage)
+  endif !useGPU
+
+  allocate(hvb(max_local_rows*cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: hvb", 353,  istat,  errorMessage)
+
+  allocate(tmat_complete(cwy_blocking,cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: tmat_complete", 356,  istat,  errorMessage)
+
+  if (useGPU) then
+      successGPU = gpu_host_register(int(loc(tmat_complete),kind=c_intptr_t), &
+                    cwy_blocking * cwy_blocking * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: tmat_complete", 365,  successGPU)
+  endif
+
+
+  if (blocking_factor > 1) then
+    allocate(t_tmp(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp", 389,  istat,  errorMessage)
+
+    allocate(t_tmp2(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp2", 392,  istat,  errorMessage)
+
+  endif
+
+  if (useGPU) then
+    successGPU = gpu_malloc(hvm_dev,max_local_rows*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: hvm_dev", 409,  successGPU)
+
+    successGPU = gpu_malloc(tmp_dev,max_local_cols*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmp_dev", 412,  successGPU)
+
+
+      successGPU = gpu_memset(tmp_dev, 0, max_local_cols*cwy_blocking*size_of_datatype)
+      call check_memset_GPU_f("trans_ev_band_to_full: tmp_dev", 430,  successGPU)
+
+
+
+    successGPU = gpu_malloc(tmat_complete_dev,cwy_blocking*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 477,  successGPU)
+  endif
+
+
+  hvm = 0.0_rck ! Must be set to 0 !!!
+  hvb = 0.0_rck ! Safety only
+  tmp1 = 0.0_rck
+  tmp2 = 0.0_rck
+  tmat_complete = 0.0_rck
+  if (blocking_factor > 1) then
+     t_tmp = 0.0_rck ! Must be set to 0 !!!
+     t_tmp2 = 0.0_rck
+
+  endif
+  l_cols = local_index(nqc, my_pcol, np_cols, nblk, -1) ! Local columns of q_mat
+
+  blk_end = ((na-1)/nbw-1)/blocking_factor + 1
+  do istep=1, blk_end
+
+    ! This the call when using na >= ((blocking_factor+1)*nbw)
+    ! n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw
+    ! Number of columns in current step
+    ! As an alternative we add some special case handling if na < cwy_blocking
+    if (na < cwy_blocking) then
+      n_cols = MAX(0, na-nbw)
+      if ( n_cols .eq. 0 ) then
+        exit
+      end if
+    else
+      n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw ! Number of columns in current step
+    end if
+
+    ! Broadcast all Householder vectors for current step compressed in hvb
+
+    nb = 0
+    ns = 0
+
+    do lc = 1, n_cols
+      ncol = (istep-1)*cwy_blocking + nbw + lc ! absolute column number of householder Vector
+      nrow = ncol - nbw ! absolute number of pivot row
+
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+      l_colh = local_index(ncol , my_pcol, np_cols, nblk, -1) ! HV local column number
+
+      if (my_pcol==pcol(ncol, nblk, np_cols)) hvb(nb+1:nb+l_rows) = a_mat(1:l_rows,l_colh)
+
+      nb = nb+l_rows
+
+      if (lc==n_cols .or. mod(ncol,nblk)==0) then
+        ns = nb
+      endif
+    enddo ! lc
+
+    ! Expand compressed Householder vectors into matrix hvm
+
+    nb = 0
+    do lc = 1, n_cols
+      nrow = (istep-1)*cwy_blocking + lc ! absolute number of pivot row
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+
+      ! could maybe also done on GPU
+      hvm(1:l_rows,lc) = hvb(nb+1:nb+l_rows)
+      if (my_prow==prow(nrow, nblk, np_rows)) hvm(l_rows+1,lc) = 1.0_rck
+      nb = nb+l_rows
+    enddo
+
+    l_rows = local_index(MIN(na,(istep+1)*cwy_blocking), my_prow, np_rows, nblk, -1)
+
+    ! compute tmat2 out of tmat(:,:,)
+    tmat_complete = 0
+    do i = 1, blocking_factor
+      t_cols = MIN(nbw, n_cols - (i-1)*nbw)
+      if (t_cols <= 0) exit
+      t_rows = (i - 1) * nbw
+      tmat_complete(t_rows+1:t_rows+t_cols,t_rows+1:t_rows+t_cols) = tmat(1:t_cols,1:t_cols,(istep-1)*blocking_factor + i)
+
+      if (i > 1) then
+        if (useGPU) then
+          call obj%timer%start("blas")
+          call DGEMM('T', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        else ! useGPU
+          call obj%timer%start("blas")
+          call DGEMM('T', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        endif ! useGPU
+
+
+        if (useGPU) then
+          ! remove cuda_aware section here, does not make sense without MPI add MORE_GPUBLAS instead
+          call obj%timer%start("blas")
+          call DTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call DTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        else !useGPU
+          call obj%timer%start("blas")
+          call DTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call DTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        endif !useGPU
+
+
+      endif
+    enddo
+
+    ! Q = Q - V * T**T * V**T * Q
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        successGPU = gpu_memcpy(hvm_dev, int(loc(hvm),kind=c_intptr_t), &
+                        max_local_rows*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: hvm -> hvm_dev", 1039,  successGPU)
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_DGEMM('T', 'N', &
+                                     n_cols, l_cols, l_rows, ONE, hvm_dev, max_local_rows, &
+                                     q_dev, ldq , ZERO, tmp_dev, n_cols, gpuHandle)
+        call obj%timer%stop("gpublas")
+
+      else ! useGPU
+        call obj%timer%start("blas")
+        call DGEMM('T', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                            hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), q_mat, int(ldq,kind=BLAS_KIND), ZERO, tmp1, &
+                           int(n_cols,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    else ! l_rows>0
+        tmp1(1:l_cols*n_cols) = 0.0_rck
+    endif ! l_rows>0
+
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        ! needed as long as not device to device copy
+        successGPU = gpu_memcpy(tmat_complete_dev, int(loc(tmat_complete),kind=c_intptr_t), &
+                      cwy_blocking*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: tmat_complete -> tmat_complete_dev", 1407,  successGPU)
+
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_DTRMM('L', 'U', 'T', 'N', &
+                                   n_cols, l_cols, ONE, tmat_complete_dev, cwy_blocking, &
+                                   tmp_dev, n_cols, gpuHandle)
+        call gpublas_DGEMM('N', 'N', l_rows, l_cols, n_cols, &
+                                    -ONE, hvm_dev, max_local_rows, tmp_dev, n_cols, ONE, q_dev, ldq, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+        call obj%timer%start("blas")
+        call DTRMM('L', 'U', 'T', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), &
+                            tmp1, int(n_cols,kind=BLAS_KIND))
+        call DGEMM('N', 'N', int(l_rows,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), &
+                            -ONE, hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), tmp1, int(n_cols,kind=BLAS_KIND), ONE, q_mat, &
+                            int(ldq,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    endif
+
+  enddo ! istep
+
+  deallocate(hvb, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: hvb", 1435,  istat,  errorMessage)
+
+  if (useGPU) then
+    successGPU = gpu_free(hvm_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: hvm_dev", 1439,  successGPU)
+
+    successGPU = gpu_free(tmp_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmp_dev", 1442,  successGPU)
+
+    successGPU = gpu_free(tmat_complete_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 1449,  successGPU)
+
+    ! final transfer of q_dev
+    successGPU = gpu_memcpy(int(loc(q_mat),kind=c_intptr_t), q_dev, ldq*matrixCols*size_of_datatype, &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_dev -> q_mat", 1469,  successGPU)
+
+    successGPU = gpu_free(q_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: q_dev", 1473,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(q_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: q_mat", 1479,  successGPU)
+      nullify(tmp1)
+      nullify(tmp2)
+      nullify(hvm)
+
+    ! take care of new pointers nullify them
+
+
+      successGPU = gpu_free_host(tmp1_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp1_host", 1504,  successGPU)
+
+      successGPU = gpu_free_host(tmp2_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp2_host", 1507,  successGPU)
+
+      successGPU = gpu_free_host(hvm_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: hvm_host", 1510,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(tmat_complete),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: tmat_complete", 1513,  successGPU)
+  else ! useGPU
+    deallocate(tmp1, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp1", 1519,  istat,  errorMessage)
+
+    deallocate(tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp2", 1522,  istat,  errorMessage)
+
+    deallocate(hvm, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: hvm", 1525,  istat,  errorMessage)
+  endif ! useGPU
+
+  deallocate(tmat_complete, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: tmat_complete", 1529,  istat,  errorMessage)
+
+
+  if (blocking_factor > 1) then
+
+    deallocate(t_tmp, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp", 1556,  istat,  errorMessage)
+
+    deallocate(t_tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp2", 1559,  istat,  errorMessage)
+  endif
+
+  call obj%timer%stop("trans_ev_band_to_full_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+end subroutine trans_ev_band_to_full_&
+&real&
+    &_&
+    &double
+
+
+
+
+
+
+subroutine tridiag_band_&
+  &real&
+  &_&
+  &double &
+  (obj, na, nb, nblk, a_mat, lda, d, e, matrixCols, &
+  hh_trans, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, useGPU, wantDebug, nrThreads, isSkewsymmetric, &
+  success)
+  !-------------------------------------------------------------------------------
+  ! tridiag_band_real/complex:
+  ! Reduces a real symmetric band matrix to tridiagonal form
+  !
+  !  na          Order of matrix a
+  !
+  !  nb          Semi bandwith
+  !
+  !  nblk        blocksize of cyclic distribution, must be the same in both directions!
+  !
+  !  a_mat(lda,matrixCols)    Distributed system matrix reduced to banded form in the upper diagonal
+  !
+  !  lda         Leading dimension of a
+  !  matrixCols  local columns of matrix a
+  !
+  ! hh_trans : housholder vectors
+  !
+  !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  mpi_comm_rows
+  !  mpi_comm_cols
+  !              MPI-Communicators for rows/columns
+  !  mpi_comm_all
+  !              MPI-Communicator for the total processor set
+  !-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use elpa2_workload
+  use precision
+  use, intrinsic :: iso_c_binding
+  use redist
+  use elpa_blas_interfaces
+  use elpa_skewsymmetric_blas
+  use elpa_gpu
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU, wantDebug
+  logical, intent(in)                          :: isSkewsymmetric
+  integer(kind=ik), intent(in)                 :: na, nb, nblk, lda, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all
+  real(kind=rck), intent(in)         :: a_mat(lda,*)
+  real(kind=rk), intent(out)        :: d(na), e(na) ! set only on PE 0
+  real(kind=rck), intent(out), allocatable   :: hh_trans(:,:)
+
+  real(kind=rk)                     :: vnorm2
+  real(kind=rck)                     :: hv(nb), tau, x, h(nb), ab_s(1+nb), hv_s(nb), hv_new(nb), tau_new, hf
+  real(kind=rck)                     :: hd(nb), hs(nb)
+
+  integer(kind=ik)                             :: i, n, nc, nr, ns, ne, istep, iblk, nblocks_total, nblocks, nt
+  integer(kind=ik)                             :: my_pe, n_pes
+  integer(kind=ik)                             :: my_prow, np_rows, my_pcol, np_cols
+  integer(kind=MPI_KIND)                       :: my_peMPI, n_pesMPI, mpierr
+  integer(kind=MPI_KIND)                       :: my_prowMPI, np_rowsMPI, my_pcolMPI, np_colsMPI
+  integer(kind=MPI_KIND)                       :: ireq_ab, ireq_hv
+  integer(kind=ik)                             :: na_s, nx, num_hh_vecs, num_chunks, local_size, max_blk_size, n_off
+  integer(kind=ik), intent(in)                 :: nrThreads
+  integer(kind=ik), allocatable                :: global_id(:,:), hh_cnt(:), hh_dst(:)
+  integer(kind=MPI_KIND), allocatable          :: ireq_hhr(:), ireq_hhs(:)
+  integer(kind=ik), allocatable                :: limits(:), snd_limits(:,:)
+  integer(kind=ik), allocatable                :: block_limits(:)
+  real(kind=rck), allocatable         :: ab(:,:), hh_gath(:,:,:), hh_send(:,:,:)
+  integer                                      :: istat
+  integer(kind=ik)                             :: nblockEnd
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+
+  integer(kind=ik)                             :: startAddr
+
+   integer(kind=MPI_KIND)                      :: allreduce_request1, allreduce_request2
+   logical                                     :: useNonBlockingCollectivesAll
+   integer(kind=c_int)                         :: non_blocking_collectives, error
+   logical                                     :: success
+
+   success = .true.
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("tridiag_band_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  call obj%get("nbc_all_elpa2_band_to_tridi", non_blocking_collectives, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives in elpa2_band_to_tridi. Aborting..."
+    call obj%timer%stop("tridiag_band_&
+    &real&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives .eq. 1) then
+    useNonBlockingCollectivesAll = .true.
+  else
+    useNonBlockingCollectivesAll = .false.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_all,kind=MPI_KIND) ,my_peMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_all,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND),my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND),np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND),my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND),np_colsMPI ,mpierr)
+
+  my_pe = int(my_peMPI,kind=MPI_KIND)
+  n_pes = int(n_pesMPI,kind=MPI_KIND)
+  my_prow = int(my_prowMPI,kind=MPI_KIND)
+  np_rows = int(np_rowsMPI,kind=MPI_KIND)
+  my_pcol = int(my_pcolMPI,kind=MPI_KIND)
+  np_cols = int(np_colsMPI,kind=MPI_KIND)
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  ! Get global_id mapping 2D procssor coordinates to global id
+
+  allocate(global_id(0:np_rows-1,0:np_cols-1), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: global_id", 201,  istat,  errorMessage)
+
+  global_id(:,:) = 0
+  global_id(my_prow, my_pcol) = my_pe
+
+
+
+  ! Total number of blocks in the band:
+
+  nblocks_total = (na-1)/nb + 1
+
+  ! Set work distribution
+
+  allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: block_limits", 245,  istat,  errorMessage)
+
+  call divide_band(obj,nblocks_total, n_pes, block_limits)
+
+  ! nblocks: the number of blocks for my task
+  nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+
+  ! allocate the part of the band matrix which is needed by this PE
+  ! The size is 1 block larger than needed to avoid extensive shifts
+  allocate(ab(2*nb,(nblocks+1)*nb), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: ab", 255,  istat,  errorMessage)
+
+  ab = 0.0_rck ! needed for lower half, the extra block should also be set to 0 for safety
+
+  ! n_off: Offset of ab within band
+  n_off = block_limits(my_pe)*nb
+
+  ! Redistribute band in a to ab
+  call redist_band_&
+  &real&
+  &_&
+  &double&
+  &(obj,a_mat, lda, na, nblk, nb, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, ab, &
+   success)
+  if (.not.(success)) then
+    write(error_unit,*) "Error in redist_band. Aborting..."
+    return
+  endif
+
+  ! Calculate the workload for each sweep in the back transformation
+  ! and the space requirements to hold the HH vectors
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: limits", 278,  istat,  errorMessage)
+
+  call determine_workload(obj,na, nb, np_rows, limits)
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  do n = 1, nblocks_total
+    call determine_workload(obj, nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    ! add to number of householder vectors
+    ! please note: for nx==1 the one and only HH Vector is 0 and is neither calculated nor send below!
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_hh_vecs = num_hh_vecs + local_size
+      num_chunks  = num_chunks+1
+    endif
+    nx = nx - nb
+  enddo
+
+  ! Allocate space for HH vectors
+
+  allocate(hh_trans(nb,num_hh_vecs), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_trans", 301,  istat,  errorMessage)
+
+  ! Allocate and init MPI requests
+
+  allocate(ireq_hhr(num_chunks), stat=istat, errmsg=errorMessage) ! Recv requests
+  call check_allocate_f("tridiag_band: ireq_hhr", 306,  istat,  errorMessage)
+  allocate(ireq_hhs(nblocks), stat=istat, errmsg=errorMessage)    ! Send requests
+  call check_allocate_f("tridiag_band: ireq_hhs", 308,  istat,  errorMessage)
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  nt = 0
+  nBlockEnd=1
+  do n = 1, nblocks_total
+    call determine_workload(obj,nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_chunks  = num_chunks+1
+      ! carefull non-block recv data copy must be done at wait or send
+      ! hh_trans(1:nb*local_size,num_hh_vecs+1) = hh_send(1:nb*hh_cnt(iblk),1,iblk)
+
+      num_hh_vecs = num_hh_vecs + local_size
+    endif
+    nx = nx - nb
+    if (n == block_limits(nt+1)) then
+      nt = nt + 1
+    endif
+  enddo
+  ! Buffers for gathering/sending the HH vectors
+
+  allocate(hh_gath(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! gathers HH vectors
+  call check_allocate_f("tridiag_band: hh_gath", 347,  istat,  errorMessage)
+
+  allocate(hh_send(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! send buffer for HH vectors
+  call check_allocate_f("tridiag_band: hh_send", 350,  istat,  errorMessage)
+
+  hh_gath(:,:,:) = 0.0_rck
+  hh_send(:,:,:) = 0.0_rck
+
+  ! Some counters
+
+  allocate(hh_cnt(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_cnt", 358,  istat,  errorMessage)
+
+  allocate(hh_dst(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_dst", 361,  istat,  errorMessage)
+
+  hh_cnt(:) = 1 ! The first transfomation Vector is always 0 and not calculated at all
+  hh_dst(:) = 0 ! PE number for receive
+  ! Limits for sending
+
+  allocate(snd_limits(0:np_rows,nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: snd_limits", 372,  istat,  errorMessage)
+
+  do iblk=1,nblocks
+    call determine_workload(obj, na-(iblk+block_limits(my_pe)-1)*nb, nb, np_rows, snd_limits(:,iblk))
+  enddo
+
+
+  ! ---------------------------------------------------------------------------
+  ! Start of calculations
+
+  na_s = block_limits(my_pe)*nb + 1
+
+  if (my_pe>0 .and. na_s<=na) then
+    ! send first column to previous PE
+    ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+    ab_s(1:nb+1) = ab(1:nb+1,na_s-n_off)
+  endif
+
+if (np_rows*np_cols==1) then
+  startAddr = ubound(hh_trans,dim=2)
+endif
+
+   do istep=1,na-nblockEnd
+
+     if (my_pe==0) then
+       n = MIN(na-na_s,nb) ! number of rows to be reduced
+       hv(:) = 0.0_rck
+       hd(:) = 0.0_rck
+       tau = 0.0_rck
+
+       ! Transform first column of remaining matrix
+       ! The last step (istep=na-1) is only needed for sending the last HH vectors.
+       ! We don't want the sign of the last element flipped (analogous to the other sweeps)
+
+       if (istep < na-1) then
+         ! Transform first column of remaining matrix
+         vnorm2 = sum(ab(3:n+1,na_s-n_off)**2)
+
+          call hh_transform_&
+               &real&
+               &_&
+               &double &
+                          (obj, ab(2,na_s-n_off), vnorm2, hf, tau, wantDebug)
+
+          hv(1) = 1.0_rck
+          hv(2:n) = ab(3:n+1,na_s-n_off)*hf
+       endif
+
+       if (isSkewsymmetric) then
+         d(istep) = 0.0_rk
+       else
+         d(istep) = ab(1,na_s-n_off)
+       endif
+       e(istep) = ab(2,na_s-n_off)
+
+       if (istep == na-1) then
+         if (isSkewsymmetric) then
+           d(na) = 0
+         else
+           d(na) = ab(1,na_s+1-n_off)
+         endif
+
+         e(na) = 0.0_rck
+       endif
+     else
+       if (na>na_s) then
+         ! Receive Householder Vector from previous task, from PE owning subdiagonal
+
+
+         hv(1:nb) = hv_s(1:nb)
+
+         tau = hv(1)
+         hv(1) = 1.0_rck
+       endif
+      endif
+
+      na_s = na_s+1
+      if (na_s-n_off > nb) then
+        ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+        ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rck
+        n_off = n_off + nb
+      endif
+
+
+      do iblk=1,nblocks
+        ns = na_s + (iblk-1)*nb - n_off ! first column in block
+        ne = ns+nb-1                    ! last column in block
+
+        if (ns+n_off>na) exit
+
+        ! Store Householder Vector for back transformation
+
+        hh_cnt(iblk) = hh_cnt(iblk) + 1
+
+        hh_gath(1   ,hh_cnt(iblk),iblk) = tau
+        hh_gath(2:nb,hh_cnt(iblk),iblk) = hv(2:nb)
+
+        if (hh_cnt(iblk) == snd_limits(hh_dst(iblk)+1,iblk)-snd_limits(hh_dst(iblk),iblk)) then
+          ! Wait for last transfer to finish
+          ! Copy vectors into send buffer
+          hh_send(:,1:hh_cnt(iblk),iblk) = hh_gath(:,1:hh_cnt(iblk),iblk)
+          ! Send to destination
+
+          ! do the post-poned irecv here
+          startAddr = startAddr - hh_cnt(iblk)
+          hh_trans(1:nb,startAddr+1:startAddr+hh_cnt(iblk)) = hh_send(1:nb,1:hh_cnt(iblk),iblk)
+
+          ! Reset counter and increase destination row
+          hh_cnt(iblk) = 0
+          hh_dst(iblk) = hh_dst(iblk)+1
+        endif
+
+        ! The following code is structured in a way to keep waiting times for
+        ! other PEs at a minimum, especially if there is only one block.
+        ! For this reason, it requests the last column as late as possible
+        ! and sends the Householder Vector and the first column as early
+        ! as possible.
+        nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+        nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                      ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+
+        ! Multiply diagonal block and subdiagonal block with Householder Vector
+
+        if (iblk==nblocks .and. nc==nb) then
+
+          ! We need the last column from the next PE.
+          ! First do the matrix multiplications without last column ...
+
+          ! Diagonal block, the contribution of the last element is added below!
+          ab(1,ne) = 0.0_rck
+
+          if (wantDebug) call obj%timer%start("blas")
+
+          if (isSkewsymmetric) then
+            hd(:) = 0.0_rk
+            call elpa_dssmv(int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), hv, hd)
+          else
+            call DSYMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                             hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          endif
+          ! Subdiagonal block
+          if (nr>0) call DGEMV('N', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                        tau, ab(nb+1,ns), int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, &
+                                        ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+
+          ! ... then request last column ...
+
+          ab(1:nb+1,ne) = ab_s(1:nb+1)
+
+
+          ! ... and complete the result
+          hs(1:nr) = hs(1:nr) + ab(2:nr+1,ne)*tau*hv(nb)
+          hd(nb) = hd(nb) + ab(1,ne)*hv(nb)*tau
+
+        else ! if (iblk==nblocks .and. nc==nb) then
+
+          ! Normal matrix multiply
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then
+            hd(:) = 0.0_rk
+            call elpa_dssmv(int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), hv, hd)
+          else
+            call DSYMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                              hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          endif
+          if (nr>0) call DGEMV('N', int(nr,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), tau, ab(nb+1,ns), &
+                                      int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+        endif ! if (iblk==nblocks .and. nc==nb) then
+
+        ! Calculate first column of subdiagonal block and calculate new
+        ! Householder transformation for this column
+        hv_new(:) = 0.0_rck ! Needed, last rows must be 0 for nr < nb
+        tau_new = 0.0_rck
+        if (nr>0) then
+
+          ! complete (old) Householder transformation for first column
+
+          ab(nb+1:nb+nr,ns) = ab(nb+1:nb+nr,ns) - hs(1:nr) ! Note: hv(1) == 1
+
+          ! calculate new Householder transformation ...
+          if (nr>1) then
+            vnorm2 = sum(ab(nb+2:nb+nr,ns)**2)
+
+            call hh_transform_&
+                &real&
+                &_&
+                &double &
+               (obj, ab(nb+1,ns), vnorm2, hf, tau_new, wantDebug)
+            hv_new(1) = 1.0_rck
+            hv_new(2:nr) = ab(nb+2:nb+nr,ns)*hf
+            ab(nb+2:,ns) = 0.0_rck
+          endif ! nr > 1
+
+          ! ... and send it away immediatly if this is the last block
+
+          if (iblk==nblocks) then
+            hv_s(1) = tau_new
+            hv_s(2:) = hv_new(2:)
+
+          endif
+
+        endif
+
+        ! Transform diagonal block
+        if (.NOT. isSkewsymmetric) then
+          x = dot_product(hv(1:nc),hd(1:nc))*tau
+        endif
+
+        if (.NOT. isSkewsymmetric) then
+          hd(1:nc) = hd(1:nc) - 0.5_rk*x*hv(1:nc)
+        endif
+        if (my_pe>0 .and. iblk==1) then
+
+          ! The first column of the diagonal block has to be send to the previous PE
+          ! Calculate first column only ...
+          if (isSkewsymmetric) then
+            ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*hv(1) + hv(1:nc)*hd(1)
+          else
+            ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*hv(1) - hv(1:nc)*hd(1)
+          endif
+          ! ... send it away ...
+          ab_s(1:nb+1) = ab(1:nb+1,ns)
+
+          ! ... and calculate remaining columns with rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then 
+            if (nc>1) call elpa_dssr2(int(nc-1,kind=BLAS_KIND), hd(2), hv(2), ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          else
+            if (nc>1) call DSYR2('L', int(nc-1,kind=BLAS_KIND), -ONE, hd(2), 1_BLAS_KIND, &
+                                       hv(2), 1_BLAS_KIND, ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          endif
+          if (wantDebug) call obj%timer%stop("blas")
+
+        else ! (my_pe>0 .and. iblk==1)
+          ! No need to  send, just a rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then 
+            call elpa_dssr2(int(nc,kind=BLAS_KIND), hd, hv, ab(1,ns), int(2*nb-1,kind=BLAS_KIND))
+          else
+            call DSYR2('L', int(nc,kind=BLAS_KIND), -ONE, hd, 1_BLAS_KIND,  &
+                              hv, 1_BLAS_KIND, ab(1,ns), int(2*nb-1,kind=BLAS_KIND) )
+          endif
+          if (wantDebug) call obj%timer%stop("blas")
+        endif  ! (my_pe>0 .and. iblk==1)
+
+        ! Do the remaining double Householder transformation on the subdiagonal block cols 2 ... nb
+
+        if (nr > 0) then
+          if (nr > 1) then
+            if (wantDebug) call obj%timer%start("blas")
+            call DGEMV('T', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                tau_new, ab(nb,ns+1), int(2*nb-1,kind=BLAS_KIND), &
+                                hv_new, 1_BLAS_KIND, ZERO, h(2), 1_BLAS_KIND)
+            if (wantDebug) call obj%timer%stop("blas")
+            x = dot_product(hs(1:nr),hv_new(1:nr))*tau_new
+            h(2:nb) = h(2:nb) - x*hv(2:nb)
+            ! Unfortunately there is no BLAS routine like DSYR2 for a nonsymmetric rank 2 update
+            do i=2,nb
+              ab(2+nb-i:1+nb+nr-i,i+ns-1) = ab(2+nb-i:1+nb+nr-i,i+ns-1) - hv_new(1:nr)*h(i) - hs(1:nr)*hv(i)
+            enddo
+          else ! nr > 1
+            ! No double Householder transformation for nr=1, just complete the row
+            do i=2,nb
+              ab(2+nb-i,i+ns-1) = ab(2+nb-i,i+ns-1) - hs(1)*hv(i)
+            enddo
+          endif ! nr > 1
+        endif ! nr > 0
+
+        ! Use new HH Vector for the next block
+        hv(:) = hv_new(:)
+        tau = tau_new
+
+      enddo
+
+
+  enddo ! istep
+
+  ! Finish the last outstanding requests
+
+
+
+
+  deallocate(ab, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ab", 1232,  istat,  errorMessage)
+
+  deallocate(ireq_hhr, ireq_hhs, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ireq_hhr", 1235,  istat,  errorMessage)
+
+  deallocate(hh_cnt, hh_dst, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_dst", 1238,  istat,  errorMessage)
+
+  deallocate(hh_gath, hh_send, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_gath", 1241,  istat,  errorMessage)
+
+  deallocate(limits, snd_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: limits", 1244,  istat,  errorMessage)
+
+  deallocate(block_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: block_limits", 1247,  istat,  errorMessage)
+
+  deallocate(global_id, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: global_id", 1250,  istat,  errorMessage)
+
+  call obj%timer%stop("tridiag_band_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  ! intel compiler bug makes these ifdefs necessary
+end subroutine tridiag_band_real_&
+&double
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+!#if 1 == 1
+!#endif
+
+!#if COMPLEXCASE == 1
+!#undef WITH_CUDA_AWARE_MPI_TRANS_TRIDI_TO_BAND
+!#endif
+
+subroutine trans_ev_tridi_to_band_&
+&real&
+&_&
+&double &
+(obj, na, nev, nblk, nbw, q, ldq, matrixCols,         &
+ hh_trans, my_pe, mpi_comm_rows, mpi_comm_cols, wantDebug, useGPU, max_threads_in, success, &
+ kernel)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_tridi_to_band_real/complex:
+!  Transforms the eigenvectors of a tridiagonal matrix back to the eigenvectors of the band matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a, number of rows of matrix q
+!
+!  nev         Number eigenvectors to compute (= columns of matrix q)
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nb          semi bandwith
+!
+!  q           On input: Eigenvectors of tridiagonal matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q
+!  matrixCols  local columns of matrix q
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns/both
+!
+!-------------------------------------------------------------------------------
+  use ELPA_utilities, only : error_unit
+  use elpa_abstract_impl
+  use elpa2_workload
+  use pack_unpack_cpu
+  use pack_unpack_gpu
+  use compute_hh_trafo
+  use elpa_gpu
+  use precision
+  use, intrinsic :: iso_c_binding
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU
+
+  integer(kind=ik), intent(in)                 :: kernel, my_pe
+  integer(kind=ik), intent(in)                 :: na, nev, nblk, nbw, ldq, matrixCols, mpi_comm_rows, mpi_comm_cols
+
+  real(kind=rck), target              :: q(ldq,*)
+
+  real(kind=rck), intent(in),target   :: hh_trans(:,:)
+  integer(kind=c_intptr_t)                     :: hh_trans_dev
+  type(c_ptr)                                  :: hh_trans_mpi_dev
+  real(kind=rck), pointer             :: hh_trans_mpi_fortran_ptr(:,:)
+
+
+  integer(kind=ik)                             :: np_rows, my_prow, np_cols, my_pcol
+  integer(kind=MPI_KIND)                       :: np_rowsMPI, my_prowMPI, np_colsMPI, my_pcolMPI
+  integer(kind=ik)                             :: i, j, ip, sweep, nbuf, l_nev, a_dim2
+  integer(kind=ik)                             :: current_n, current_local_n, current_n_start, current_n_end
+  integer(kind=ik)                             :: next_n, next_local_n, next_n_start, next_n_end
+  integer(kind=ik)                             :: bottom_msg_length, top_msg_length, next_top_msg_length
+  integer(kind=ik)                             :: stripe_width, last_stripe_width, stripe_count
+  integer(kind=ik)                             :: num_result_blocks, num_result_buffers, num_bufs_recvd
+  integer(kind=ik)                             :: a_off, current_tv_off, max_blk_size
+  integer(kind=ik)                             :: src, src_offset, dst, offset, nfact, num_blk
+  integer(kind=MPI_KIND)                       :: mpierr
+
+  logical                                      :: flag
+  real(kind=rck), pointer             :: aIntern(:,:,:)
+  real(kind=rck)                      :: a_var
+
+  type(c_ptr)                                  :: aIntern_ptr
+
+  real(kind=rck), allocatable, target :: row(:)
+
+  integer(kind=c_intptr_t)                     :: row_dev
+  type(c_ptr)                                  :: row_mpi_dev
+  real(kind=rck), pointer             :: row_mpi_fortran_ptr(:)
+
+  real(kind=rck), pointer             :: row_group(:,:)
+
+  real(kind=rck), allocatable, target :: top_border_send_buffer(:,:)
+  real(kind=rck), allocatable, target :: top_border_recv_buffer(:,:)
+  real(kind=rck), allocatable, target :: bottom_border_send_buffer(:,:)
+  real(kind=rck), allocatable, target :: bottom_border_recv_buffer(:,:)
+
+  integer(kind=c_intptr_t)                     :: top_border_recv_buffer_dev, top_border_send_buffer_dev
+  type(c_ptr)                                  :: top_border_recv_buffer_mpi_dev, top_border_send_buffer_mpi_dev
+  real(kind=rck), pointer             :: top_border_recv_buffer_mpi_fortran_ptr(:,:), &
+                                                  top_border_send_buffer_mpi_fortran_ptr(:,:)
+  integer(kind=c_intptr_t)                     :: bottom_border_send_buffer_dev, bottom_border_recv_buffer_dev
+  type(c_ptr)                                  :: bottom_border_send_buffer_mpi_dev, bottom_border_recv_buffer_mpi_dev
+  real(kind=rck), pointer             :: bottom_border_send_buffer_mpi_fortran_ptr(:,:), &
+                                                  bottom_border_recv_buffer_mpi_fortran_ptr(:,:)
+  type(c_ptr)                                  :: aIntern_mpi_dev
+  real(kind=rck), pointer             :: aIntern_mpi_fortran_ptr(:,:,:)
+
+  integer(kind=c_intptr_t)                     :: aIntern_dev
+  integer(kind=c_intptr_t)                     :: bcast_buffer_dev
+
+  type(c_ptr)                                  :: bcast_buffer_mpi_dev
+  real(kind=rck), pointer             :: bcast_buffer_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: num
+  integer(kind=c_intptr_t)                     :: dev_offset, dev_offset_1
+  integer(kind=c_intptr_t)                     :: row_group_dev
+
+  type(c_ptr)                                  :: row_group_mpi_dev
+  real(kind=rck), pointer             :: row_group_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: q_dev
+  type(c_ptr)                                  :: q_mpi_dev
+  real(kind=rck), pointer             :: q_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: hh_tau_dev
+  real(kind=rck), pointer             :: hh_tau_debug(:)
+  integer(kind=ik)                             :: row_group_size, unpack_idx
+
+  type(c_ptr)                                  :: row_group_host, bcast_buffer_host
+
+  integer(kind=ik)                             :: n_times
+  integer(kind=ik)                             :: chunk, this_chunk
+
+  real(kind=rck), allocatable,target  :: result_buffer(:,:,:)
+  integer(kind=c_intptr_t)                     :: result_buffer_dev
+
+  type(c_ptr)                                  :: result_buffer_mpi_dev
+  real(kind=rck), pointer             :: result_buffer_mpi_fortran_ptr(:,:,:)
+
+  real(kind=rck), pointer             :: bcast_buffer(:,:)
+
+  integer(kind=ik)                             :: n_off
+
+  integer(kind=MPI_KIND), allocatable          :: result_send_request(:), result_recv_request(:)
+  integer(kind=ik), allocatable                :: limits(:)
+  integer(kind=MPI_KIND), allocatable          :: top_send_request(:), bottom_send_request(:)
+  integer(kind=MPI_KIND), allocatable          :: top_recv_request(:), bottom_recv_request(:)
+
+  ! MPI send/recv tags, arbitrary
+
+  integer(kind=ik), parameter                  :: bottom_recv_tag = 111
+  integer(kind=ik), parameter                  :: top_recv_tag    = 222
+  integer(kind=ik), parameter                  :: result_recv_tag = 333
+
+  integer(kind=ik), intent(in)                 :: max_threads_in
+  integer(kind=ik)                             :: max_threads
+
+
+
+  ! Just for measuring the kernel performance
+  real(kind=c_double)                          :: kernel_time, kernel_time_recv ! MPI_WTIME always needs double
+  ! long integer
+  integer(kind=lik)                            :: kernel_flops, kernel_flops_recv
+
+  logical, intent(in)                          :: wantDebug
+  logical                                      :: success
+  integer(kind=ik)                             :: istat, print_flops
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+  logical                                      :: successGPU
+  integer(kind=ik)                             :: j1
+  integer(kind=ik)                             :: error
+  integer(kind=c_intptr_t), parameter          :: size_of_datatype = size_of_&
+                                                                 &double&
+                                                                 &_&
+                                                                 &real
+  logical, parameter                           :: allComputeOnGPU = .true.
+
+  integer(kind=MPI_KIND)                     :: bcast_request1, allreduce_request1, allreduce_request2, &
+                                                allreduce_request3, allreduce_request4
+  logical                                    :: useNonBlockingCollectivesCols
+  logical                                    :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                        :: non_blocking_collectives_rows, non_blocking_collectives_cols
+
+  integer(kind=c_intptr_t)                   :: gpuHandle, my_stream
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_tridi_to_band_&
+  &real&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+
+  max_threads = max_threads_in
+
+  call obj%get("nbc_row_elpa2_tridi_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for rows in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  call obj%get("nbc_col_elpa2_tridi_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for cols in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  n_times = 0
+  if (useGPU) then
+    unpack_idx = 0
+    row_group_size = 0
+  endif
+
+  success = .true.
+  kernel_time = 0.0
+  kernel_flops = 0
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call MPI_Comm_rank(int(mpi_comm_rows,kind=MPI_KIND) , my_prowMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_rows,kind=MPI_KIND) , np_rowsMPI , mpierr)
+  call MPI_Comm_rank(int(mpi_comm_cols,kind=MPI_KIND) , my_pcolMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_cols,kind=MPI_KIND) , np_colsMPI , mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &real&
+                            &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &real&
+                            &: band backtransform works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  nfact = nbw / nblk
+
+
+  ! local number of eigenvectors
+  l_nev = local_index(nev, my_pcol, np_cols, nblk, -1)
+
+  if (l_nev==0) then
+    stripe_width = 0
+    stripe_count = 0
+    last_stripe_width = 0
+
+  else ! l_nev
+
+
+    ! Suggested stripe width is 48 since 48*64 real*8 numbers should fit into
+    ! every primary cache
+    ! Suggested stripe width is 48 - should this be reduced for the complex case ???
+
+    if (useGPU) then
+      stripe_width = 1024 ! Must be a multiple of 4
+      stripe_count = (l_nev - 1) / stripe_width + 1
+
+    else ! useGPU
+      call obj%get("stripewidth_real",stripe_width, error)
+
+      !stripe_width = 48 ! Must be a multiple of 4
+
+
+      stripe_count = (l_nev-1)/stripe_width + 1
+
+      ! Adapt stripe width so that last one doesn't get too small
+
+      stripe_width = (l_nev-1)/stripe_count + 1
+
+      if (kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK2 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK4 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK6 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK2 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK4 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK6  &
+          ) then
+
+        stripe_width = ((stripe_width+7)/8)*8 ! Must be a multiple of 8 because of AVX-512 memory alignment of 64 bytes
+                                              ! (8 * sizeof(double) == 64)
+
+      else
+        stripe_width = ((stripe_width+3)/4)*4 ! Must be a multiple of 4 because of AVX/SSE memory alignment of 32 bytes
+                                            ! (4 * sizeof(double) == 32)
+      endif
+
+   endif ! useGPU
+
+   last_stripe_width = l_nev - (stripe_count-1)*stripe_width
+
+  endif ! l_nev
+
+  ! Determine the matrix distribution at the beginning
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: limits", 633,  istat,  errorMessage)
+  call determine_workload(obj,na, nbw, np_rows, limits)
+
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  a_dim2 = max_blk_size + nbw
+
+  if (useGPU) then
+
+    if (allComputeOnGPU) then
+      if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+      successGPU = gpu_malloc(q_dev, ldq*matrixCols* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: q_dev", 646,  successGPU)
+
+      successGPU =  gpu_memcpy(q_dev, int(loc(q(1,1)),kind=c_intptr_t),  &
+                               ldq*matrixCols * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q -> q_dev", 672,  successGPU)
+
+      ! associate with c_ptr
+      q_mpi_dev = transfer(q_dev, q_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(q_mpi_dev, q_mpi_fortran_ptr, &
+                       [ldq,matrixCols])
+      if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+      successGPU = gpu_malloc(hh_trans_dev, size(hh_trans,dim=1)*size(hh_trans,dim=2)* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: hh_trans_dev", 683,  successGPU)
+      ! associate with c_ptr
+      hh_trans_mpi_dev = transfer(hh_trans_dev, hh_trans_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(hh_trans_mpi_dev, hh_trans_mpi_fortran_ptr, &
+                       [size(hh_trans,dim=1),size(hh_trans,dim=2)])
+      successGPU =  gpu_memcpy(c_loc(hh_trans_mpi_fortran_ptr(1,1)),  &
+                               c_loc(hh_trans(1,1)), &
+                               size(hh_trans,dim=1)*size(hh_trans,dim=2) * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("tridi_to_band: hh_trans -> hh_trans_dev", 716,  successGPU)
+
+    endif ! allComputeOnGPU
+
+    num = (stripe_width*a_dim2*stripe_count)* size_of_datatype
+    successGPU = gpu_malloc(aIntern_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: aIntern_dev", 727,  successGPU)
+
+    ! openmp loop here
+
+      successGPU = gpu_memset(aIntern_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: aIntern_dev", 743,  successGPU)
+
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      aIntern_mpi_dev = transfer(aIntern_dev, aIntern_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(aIntern_mpi_dev, aIntern_mpi_fortran_ptr, &
+                       [stripe_width,a_dim2,stripe_count])
+    endif ! allComputeOnGPU
+
+    ! "row_group" and "row_group_dev" are needed for GPU optimizations
+      successGPU = gpu_malloc_host(row_group_host,l_nev*nblk*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: row_group_host", 781,  successGPU)
+      call c_f_pointer(row_group_host, row_group, (/l_nev,nblk/))
+
+    row_group(:, :) = 0.0_rck
+    num =  (l_nev*nblk)* size_of_datatype
+    successGPU = gpu_malloc(row_group_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_group_dev", 792,  successGPU)
+
+
+      successGPU = gpu_memset(row_group_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_group_dev", 807,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      row_group_mpi_dev = transfer(row_group_dev, row_group_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(row_group_mpi_dev, row_group_mpi_fortran_ptr, &
+                       [l_nev,nblk])
+    endif ! allComputeOnGPU
+
+  else ! GPUs are not used
+
+
+
+    if (posix_memalign(aIntern_ptr, 64_c_intptr_t, stripe_width*a_dim2*stripe_count*  &
+        C_SIZEOF(a_var)) /= 0) then
+      print *,"trans_ev_tridi_to_band_real: error when allocating aIntern"//errorMessage
+      stop 1
+    endif
+
+    call c_f_pointer(aIntern_ptr, aIntern,[stripe_width,a_dim2,stripe_count] )
+    !allocate(aIntern(stripe_width,a_dim2,stripe_count), stat=istat, errmsg=errorMessage)
+
+    aIntern(:,:,:) = 0.0_rck
+  endif !useGPU
+
+  allocate(row(l_nev), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: row", 862,  istat,  errorMessage)
+
+  row(:) = 0.0_rck
+
+  if (useGPU .and. allComputeOnGPU) then
+    num =  (l_nev)* size_of_datatype
+    successGPU = gpu_malloc(row_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_dev", 869,  successGPU)
+
+      successGPU = gpu_memset(row_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_dev", 886,  successGPU)
+
+
+    ! associate with c_ptr
+    row_mpi_dev = transfer(row_dev, row_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(row_mpi_dev, row_mpi_fortran_ptr, &
+                     [l_nev])
+  endif
+
+  ! Copy q from a block cyclic distribution into a distribution with contiguous rows,
+  ! and transpose the matrix using stripes of given stripe_width for cache blocking.
+
+  ! The peculiar way it is done below is due to the fact that the last row should be
+  ! ready first since it is the first one to start below
+
+
+
+  if (wantDebug) call obj%timer%start("ip_loop")
+  do ip = np_rows-1, 0, -1
+    if (my_prow == ip) then
+      ! Receive my rows which have not yet been received
+      src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+      do i=limits(ip)+1,limits(ip+1)
+        src = mod((i-1)/nblk, np_rows)
+
+        if (src < my_prow) then
+
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            my_stream = obj%gpu_setup%my_stream
+            call unpack_and_prepare_row_group_&
+            &real&
+            &_gpu_&
+            &double &
+                          ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                                      stripe_width, last_stripe_width, a_dim2, l_nev,&
+                                      row_group_size, nblk, unpack_idx, &
+                                       i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+            if (allComputeOnGPU) then
+              ! memcpy row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1091,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1097,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev, row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+
+            call unpack_row_&
+                &real&
+                &_cpu_&
+                &double &
+                (obj, aIntern, row,i-limits(ip), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        elseif (src == my_prow) then
+
+          src_offset = src_offset+1
+
+          if (useGPU) then
+
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &real&
+                 &_gpu_&
+                 &double &
+             ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                          stripe_width, last_stripe_width, a_dim2, l_nev,&
+                          row_group_size, nblk, unpack_idx, &
+                          i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_DCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            else ! allComputeOnGPU
+              row_group(:, row_group_size) = q(src_offset, 1:l_nev)
+            endif ! allComputeOnGPU
+          else ! useGPU
+            row(:) = q(src_offset, 1:l_nev)
+          endif ! useGPU
+
+
+          if (useGPU) then
+
+          else
+            call unpack_row_&
+                 &real&
+                 &_cpu_&
+                 &double &
+                            (obj, aIntern, row,i-limits(ip),  stripe_count, stripe_width, last_stripe_width)
+          endif
+
+
+        endif ! src == my_prow
+      enddo ! i=limits(ip)+1,limits(ip+1)
+
+
+      ! Send all rows which have not yet been send
+
+
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_DCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1219,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+            endif
+          enddo
+        enddo
+      else !  allComputeOnGPU
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+              row(:) = q(src_offset, 1:l_nev)
+
+            endif
+          enddo
+        enddo
+      endif ! allComputeOnGPU
+
+    else if (my_prow < ip) then
+
+      ! Send all rows going to PE ip
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+
+            if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_DCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+            if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+
+            ! is there a way to avoid this device_synchronize ?
+            if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+            successGPU = gpu_devicesynchronize()
+            call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1277,  successGPU)
+            if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+          endif
+        enddo
+      else ! allComputeOnGPU
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+            row(:) = q(src_offset, 1:l_nev)
+          endif
+        enddo
+      endif  ! allComputeOnGPU
+
+      ! Receive all rows from PE ip
+      do i=limits(my_prow)+1,limits(my_prow+1)
+        src = mod((i-1)/nblk, np_rows)
+        if (src == ip) then
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &real&
+                 &_gpu_&
+                 &double&
+                 &( obj, &
+                 row_group, row_group_dev, aIntern_dev, stripe_count,  &
+                 stripe_width, last_stripe_width, a_dim2, l_nev,       &
+                 row_group_size, nblk, unpack_idx,                     &
+                 i - limits(my_prow), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1458,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1464,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev,row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+            call unpack_row_&
+                 &real&
+                 &_cpu_&
+                 &double &
+                 (obj, aIntern, row,i-limits(my_prow), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        endif
+      enddo ! i=limits(my_prow)+1,limits(my_prow+1)
+    endif ! (my_prow < ip)
+  enddo ! ip = np_rows-1, 0, -1
+
+  if (wantDebug) call obj%timer%stop("ip_loop")
+
+  if (wantDebug) call obj%timer%start("allocate")
+
+  if (useGPU) then
+    ! Force an unpacking of all remaining rows that haven't been unpacked yet
+
+    call unpack_and_prepare_row_group_&
+         &real&
+         &_gpu_&
+         &double&
+         &( obj, &
+         row_group, row_group_dev, aIntern_dev, stripe_count, &
+         stripe_width, last_stripe_width, &
+         a_dim2, l_nev, row_group_size, nblk, unpack_idx,     &
+         -1, .true., wantDebug, allComputeOnGPU, my_stream)
+
+  endif
+
+  ! Set up result buffer queue
+
+  num_result_blocks = ((na-1)/nblk + np_rows - my_prow) / np_rows
+
+  num_result_buffers = 4*nfact
+  allocate(result_buffer(l_nev,nblk,num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_buffer", 1520,  istat,  errorMessage)
+
+  allocate(result_send_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_send_request", 1523,  istat,  errorMessage)
+
+  allocate(result_recv_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_recv_request", 1526,  istat,  errorMessage)
+
+  if (useGPU .and. allComputeOnGPU) then
+    num_result_buffers = 4*nfact
+    num =  (l_nev*nblk*num_result_buffers)* size_of_datatype
+    successGPU = gpu_malloc(result_buffer_dev, num* size_of_datatype)
+    call check_alloc_GPU_f("tridi_to_band: result_buffer_dev", 1532,  successGPU)
+
+    ! associate with c_ptr
+    result_buffer_mpi_dev = transfer(result_buffer_dev, result_buffer_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(result_buffer_mpi_dev, result_buffer_mpi_fortran_ptr, &
+                     [l_nev,nblk,num_result_buffers])
+  endif
+
+
+  ! Queue up buffers
+
+  ! carefull the "recv" has to be done at the corresponding wait or send
+  ! result_buffer(1: l_nev*nblk,1,j) =result_buffer(1:l_nev*nblk,1,nbuf)
+
+
+  num_bufs_recvd = 0 ! No buffers received yet
+
+  ! Initialize top/bottom requests
+
+  allocate(top_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_send_request", 1589,  istat,  errorMessage)
+
+  allocate(top_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_recv_request", 1592,  istat,  errorMessage)
+
+  allocate(bottom_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_send_request", 1595,  istat,  errorMessage)
+
+  allocate(bottom_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_recv_request", 1598,  istat,  errorMessage)
+
+
+
+  allocate(top_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_send_buffer", 1628,  istat,  errorMessage)
+
+  allocate(top_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_recv_buffer", 1631,  istat,  errorMessage)
+
+  allocate(bottom_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_send_buffer", 1634,  istat,  errorMessage)
+
+  allocate(bottom_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_recv_buffer", 1637,  istat,  errorMessage)
+
+  top_border_send_buffer(:,:) = 0.0_rck
+  top_border_recv_buffer(:,:) = 0.0_rck
+  bottom_border_send_buffer(:,:) = 0.0_rck
+  bottom_border_recv_buffer(:,:) = 0.0_rck
+
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      ! top_border_recv_buffer and top_border_send_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(top_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1655,  successGPU)
+
+      successGPU = gpu_malloc(top_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1658,  successGPU)
+
+        successGPU = gpu_memset(top_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1673,  successGPU)
+        successGPU = gpu_memset(top_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1675,  successGPU)
+
+
+      ! associate with c_ptr
+      top_border_recv_buffer_mpi_dev = transfer(top_border_recv_buffer_dev, top_border_recv_buffer_mpi_dev)
+      top_border_send_buffer_mpi_dev = transfer(top_border_send_buffer_dev, top_border_send_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(top_border_recv_buffer_mpi_dev, top_border_recv_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+      call c_f_pointer(top_border_send_buffer_mpi_dev, top_border_send_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+
+      ! bottom_border_send_buffer and bottom_border_recv_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(bottom_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1710,  successGPU)
+      successGPU = gpu_malloc(bottom_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1712,  successGPU)
+
+
+        successGPU = gpu_memset(bottom_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1728,  successGPU)
+        successGPU = gpu_memset(bottom_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1730,  successGPU)
+
+
+      ! associate with c_ptr
+      bottom_border_send_buffer_mpi_dev = transfer(bottom_border_send_buffer_dev, bottom_border_send_buffer_mpi_dev)
+      bottom_border_recv_buffer_mpi_dev = transfer(bottom_border_recv_buffer_dev, bottom_border_recv_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(bottom_border_send_buffer_mpi_dev, bottom_border_send_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+      call c_f_pointer(bottom_border_recv_buffer_mpi_dev, bottom_border_recv_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+    endif ! allComputeOnGPU
+
+      successGPU = gpu_host_register(int(loc(top_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_send_buffer", 1767,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(top_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_recv_buffer", 1772,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_send_buffer", 1777,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_recv_buffer", 1782,  successGPU)
+  endif ! useGPU
+
+
+  ! Initialize broadcast buffer
+
+  if (useGPU) then
+      successGPU = gpu_malloc_host(bcast_buffer_host,nbw*max_blk_size*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: bcast_buffer_host", 1796,  successGPU)
+      call c_f_pointer(bcast_buffer_host, bcast_buffer, (/nbw,max_blk_size/))
+  else
+    allocate(bcast_buffer(nbw, max_blk_size), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("tridi_to_band: bcast_buffer", 1805,  istat,  errorMessage)
+  endif
+
+  bcast_buffer = 0.0_rck
+
+  if (useGPU) then
+    num =  ( nbw * max_blk_size) * size_of_datatype
+    successGPU = gpu_malloc(bcast_buffer_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: bcast_buffer_dev", 1813,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      bcast_buffer_mpi_dev = transfer(bcast_buffer_dev, bcast_buffer_mpi_dev)
+      call c_f_pointer(bcast_buffer_mpi_dev, bcast_buffer_mpi_fortran_ptr, &
+                      [nbw, max_blk_size])
+    endif ! allComputeOnGPU
+
+
+      successGPU = gpu_memset( bcast_buffer_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 1834,  successGPU)
+
+
+    num =  (max_blk_size)* size_of_datatype
+    successGPU = gpu_malloc( hh_tau_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: hh_tau_dev", 1850,  successGPU)
+
+
+      successGPU = gpu_memset( hh_tau_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: hh_tau_dev", 1864,  successGPU)
+
+  endif ! useGPU
+
+  current_tv_off = 0 ! Offset of next row to be broadcast
+
+  ! ------------------- start of work loop -------------------
+
+  ! Pay attention that for a_off zero indexing is assumed
+  a_off = 0 ! offset in aIntern (to avoid unnecessary shifts)
+
+  top_msg_length = 0
+  bottom_msg_length = 0
+  if (wantDebug) call obj%timer%stop("allocate")
+
+  if (wantDebug) call obj%timer%start("sweep_loop")
+  do sweep = 0, (na-1)/nbw
+
+    current_n = na - sweep*nbw
+    call determine_workload(obj,current_n, nbw, np_rows, limits)
+    current_n_start = limits(my_prow)
+    current_n_end   = limits(my_prow+1)
+    current_local_n = current_n_end - current_n_start
+
+    next_n = max(current_n - nbw, 0)
+    call determine_workload(obj,next_n, nbw, np_rows, limits)
+    next_n_start = limits(my_prow)
+    next_n_end   = limits(my_prow+1)
+    next_local_n = next_n_end - next_n_start
+
+    if (next_n_end < next_n) then
+      bottom_msg_length = current_n_end - next_n_end
+    else
+      bottom_msg_length = 0
+    endif
+
+    if (next_local_n > 0) then
+      next_top_msg_length = current_n_start - next_n_start
+    else
+      next_top_msg_length = 0
+    endif
+
+    if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+      do i = 1, stripe_count
+
+
+        if (useGPU) then
+        else !useGPU
+        endif !useGPU
+!            carefull the recieve has to be done at the corresponding wait or send
+!            bottom_border_recv_buffer(1:nbw*stripe_width,1,i) = top_border_send_buffer(1:nbw*stripe_width,1,i)
+
+      enddo ! i = 1, stripe_count
+    endif ! sweep==0 .and. current_n_end < current_n .and. l_nev > 0
+
+    if (current_local_n > 1) then
+      if (useGPU .and. allComputeOnGPU) then
+        if (my_pcol == mod(sweep,np_cols)) then
+          if (wantDebug) call obj%timer%start("cuda_memcpy")
+          successGPU =  gpu_memcpy(c_loc(bcast_buffer_mpi_fortran_ptr(1,1)), &
+                                   c_loc(hh_trans_mpi_fortran_ptr(1,current_tv_off+1)),  &
+                                     size(hh_trans,dim=1) * (current_tv_off+current_local_n-(current_tv_off+1)+1) * &
+                                     size_of_datatype, &
+                                     gpuMemcpyDeviceToDevice)
+          call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2027,  successGPU)
+          if (wantDebug) call obj%timer%stop("cuda_memcpy")
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      else !useGPU
+        if (my_pcol == mod(sweep,np_cols)) then
+          bcast_buffer(:,1:current_local_n) =    &
+          hh_trans(:,current_tv_off+1:current_tv_off+current_local_n)
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      endif ! useGPU
+
+      if (useGPU .and. .not.(allComputeOnGPU)) then
+        if (wantDebug) call obj%timer%start("memcpy")
+        successGPU =  gpu_memcpy(bcast_buffer_dev, int(loc(bcast_buffer(1,1)),kind=c_intptr_t),  &
+                                 nbw * current_local_n *    &
+                                 size_of_datatype, &
+                                 gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2142,  successGPU)
+        if (wantDebug) call obj%timer%stop("memcpy")
+      endif ! useGPU
+
+      if (useGPU) then
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &real&
+             &_gpu_&
+             &double&
+             (bcast_buffer_dev, hh_tau_dev, nbw, &
+             current_local_n, .false., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+
+    else ! (current_local_n > 1) then
+
+      ! for current_local_n == 1 the one and only HH Vector is 0 and not stored in hh_trans_real/complex
+      bcast_buffer(:,1) = 0.0_rck
+      if (useGPU) then
+
+          successGPU = gpu_memset(bcast_buffer_dev, 0, nbw * size_of_datatype)
+          call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 2176,  successGPU)
+
+
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &real&
+             &_gpu_&
+             &double&
+             &( &
+             bcast_buffer_dev, hh_tau_dev, &
+             nbw, 1, .true., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+    endif ! (current_local_n > 1) then
+
+    if (l_nev == 0) cycle
+
+    if (current_local_n > 0) then
+
+      do i = 1, stripe_count
+
+        !wait_b
+        if (current_n_end < current_n) then
+
+
+
+          n_off = current_local_n+a_off
+
+          if (useGPU) then
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_memcpy")
+              successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                       c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                       stripe_width*nbw* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2378,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_memcpy")
+            else ! allComputeOnGPU
+              if (wantDebug) call obj%timer%start("memcpy")
+              dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width *a_dim2 )) * size_of_datatype
+              successGPU =  gpu_memcpy( aIntern_dev + dev_offset , &
+                                      int(loc(bottom_border_recv_buffer(1,i)),kind=c_intptr_t), &
+                                       stripe_width*nbw*  size_of_datatype,    &
+                                       gpuMemcpyHostToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2404,  successGPU)
+              if (wantDebug) call obj%timer%stop("memcpy")
+            endif ! allComputeOnGPU
+          else ! useGPU
+            aIntern(:,n_off+1:n_off+nbw,i) = reshape( &
+            bottom_border_recv_buffer(1:stripe_width*nbw,i),(/stripe_width,nbw/))
+          endif ! useGPU
+
+
+          if (next_n_end < next_n) then
+
+            if (useGPU) then
+            else ! useGPU
+            endif ! useGPU
+!!                carefull the recieve has to be done at the corresponding wait or send
+!!                bottom_border_recv_buffer(1:stripe_width,1:nbw,i) =  top_border_send_buffer(1:stripe_width,1:nbw,i)
+
+            endif ! (next_n_end < next_n)
+          endif ! (current_n_end < current_n)
+
+          if (current_local_n <= bottom_msg_length + top_msg_length) then
+
+            !wait_t
+            if (top_msg_length>0) then
+
+
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! the MPI_IRECV will be done CUDA_AWARE we thus do not need a host to device copy
+                  ! However, we have to copy from top_border_recv_buffer_mpi_fortran_ptr to aIntern_mpi_fortran_ptr
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+                  !Fortran pointer for indexing
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                          c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                          stripe_width*top_msg_length* size_of_datatype,      &
+                                          gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2659,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  !             host_offset= (0 + (0 * stripe_width) + ( (i-1) * stripe_width * nbw ) ) * 8
+                  successGPU =  gpu_memcpy( aIntern_dev+dev_offset , int(loc(top_border_recv_buffer(1,i)),kind=c_intptr_t),  &
+                                             stripe_width*top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2684,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+            endif ! top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+                &real&
+                &_&
+                &double&
+                &(obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, &
+                max_threads, &
+                a_off, nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+                hh_tau_dev, kernel_flops, kernel_time, n_times, 0, current_local_n, i, &
+                last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+
+            !send_b        1
+
+            if (bottom_msg_length>0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                           c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 2946,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 2954,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy( int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 2979,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3033,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3040,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+            endif !(bottom_msg_length>0)
+
+          else ! current_local_n <= bottom_msg_length + top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &real&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, &
+             current_local_n - bottom_msg_length, bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !send_b
+            if (bottom_msg_length > 0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                            c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                             stripe_width * bottom_msg_length * size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 3326,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset,  &
+                                           stripe_width*bottom_msg_length* size_of_datatype,  &
+                                           gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 3351,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3407,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3414,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+
+            endif ! (bottom_msg_length > 0)
+
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &real&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, top_msg_length, &
+             current_local_n-top_msg_length-bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !wait_t
+            if (top_msg_length>0) then
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                           c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                           stripe_width* top_msg_length* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3664,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  ! copy top_border_recv_buffer to aIntern_dev, maybe not necessary if CUDA_AWARE IRECV
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(aIntern_dev + dev_offset ,int(loc( top_border_recv_buffer(:,i)),kind=c_intptr_t),  &
+                                        stripe_width * top_msg_length * size_of_datatype,   &
+                                        gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3689,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+           endif
+
+           !compute
+
+           if (wantDebug) call obj%timer%start("compute_hh_trafo")
+           call compute_hh_trafo_&
+             &real&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, max_threads, &
+             a_off, nbw, max_blk_size,  bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, 0, top_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+           if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+           if (.not.success) then
+             success=.false.
+             return
+           endif
+
+         endif ! which if branch
+
+         if (next_top_msg_length > 0) then
+           !request top_border data
+
+!             carefull the "recieve" has to be done at the corresponding wait or send
+!              top_border_recv_buffer(1:stripe_width,1:next_top_msg_length,i) =  &
+!               bottom_border_send_buffer(1:stripe_width,1:next_top_msg_length,i)
+
+
+         endif ! next_top_msg_length > 0
+
+         !send_t
+         if (my_prow > 0) then
+
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (wantDebug) call obj%timer%start("cuda_memcpy")
+               successGPU =  gpu_memcpy(c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                        c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                        stripe_width* nbw* size_of_datatype,      &
+                                        gpuMemcpyDeviceToDevice)
+               call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 4067,  successGPU)
+               if (wantDebug) call obj%timer%stop("cuda_memcpy")
+             else ! allComputeOnGPU
+               if (wantDebug) call obj%timer%start("memcpy")
+               dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+               successGPU =  gpu_memcpy(int(loc(top_border_send_buffer(:,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                         stripe_width*nbw * size_of_datatype, &
+                                         gpuMemcpyDeviceToHost)
+               call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> top_border_send_buffer", 4092,  successGPU)
+               if (wantDebug) call obj%timer%stop("memcpy")
+             endif ! allComputeOnGPU
+           else ! useGPU
+             top_border_send_buffer(:,i) = reshape(aIntern(:,a_off+1:a_off+nbw,i),(/stripe_width*nbw/))
+           endif ! useGPU
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4145,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4151,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+               if (next_n_end < next_n) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4174,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4180,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+             else ! allComputeOnGPU
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+               endif
+               if (next_n_end < next_n) then
+                 bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+               endif
+             endif ! allComputeOnGPU
+           else ! useGPU
+             if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+               bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+             endif
+             if (next_n_end < next_n) then
+               bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+             endif
+           endif ! useGPU
+
+         endif ! my_prow > 0
+
+         ! Care that there are not too many outstanding top_recv_request's
+         if (stripe_count > 1) then
+           if (i > 1) then
+           else ! i > 1
+          endif ! i > 1
+        endif ! stripe_count > 1
+      enddo ! i = 1, stripe_count
+
+      top_msg_length = next_top_msg_length
+
+    else ! current_local_n > 0
+      ! wait for last top_send_request
+
+    endif  ! current_local_n > 0
+
+    ! Care about the result
+
+    if (my_prow == 0) then
+
+      ! topmost process sends nbw rows to destination processes
+
+      do j=0, nfact-1
+        num_blk = sweep*nfact+j ! global number of destination block, 0 based
+        if (num_blk*nblk >= na) exit
+
+        nbuf = mod(num_blk, num_result_buffers) + 1 ! buffer number to get this block
+
+        dst = mod(num_blk, np_rows)
+
+        if (dst == 0) then
+          if (useGPU) then
+            row_group_size = min(na - num_blk*nblk, nblk)
+
+            call pack_row_group_&
+                 &real&
+                 &_gpu_&
+                 &double&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, last_stripe_width, a_dim2, l_nev, &
+                         row_group(:, :), j * nblk + a_off, row_group_size, &
+                         result_buffer_dev, nblk, num_result_buffers, nbuf, .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! memcpy DeviceToDevice row_group_dev -> q_dev
+              do i = 1, row_group_size
+               if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+               gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+               call gpublas_DCOPY(l_nev, c_loc(row_group_mpi_fortran_ptr(1,i)), 1, &
+                                           c_loc(q_mpi_fortran_ptr((num_blk / np_rows) * nblk + i,1)), ldq, gpuHandle)
+               if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              enddo
+            else ! allComputeOnGPU
+              do i = 1, row_group_size
+                q((num_blk / np_rows) * nblk + i, 1 : l_nev) = row_group(:, i)
+              enddo
+            endif ! allComputeOnGPU
+          else ! useGPU
+
+            do i = 1, min(na - num_blk*nblk, nblk)
+              call pack_row_&
+                   &real&
+                   &_cpu_&
+                   &double&
+                   &(obj, aIntern, row, j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+              q((num_blk/np_rows)*nblk+i,1:l_nev) = row(:)
+            enddo
+          endif ! useGPU
+
+        else ! (dst == 0)
+
+          if (useGPU) then
+
+            call pack_row_group_&
+                 &real&
+                 &_gpu_&
+                 &double&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, &
+                   last_stripe_width, a_dim2, l_nev, &
+                   result_buffer(:, :, nbuf), j * nblk + a_off, nblk, &
+                   result_buffer_dev, nblk, num_result_buffers, nbuf, .true., wantDebug, allComputeOnGPU, my_stream)
+
+          else  ! useGPU
+            do i = 1, nblk
+              call pack_row_&
+                   &real&
+                   &_cpu_&
+                   &double&
+                   &(obj, aIntern, result_buffer(:,i,nbuf),j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+            enddo
+          endif ! useGPU
+
+        endif ! (dst == 0)
+      enddo  !j=0, nfact-1
+
+    else ! (my_prow == 0)
+
+      ! receive and store final result
+
+      do j = num_bufs_recvd, num_result_blocks-1
+
+        nbuf = mod(j, num_result_buffers) + 1 ! buffer number to get this block
+
+        ! If there is still work to do, just test for the next result request
+        ! and leave the loop if it is not ready, otherwise wait for all
+        ! outstanding requests
+
+        if (next_local_n > 0) then
+            ! needed
+            !successGPU = gpu_devicesynchronize()
+          flag = .true.
+
+          if (.not.flag) exit
+
+        else ! (next_local_n > 0)
+        endif ! (next_local_n > 0)
+
+        ! Fill result buffer into q
+        num_blk = j*np_rows + my_prow ! global number of current block, 0 based
+        if (useGPU) then
+          if (allComputeOnGPU) then
+            do i = 1, min(na - num_blk*nblk, nblk)
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_DCOPY(l_nev, c_loc(result_buffer_mpi_fortran_ptr(1,i,nbuf)), 1, &
+                                          c_loc(q_mpi_fortran_ptr(j*nblk + i,1)), ldq, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            enddo
+          else ! allComputeOnGPU
+            do i = 1, min(na - num_blk*nblk, nblk)
+              q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+            enddo
+          endif ! allComputeOnGPU
+        else ! useGPU
+          do i = 1, min(na - num_blk*nblk, nblk)
+            q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+          enddo
+        endif ! useGPU
+        ! Queue result buffer again if there are outstanding blocks left
+
+
+      enddo ! j = num_bufs_recvd, num_result_blocks-1
+      num_bufs_recvd = j
+
+    endif ! (my_prow == 0)
+
+    ! Shift the remaining rows to the front of aIntern (if necessary)
+
+    offset = nbw - top_msg_length
+    if (offset<0) then
+      if (wantDebug) write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                                         &real&
+                                         &: internal error, offset for shifting = ',offset
+      success = .false.
+      return
+    endif
+
+    a_off = a_off + offset
+    if (a_off + next_local_n + nbw >= a_dim2) then
+      do i = 1, stripe_count
+        if (useGPU) then
+          chunk = min(next_local_n,a_off)
+
+          if (chunk < 1) exit
+
+          if (wantDebug) call obj%timer%start("normal_memcpy")
+          do j = top_msg_length+1, top_msg_length+next_local_n, chunk
+            this_chunk = min(j+chunk-1,top_msg_length+next_local_n)-j+1
+            dev_offset = ((j-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            dev_offset_1 = ((j+a_off-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            num = stripe_width*this_chunk*size_of_datatype
+            successGPU = gpu_memcpy(aIntern_dev+dev_offset, aIntern_dev+dev_offset_1, num, gpuMemcpyDeviceToDevice)
+
+            call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> aIntern_dev", 4648,  successGPU)
+          end do
+          if (wantDebug) call obj%timer%stop("normal_memcpy")
+        else ! not useGPU
+          do j = top_msg_length+1, top_msg_length+next_local_n
+            aIntern(:,j,i) = aIntern(:,j+a_off,i)
+          end do
+        end if
+      end do ! stripe_count
+
+      a_off = 0
+    end if
+  end do ! sweep
+  if (wantDebug) call obj%timer%stop("sweep_loop")
+
+  ! Just for safety:
+
+  if (my_prow == 0) then
+
+  endif
+
+
+  call obj%get("print_flops",print_flops,error)
+
+
+  if (useGPU .and. allComputeOnGPU) then
+    ! finally copy q_dev to q
+    if (wantDebug) call obj%timer%start("cuda_memcpy")
+    successGPU =  gpu_memcpy(int(loc(q(1,1)),kind=c_intptr_t),  &
+                             q_dev, &
+                             ldq*matrixCols * size_of_datatype, &
+                             gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q_dev -> q", 4771,  successGPU)
+    if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+  endif
+
+  if (my_prow==0 .and. my_pcol==0 .and.print_flops == 1) then
+      write(error_unit,'(" Kernel time:",f10.3," MFlops: ",es12.5)')  kernel_time, kernel_flops/kernel_time*1.d-6
+  endif
+
+  ! deallocate all working space
+
+  if (.not.(useGPU)) then
+    nullify(aIntern)
+    call free(aIntern_ptr)
+  endif
+
+  deallocate(row, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: row", 4789,  istat,  errorMessage)
+
+  deallocate(limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: limits", 4792,  istat,  errorMessage)
+
+  deallocate(result_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_send_request", 4795,  istat,  errorMessage)
+
+  deallocate(result_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_recv_request", 4798,  istat,  errorMessage)
+
+  deallocate(result_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_buffer", 4801,  istat,  errorMessage)
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(result_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: result_buffer_dev", 4806,  successGPU)
+      nullify(result_buffer_mpi_fortran_ptr)
+    endif
+
+      nullify(bcast_buffer)
+
+      successGPU = gpu_free_host(bcast_buffer_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: bcast_buffer_host", 4816,  successGPU)
+  else ! useGPU
+    deallocate(bcast_buffer, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("tridi_to_band: bcast_buffer", 4824,  istat,  errorMessage)
+  endif ! useGPU
+
+
+  if (useGPU) then
+    successGPU = gpu_free(aIntern_dev)
+    call check_dealloc_GPU_f("tridi_to_band: aIntern_dev", 4830,  successGPU)
+
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(q_dev)
+      call check_dealloc_GPU_f("tridi_to_band: q_dev", 4834,  successGPU)
+      nullify(q_mpi_fortran_ptr)
+
+      successGPU = gpu_free(hh_trans_dev)
+      call check_dealloc_GPU_f("tridi_to_band: hh_trans_dev", 4838,  successGPU)
+      nullify(hh_trans_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 4842,  successGPU)
+      nullify(top_border_recv_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 4846,  successGPU)
+      nullify(top_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 4850,  successGPU)
+      nullify(bottom_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 4854,  successGPU)
+      nullify(bottom_border_recv_buffer_mpi_fortran_ptr)
+
+      nullify(aIntern_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU = gpu_free(hh_tau_dev)
+    call check_dealloc_GPU_f("tridi_to_band: hh_tau_dev", 4861,  successGPU)
+
+      nullify(row_group)
+
+      successGPU = gpu_free_host(row_group_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: row_group_host", 4869,  successGPU)
+
+    successGPU = gpu_free(row_group_dev)
+    call check_dealloc_GPU_f("tridi_to_band: row_group_dev", 4877,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(row_group_mpi_fortran_ptr)
+
+      successGPU = gpu_free(row_dev)
+      call check_dealloc_GPU_f("tridi_to_band: row_dev", 4883,  successGPU)
+      nullify(row_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU =  gpu_free(bcast_buffer_dev)
+    call check_dealloc_GPU_f("tridi_to_band: bcast_buffer_dev", 4888,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(bcast_buffer_mpi_fortran_ptr)
+    endif
+
+      successGPU = gpu_host_unregister(int(loc(top_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_send_buffer", 4898,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(top_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_recv_buffer", 4901,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_send_buffer", 4904,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_recv_buffer", 4907,  successGPU)
+
+  endif ! useGPU
+
+  deallocate(top_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_send_buffer", 4927,  istat,  errorMessage)
+
+  deallocate(top_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_recv_buffer", 4930,  istat,  errorMessage)
+
+  deallocate(bottom_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_send_buffer", 4933,  istat,  errorMessage)
+
+  deallocate(bottom_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_recv_buffer", 4936,  istat,  errorMessage)
+
+  deallocate(top_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_send_request", 4939,  istat,  errorMessage)
+
+  deallocate(top_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_recv_request", 4942,  istat,  errorMessage)
+
+  deallocate(bottom_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_send_request", 4945,  istat,  errorMessage)
+
+  deallocate(bottom_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_recv_request", 4948,  istat,  errorMessage)
+
+  call obj%timer%stop("trans_ev_tridi_to_band_&
+                      &real&
+                      &" // &
+                      &"_double" //&
+                      gpuString)
+  return
+
+end subroutine
+
+! vim: syntax=fortran
+
+
+
+    subroutine band_band_real_&
+&double &
+                  (obj, na, nb, nbCol, nb2, nb2Col, ab, ab2, d, e, communicator)
+    !-------------------------------------------------------------------------------
+    ! band_band_real:
+    ! Reduces a real symmetric banded matrix to a real symmetric matrix with smaller bandwidth. Householder transformations are not stored.
+    ! Matrix size na and original bandwidth nb have to be a multiple of the target bandwidth nb2. (Hint: expand your matrix with
+    ! zero entries, if this
+    ! requirement doesn't hold)
+    !
+    !  na          Order of matrix
+    !
+    !  nb          Semi bandwidth of original matrix
+    !
+    !  nb2         Semi bandwidth of target matrix
+    !
+    !  ab          Input matrix with bandwidth nb. The leading dimension of the banded matrix has to be 2*nb. The parallel data layout
+    !              has to be accordant to divide_band(), i.e. the matrix columns block_limits(n)*nb+1 to min(na, block_limits(n+1)*nb)
+    !              are located on rank n.
+    !
+    !  ab2         Output matrix with bandwidth nb2. The leading dimension of the banded matrix is 2*nb2. The parallel data layout is
+    !              accordant to divide_band(), i.e. the matrix columns block_limits(n)*nb2+1 to min(na, block_limits(n+1)*nb2) are located
+    !              on rank n.
+    !
+    !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0, set only if ab2 = 1 (output)
+    !
+    !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0, set only if ab2 = 1 (output)
+    !
+    !  communicator
+    !              MPI-Communicator for the total processor set
+    !-------------------------------------------------------------------------------
+      use elpa_abstract_impl
+      use elpa2_workload
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)               :: na, nb, nbCol, nb2, nb2Col, communicator
+      real(kind=rk), intent(inout)               :: ab(2*nb,nbCol) ! removed assumed size
+      real(kind=rk), intent(inout)               :: ab2(2*nb2,nb2Col) ! removed assumed size
+      real(kind=rk), intent(out)                 :: d(na), e(na) ! set only on PE 0
+
+      real(kind=rk)                              :: hv(nb,nb2), w(nb,nb2), w_new(nb,nb2), tau(nb2), hv_new(nb,nb2), &
+                                                  tau_new(nb2), ab_s(1+nb,nb2), ab_r(1+nb,nb2), ab_s2(2*nb2,nb2), hv_s(nb,nb2)
+
+      real(kind=rk)                              :: work(nb*nb2), work2(nb2*nb2)
+      integer(kind=ik)                         :: lwork, info
+      integer(kind=BLAS_KIND)                  :: infoBLAS
+
+      integer(kind=ik)                         :: istep, i, n, dest
+      integer(kind=ik)                         :: n_off, na_s
+      integer(kind=ik)                         :: my_pe, n_pes
+      integer(kind=MPI_KIND)                   :: my_peMPI, n_pesMPI, mpierr
+      integer(kind=ik)                         :: nblocks_total, nblocks
+      integer(kind=ik)                         :: nblocks_total2, nblocks2
+      integer(kind=MPI_KIND)                   :: ireq_ab, ireq_hv
+!      integer(kind=ik), allocatable            :: mpi_statuses(:,:)
+      integer(kind=ik), allocatable            :: block_limits(:), block_limits2(:)
+      integer(kind=MPI_KIND), allocatable      :: ireq_ab2(:)
+
+      integer(kind=ik)                         :: j, nc, nr, ns, ne, iblk
+      integer(kind=ik)                         :: istat
+      character(200)                           :: errorMessage
+
+      call obj%timer%start("band_band_real" // "_double")
+
+      call obj%timer%start("mpi_communication")
+      call mpi_comm_rank(int(communicator,kind=MPI_KIND) ,my_peMPI ,mpierr)
+      call mpi_comm_size(int(communicator,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+      my_pe = int(my_peMPI,kind=c_int)
+      n_pes = int(n_pesMPI,kind=c_int)
+      call obj%timer%stop("mpi_communication")
+
+      ! Total number of blocks in the band:
+      nblocks_total = (na-1)/nb + 1
+      nblocks_total2 = (na-1)/nb2 + 1
+
+      ! Set work distribution
+      allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating block_limits "//errorMessage
+        stop 1
+      endif
+      call divide_band(obj, nblocks_total, n_pes, block_limits)
+
+      allocate(block_limits2(0:n_pes), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating block_limits2 "//errorMessage
+        stop 1
+      endif
+
+      call divide_band(obj, nblocks_total2, n_pes, block_limits2)
+
+      ! nblocks: the number of blocks for my task
+      nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+      nblocks2 = block_limits2(my_pe+1) - block_limits2(my_pe)
+
+      allocate(ireq_ab2(1:nblocks2), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating ireq_ab2 "//errorMessage
+        stop 1
+      endif
+
+      ! carefull the "recieve" has to be done at the corresponding send or wait
+!      if (nb2>1) then
+!        do i=0,nblocks2-1
+!          ab2(1:2*nb2*nb2,i*nb2+1:i*nb2+1+nb2-1) = ab_s2(1:2*nb2,i*nb2+1:nb2)
+!        enddo
+!      endif
+
+      ! n_off: Offset of ab within band
+      n_off = block_limits(my_pe)*nb
+      lwork = nb*nb2
+      dest = 0
+      ! ---------------------------------------------------------------------------
+      ! Start of calculations
+
+      na_s = block_limits(my_pe)*nb + 1
+
+      if (my_pe>0 .and. na_s<=na) then
+        ! send first nb2 columns to previous PE
+        ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+        do i=1,nb2
+          ab_s(1:nb+1,i) = ab(1:nb+1,na_s-n_off+i-1)
+        enddo
+      endif
+
+      do istep=1,na/nb2
+
+        if (my_pe==0) then
+
+          n = MIN(na-na_s-nb2+1,nb) ! number of rows to be reduced
+          hv(:,:) = 0.0_rk
+          tau(:) = 0.0_rk
+
+          ! The last step (istep=na-1) is only needed for sending the last HH vectors.
+          ! We don't want the sign of the last element flipped (analogous to the other sweeps)
+          if (istep < na/nb2) then
+
+            ! Transform first block column of remaining matrix
+      call obj%timer%start("blas")
+            call DGEQRF(int(n,kind=BLAS_KIND), int(nb2,kind=BLAS_KIND), ab(1+nb2,na_s-n_off), &
+                                 int(2*nb-1,kind=BLAs_KIND), tau, work, int(lwork,kind=BLAS_KIND), &
+                                 infoBLAS)
+      info = int(infoBLAS,kind=ik)
+      call obj%timer%stop("blas")
+
+            do i=1,nb2
+              hv(i,i) = 1.0_rk
+              hv(i+1:n,i) = ab(1+nb2+1:1+nb2+n-i,na_s-n_off+i-1)
+              ab(1+nb2+1:2*nb,na_s-n_off+i-1) = 0.0_rk
+            enddo
+
+          endif
+
+          if (nb2==1) then
+            d(istep) = ab(1,na_s-n_off)
+            e(istep) = ab(2,na_s-n_off)
+            if (istep == na) then
+              e(na) = 0.0_rk
+            endif
+          else
+            ab_s2 = 0.0_rk
+            ab_s2(:,:) = ab(1:nb2+1,na_s-n_off:na_s-n_off+nb2-1)
+            if (block_limits2(dest+1)<istep) then
+              dest = dest+1
+            endif
+            ! do irecv here
+            if (nb2>1) then
+              do i= 0,nblocks2-1
+                ab2(1:2*nb2*nb2,i*nb2+1:i+nb2+1+nb2-1) = ab_s2(1:2*nb2,1:nb2)
+              enddo
+            endif
+
+          endif
+
+        else
+          if (na>na_s+nb2-1) then
+            ! Receive Householder vectors from previous task, from PE owning subdiagonal
+           hv(1:nb,1:nb2) = hv_s(1:nb,1:nb2)
+
+            do i=1,nb2
+              tau(i) = hv(i,i)
+              hv(i,i) = 1.0_rk
+            enddo
+          endif
+        endif
+
+        na_s = na_s+nb2
+        if (na_s-n_off > nb) then
+          ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+          ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rk
+          n_off = n_off + nb
+        endif
+
+        do iblk=1,nblocks
+          ns = na_s + (iblk-1)*nb - n_off ! first column in block
+          ne = ns+nb-nb2                    ! last column in block
+
+          if (ns+n_off>na) exit
+
+            nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+            nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                          ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+            call wy_gen_&
+      &double&
+      &(obj,nc,nb2,w,hv,tau,work,nb)
+
+            if (iblk==nblocks .and. nc==nb) then
+              !request last nb2 columns
+             ab_r(1:nb+1,1:nb2) = ab_s(1:nb+1,1:nb2)
+              do i=1,nb2
+                ab(1:nb+1,ne+i-1) = ab_r(:,i)
+              enddo
+            endif
+            hv_new(:,:) = 0.0_rk ! Needed, last rows must be 0 for nr < nb
+            tau_new(:) = 0.0_rk
+
+            if (nr>0) then
+              call wy_right_&
+        &double&
+        &(obj,nr,nb,nb2,ab(nb+1,ns),2*nb-1,w,hv,work,nb)
+        call obj%timer%start("blas")
+              call DGEQRF(int(nr,kind=BLAS_KIND), int(nb2,kind=BLAS_KIND), ab(nb+1,ns), &
+                                   int(2*nb-1,kind=BLAS_KIND), tau_new, work, int(lwork,kind=BLAS_KIND), &
+                                   infoBLAS)
+        info = int(infoBLAS,kind=ik)
+        call obj%timer%stop("blas")
+              do i=1,nb2
+                hv_new(i,i) = 1.0_rk
+                hv_new(i+1:,i) = ab(nb+2:2*nb-i+1,ns+i-1)
+                ab(nb+2:,ns+i-1) = 0.0_rk
+              enddo
+
+              !send hh-Vector
+              if (iblk==nblocks) then
+                hv_s = hv_new
+                do i=1,nb2
+                  hv_s(i,i) = tau_new(i)
+                enddo
+
+              endif
+            endif
+
+            call wy_symm_&
+      &double&
+      &(obj,nc,nb2,ab(1,ns),2*nb-1,w,hv,work,work2,nb)
+
+            if (my_pe>0 .and. iblk==1) then
+              !send first nb2 columns to previous PE
+              do i=1,nb2
+                ab_s(1:nb+1,i) = ab(1:nb+1,ns+i-1)
+              enddo
+
+            endif
+
+            if (nr>0) then
+              call wy_gen_&
+        &double&
+        &(obj,nr,nb2,w_new,hv_new,tau_new,work,nb)
+              call wy_left_&
+        &double&
+        &(obj,nb-nb2,nr,nb2,ab(nb+1-nb2,ns+nb2),2*nb-1,w_new,hv_new,work,nb)
+            endif
+
+            ! Use new HH Vector for the next block
+            hv(:,:) = hv_new(:,:)
+            tau = tau_new
+          enddo
+        enddo
+
+        ! Finish the last outstanding requests
+
+        deallocate(block_limits, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating block_limits "//errorMessage
+          stop 1
+        endif
+
+        deallocate(block_limits2, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating block_limits2 "//errorMessage
+          stop 1
+        endif
+
+        deallocate(ireq_ab2, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating ireq_ab2 "//errorMessage
+          stop 1
+        endif
+
+        call obj%timer%stop("band_band_real" // "_double")
+
+    end subroutine
+
+    subroutine wy_gen_&
+    &double&
+    &(obj, n, nb, W, Y, tau, mem, lda)
+
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !length of householder-vectors
+      integer(kind=ik), intent(in)            :: nb     !number of householder-vectors
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of Y and W
+      real(kind=rk), intent(in)               :: Y(lda,nb)  !matrix containing nb householder-vectors of length b
+      real(kind=rk), intent(in)               :: tau(nb)    !tau values
+      real(kind=rk), intent(out)              :: W(lda,nb)  !output matrix W
+      real(kind=rk), intent(in)               :: mem(nb)    !memory for a temporary matrix of size nb
+
+      integer(kind=ik)                        :: i
+
+   call obj%timer%start("wy_gen" // "_double")
+
+   W(1:n,1) = tau(1)*Y(1:n,1)
+   do i=2,nb
+     W(1:n,i) = tau(i)*Y(1:n,i)
+     call obj%timer%start("blas")
+     call DGEMV('T', int(n,kind=BLAS_KIND), int(i-1,kind=BLAS_KIND),  1.0_rk, Y, int(lda,kind=BLAS_KIND), &
+                         W(1,i), 1_BLAS_KIND, 0.0_rk, mem, 1_BLAS_KIND)
+     call DGEMV('N', int(n,kind=BLAS_KIND), int(i-1,kind=BLAS_KIND), -1.0_rk, W, int(lda,kind=BLAS_KIND), &
+                         mem, 1_BLAS_KIND, 1.0_rk, W(1,i), 1_BLAS_KIND)
+     call obj%timer%stop("blas")
+   enddo
+   call obj%timer%stop("wy_gen" // "_double")
+    end subroutine
+
+    subroutine wy_left_&
+    &double&
+    &(obj, n, m, nb, A, lda, W, Y, mem, lda2)
+
+      use precision
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !width of the matrix A
+      integer(kind=ik), intent(in)            :: m      !length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed   ! remove assumed size
+      real(kind=rk), intent(in)               :: W(m,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(m,nb)    !blocked transformation matrix Y
+      real(kind=rk), intent(inout)            :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+
+   call obj%timer%start("wy_left" // "_double")
+   call obj%timer%start("blas")
+   call DGEMM('T', 'N', int(nb,kind=BLAS_KIND), int(n,kind=BLAS_KIND), int(m,kind=BLAS_KIND), &
+                       1.0_rk, W, int(lda2,kind=BLAS_KIND), A, int(lda,kind=BLAS_KIND), 0.0_rk, mem, &
+                       int(nb,kind=BLAS_KIND))
+   call DGEMM('N', 'N', int(m,kind=BLAS_KIND), int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                       -1.0_rk, Y, int(lda2,kind=BLAS_KIND), mem, int(nb,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+   call obj%timer%stop("blas")
+   call obj%timer%stop("wy_left" // "_double")
+    end subroutine
+
+    subroutine wy_right_&
+    &double&
+    &(obj, n, m, nb, A, lda, W, Y, mem, lda2)
+
+      use precision
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !height of the matrix A
+      integer(kind=ik), intent(in)            :: m      !length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed  ! remove assumed size
+      real(kind=rk), intent(in)               :: W(m,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(m,nb)    !blocked transformation matrix Y
+      real(kind=rk), intent(inout)            :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+
+
+      call obj%timer%start("wy_right" // "_double")
+      call obj%timer%start("blas")
+      call DGEMM('N', 'N', int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(m,kind=BLAS_KIND), &
+                          1.0_rk, A, int(lda,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem, int(n,kind=BLAS_KIND))
+      call DGEMM('N', 'T', int(n,kind=BLAS_KIND), int(m,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                          -1.0_rk, mem, int(n,kind=BLAS_KIND), Y, int(lda2,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+      call obj%timer%stop("blas")
+      call obj%timer%stop("wy_right" // "_double")
+
+    end subroutine
+
+    subroutine wy_symm_&
+    &double&
+    &(obj, n, nb, A, lda, W, Y, mem, mem2, lda2)
+
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: rck = C_DOUBLE
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !width/heigth of the matrix A; length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed  ! remove assumed size
+      real(kind=rk), intent(in)               :: W(n,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(n,nb)    !blocked transformation matrix Y
+      real(kind=rk)                           :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+      real(kind=rk)                           :: mem2(nb,nb)    !memory for a temporary matrix of size nb x nb
+
+      call obj%timer%start("wy_symm" // "_double")
+      call obj%timer%start("blas")
+      call DSYMM('L', 'L', int(n, kind=BLAS_KIND), int(nb,kind=BLAS_KIND), 1.0_rk, A, &
+                          int(lda,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem, int(n,kind=BLAS_KIND))
+      call DGEMM('T', 'N', int(nb,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(n,kind=BLAS_KIND), &
+                          1.0_rk, mem, int(n,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem2, &
+                          int(nb,kind=BLAS_KIND))
+      call DGEMM('N', 'N', int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                          -0.5_rk, Y, int(lda2,kind=BLAS_KIND), mem2, int(nb,kind=BLAS_KIND), 1.0_rk, mem, int(n,kind=BLAS_KIND))
+      call DSYR2K('L', 'N',int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), -1.0_rk, Y, int(lda2,kind=BLAS_KIND), &
+                           mem, int(n,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+      call obj%timer%stop("blas")
+      call obj%timer%stop("wy_symm" // "_double")
+
+    end subroutine
+
+
+! real single precision
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+!cannot use "../src/elpa2/../general/error_checking.inc" because filename with path can be too long for gfortran (max line length)
+
+
+
+
+
+! - works with mimic loop
+! - is it the sharing of device pointers?
+
+
+subroutine bandred_&
+&real&
+&_&
+&single &
+(obj, na, a_mat, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, tmat, &
+wantDebug, useGPU, success, &
+useQR, &
+max_threads, isSkewsymmetric)
+
+!-------------------------------------------------------------------------------
+!  bandred_real/complex: Reduces a distributed symmetric matrix to band form
+!
+!  Parameters
+!
+!  na          Order of matrix
+!
+!  a_mat(matrixRows,matrixCols)    Distributed matrix which should be reduced.
+!              Distribution is like in Scalapack.
+!              Opposed to Scalapack, a_mat(:,:) must be set completely (upper and lower half)
+!              a_mat(:,:) is overwritten on exit with the band and the Householder vectors
+!              in the upper half.
+!
+!  matrixRows         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith of output matrix
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!  tmat(nbw,nbw,numBlocks)    where numBlocks = (na-1)/nbw + 1
+!              Factors for the Householder vectors (returned), needed for back transformation
+!
+!-------------------------------------------------------------------------------
+
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa1_compute
+  use precision
+  use elpa_blas_interfaces
+  use elpa_abstract_impl
+  !use cuda_functions
+  !use hip_functions
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)  :: obj
+  integer(kind=ik)                            :: na, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols
+
+  real(kind=rck)                     :: a_mat(matrixRows,*)
+  real(kind=rck)                     :: tmat(nbw,nbw,*)
+
+  real(kind=rk)                               :: eps
+  logical, intent(in)                         :: useGPU
+  logical, intent(in)                         :: isSkewsymmetric
+  character(20)                               :: gpuString
+
+  integer(kind=ik)                            :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                      :: mpierr,  my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI
+  integer(kind=ik)                            :: l_cols, l_rows, max_l_rows, max_l_cols
+  integer(kind=ik),allocatable                :: blockinfo(:,:)
+  integer(kind=ik)                            :: vmrCols
+  integer(kind=ik)                            :: i, j, lcs, lce, lre, lc, lr, cur_pcol, n_cols, nrow
+  integer(kind=ik)                            :: istep, ncol, lch, lcx, iblock, nblocks, c_start, &
+                                                blc_start, blc_end, blc_len
+  integer(kind=ik)                            :: tile_size, l_rows_tile, l_cols_tile
+
+  real(kind=rck)                    :: vrl, tau
+  real(kind=rck)                    :: vav(nbw,nbw)
+
+  real(kind=rck), allocatable        :: tmpGPU(:)
+  real(kind=rck), pointer            :: vmrGPU(:), umcGPU(:)
+  real(kind=rck), pointer            :: vmrGPU_2d(:,:), umcGPU_2d(:,:)
+  real(kind=rck), allocatable        :: vmrCPU(:,:), umcCPU(:,:), vmrCPU_qr(:,:)
+  real(kind=rck), allocatable        :: vr(:)
+  real(kind=rck)                     :: taublock(nbw), vrlblock(nbw)
+  real(kind=rck), allocatable, target:: ex_buff(:)
+  real(kind=rck), pointer, contiguous:: ex_buff2d(:,:)
+
+  ! needed for blocked QR decomposition
+  integer(kind=ik)                            :: PQRPARAM(11), work_size
+  real(kind=rk)                               :: dwork_size(1)
+  real(kind=rk), allocatable                  :: work_blocked(:), tauvector(:), blockheuristic(:)
+  integer(kind=C_intptr_T)                    :: a_dev, vmr_dev, umc_dev, tmat_dev, vav_dev
+  integer(kind=C_intptr_T)                    :: a_dev0, a_dev1, vmr_dev0, vmr_dev1, umc_dev0, umc_dev1
+  type(c_ptr)                                 :: a_dev_ptr, vmr_dev_ptr, umc_dev_ptr
+  real(kind=rck), pointer            :: vmr_dev_fortran_ptr, umc_dev_fortran_ptr, a_dev_fortran_ptr
+  type(c_ptr)                                 :: vmr_host, umc_host
+  real(kind=rck), pointer            :: vmr_debug(:), umc_debug(:)
+  integer(kind=ik)                            :: ierr
+  integer(kind=ik)                            :: cur_l_rows, cur_l_cols
+  integer(kind=ik)                            :: vmr_size, umc_size
+  integer(kind=ik)                            :: l_rows2, vmr_size2, umc_size2
+  integer(kind=c_intptr_t)                    :: lc_start, lc_end
+  integer(kind=ik)                            :: lr_end
+  !integer(kind=ik)                            :: na_cols
+  !integer(kind=BLAS_KIND)                     :: na_colsBLAS
+
+  logical, intent(in)                         :: wantDebug
+  logical, intent(out)                        :: success
+  logical                                     :: successGPU
+  integer(kind=ik)                            :: istat
+  character(200)                              :: errorMessage
+  integer(kind=ik)                            :: min_tile_size, error
+
+  logical, intent(in)                         :: useQR
+  integer(kind=ik)                            :: mystart, myend, m_way, n_way, work_per_thread, m_id, n_id, n_threads, &
+                                                ii, off, lrex
+  integer(kind=c_intptr_t), parameter           :: size_of_datatype = size_of_&
+                                                                    &single&
+                                                                    &_&
+                                                                    &real
+
+  logical                                     :: useGPU_reduction_lower_block_to_tridiagonal
+  integer(kind=ik),intent(in)                 :: max_threads
+  integer(kind=ik)                            :: max_threads_used
+  logical                                     :: do_memcpy
+  integer(kind=ik)                            :: i_blk,blk_off, blk_end
+
+  integer(kind=MPI_KIND)                      :: bcast_request, allreduce_request1, allreduce_request2, &
+                                                 allreduce_request3, allreduce_request4, allreduce_request5, &
+                                                 allreduce_request6
+  integer(kind=MPI_KIND), allocatable         :: breq(:)
+  
+  logical                                     :: useNonBlockingCollectivesCols
+  logical                                     :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                         :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  integer(kind=c_int)                         :: myThreadID, mimick
+  integer(kind=c_int)                         :: memcols
+
+  integer(kind=c_intptr_t)                    :: gpuHandle, my_stream
+
+
+  max_threads_used = max_threads
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("bandred_&
+  &real&
+  &" // &
+  "_single" // &
+  gpuString )
+
+  call obj%get("nbc_row_elpa2_full_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_full_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+ 
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+ 
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  useGPU_reduction_lower_block_to_tridiagonal = .false.
+ 
+  if (useGPU) then
+    useGPU_reduction_lower_block_to_tridiagonal = .true.
+    if (useQR) then
+      !in this case switch off GPU usage for step "reduce current block to lower triangular form"
+      ! since this is done by QR decomposition
+      useGPU_reduction_lower_block_to_tridiagonal = .false.
+    endif
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+  success = .true.
+
+
+  ! Semibandwith nbw must be a multiple of blocksize nblk
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &real&
+                             &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &real&
+                             &: ELPA2 works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  ! na_rows in used nowhere; only na_cols
+  if (useGPU) then
+
+    ! Here we convert the regular host array into a pinned host array
+    successGPU = gpu_malloc(a_dev, matrixRows*matrixCols* size_of_datatype)
+    call check_alloc_GPU_f("bandred: a_dev", 344,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(vav),kind=c_intptr_t), &
+                  nbw * nbw * size_of_datatype,&
+                  gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: vav", 352,  successGPU)
+
+    successGPU = gpu_malloc(vav_dev, nbw*nbw* size_of_datatype)
+    call check_alloc_GPU_f("bandred: vav_dev", 358,  successGPU)
+  endif ! useGPU
+
+  ! Matrix is split into tiles; work is done only for tiles on the diagonal or above
+
+  tile_size = nblk*least_common_multiple(np_rows,np_cols) ! minimum global tile size
+
+  ! make tile_size a smallest possible multiple of previously defined tile size, such that it is
+  ! larger or equal to min_tile_size
+  ! min_tile_size has been originally hardcoded as 128 * max(np_rows, np_cols), so it is now the implicit value
+  ! it can, however, be set by the user
+  call obj%get("min_tile_size", min_tile_size ,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for min_tile_size. Aborting..."
+    success = .false.
+    return
+  endif
+  if(min_tile_size == 0) then
+    ! not set by the user, use the default value
+    min_tile_size = 128*max(np_rows, np_cols)
+  endif
+  tile_size = ((min_tile_size-1)/tile_size+1)*tile_size
+
+  l_rows_tile = tile_size/np_rows ! local rows of a tile
+  l_cols_tile = tile_size/np_cols ! local cols of a tile
+
+  if (useQR) then
+
+    if (which_qr_decomposition == 1) then
+      call qr_pqrparam_init(obj,pqrparam(1:11),    nblk,'M',0,   nblk,'M',0,   nblk,'M',1,'s')
+      allocate(tauvector(na), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: tauvector", 390,  istat,  errorMessage)
+
+      allocate(blockheuristic(nblk), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: blockheuristic", 393,  istat,  errorMessage)
+
+      l_rows = local_index(na, my_prow, np_rows, nblk, -1)
+      allocate(vmrCPU_qr(max(l_rows,1),na), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU_qr", 397,  istat,  errorMessage)
+
+      vmrCols = na
+
+      call qr_pdgeqrf_2dcomm_&
+           &single&
+           &(obj, a_mat(1:matrixRows,1:matrixCols), matrixCols, matrixRows, vmrCPU_qr(1:max(l_rows,1),1:vmrCols), max(l_rows,1), &
+                             vmrCols, tauvector(1:na), na, tmat(1:nbw,1:nbw,1), nbw, &
+                             nbw, dwork_size(1:1), 1, -1, na, nbw, nblk, nblk, na, na, 1, 0, PQRPARAM(1:11), &
+                             mpi_comm_rows, mpi_comm_cols, blockheuristic)
+
+      work_size = int(dwork_size(1))
+      allocate(work_blocked(work_size), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: work_blocked", 419,  istat,  errorMessage)
+      work_blocked = 0.0_rk
+      deallocate(vmrCPU_qr, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: vmrCPU_qr", 422,  istat,  errorMessage)
+
+    endif ! which_qr_decomposition
+
+  endif ! useQr
+
+  blk_end = (na-1)/nbw
+  if (useGPU) then
+ 
+      successGPU = gpu_host_register(int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: a_mat", 437,  successGPU)
+
+    cur_l_rows = 0
+    cur_l_cols = 0
+
+    successGPU = gpu_memcpy(a_dev, int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("bandred: a_dev", 464,  successGPU)
+
+    successGPU = gpu_malloc(tmat_dev, nbw*nbw*size_of_datatype)
+    call check_alloc_GPU_f("bandred: tmat_dev", 468,  successGPU)
+
+
+
+
+
+    istep = (na-1)/nbw
+    blk_end = (na-1)/nbw
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size = cur_l_rows*2*n_cols
+    umc_size = cur_l_cols*2*n_cols
+
+    istep = (na-1)/nbw - 1
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows2 = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows2,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size2 = cur_l_rows*2*n_cols
+    umc_size2 = cur_l_cols*2*n_cols
+
+    l_rows = max(l_rows,l_rows2)
+    vmr_size = max(vmr_size,vmr_size2)
+    umc_size = max(umc_size,umc_size2)
+
+    allocate(vr(l_rows + 1), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("bandred: vr", 505,  istat,  errorMessage)
+
+      successGPU = gpu_malloc_host(vmr_host,vmr_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: vmr_host", 511,  successGPU)
+      call c_f_pointer(vmr_host, vmrGPU, (/vmr_size/))
+
+    successGPU = gpu_malloc(vmr_dev, vmr_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: vmr_dev", 520,  successGPU)
+
+
+      successGPU = gpu_malloc_host(umc_host,umc_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: umc_host", 527,  successGPU)
+      call c_f_pointer(umc_host, umcGPU, (/umc_size/))
+
+    successGPU = gpu_malloc(umc_dev, umc_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: umc_dev", 536,  successGPU)
+
+
+
+  endif ! useGPU
+
+  do istep = blk_end, 1, -1
+
+    n_cols = MIN(na,(istep+1)*nbw) - istep*nbw ! Number of columns in current step
+
+    ! Number of local columns/rows of remaining matrix
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+
+
+    max_l_rows = max(l_rows,1)
+    max_l_cols = max(l_cols,1)
+
+    ! Allocate vmr and umc to their exact sizes so that they can be used in bcasts and reduces
+
+    if (useGPU) then
+      vmr_size = max_l_rows * 2 * n_cols
+      umc_size = max_l_cols * 2 * n_cols
+    else ! GPU not used
+
+      ! unify the the name vmr and vmrCPU, as well as vmrGPU
+      ! the same for umcCPU and umcGPU
+      ! Allocate vmr and umcCPU to their exact sizes so that they can be used in bcasts and reduces
+
+      allocate(vmrCPU(max_l_rows,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU", 607,  istat,  errorMessage)
+
+      allocate(umcCPU(max_l_cols,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: umcCPU", 610,  istat,  errorMessage)
+
+      allocate(vr(l_rows+1), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vr", 613,  istat,  errorMessage)
+
+    endif ! use GPU
+
+    if (useGPU) then
+      vmrGPU(1 : max_l_rows * n_cols) = 0.0_rck
+      umcGPU(1 : umc_size) = 0.0_rck
+    else ! useGPU
+      vmrCPU(1:l_rows,1:n_cols) = 0.0_rck
+    endif ! useGPU
+
+
+    vr(:) = 0.0_rck
+    tmat(:,:,istep) = 0.0_rck
+    if (useGPU) then
+      lc_start = local_index(istep*nbw+1, my_pcol, np_cols, nblk, -1)
+      lc_end   = local_index(istep*nbw+n_cols, my_pcol, np_cols, nblk, -1)
+      lr_end   = local_index((istep-1)*nbw + n_cols, my_prow, np_rows, nblk, -1)
+
+      if (lc_start .le. 0) lc_start = 1
+
+      do_memcpy = .false.
+
+      ! Note: mod(nbw,nblk) == 0
+      do i_blk = 1, nbw/nblk
+        blk_off = (i_blk-1) * nblk
+        cur_pcol = pcol(istep*nbw+1+blk_off, nblk, np_cols)
+
+        if (my_pcol == cur_pcol) then
+          do_memcpy = .true.
+        endif
+      enddo
+
+      if (do_memcpy) then
+
+          successGPU = gpu_memcpy2d(int(loc(a_mat(1, lc_start)),kind=c_intptr_t), &
+                        int((matrixRows*size_of_datatype),kind=c_intptr_t), &
+                        (a_dev + int( ( (lc_start-1) * matrixRows*size_of_datatype),kind=c_intptr_t )), &
+                        int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                        int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                        int((lc_end - lc_start+1),kind=c_intptr_t),int(gpuMemcpyDeviceToHost,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_dev -> a_mat", 680,  successGPU)
+
+      endif ! do_memcpy
+    endif ! useGPU
+
+    ! Reduce current block to lower triangular form
+    if (useQR) then
+      if (which_qr_decomposition == 1) then
+        vmrCols = 2*n_cols
+        call qr_pdgeqrf_2dcomm_&
+             &single&
+             &(obj, a_mat(1:matrixRows,1:matrixCols), matrixRows, matrixCols, vmrCPU(1:max_l_rows,1:vmrCols) ,   &
+                                max_l_rows, vmrCols, tauvector(1:na), na, &
+                                 tmat(1:nbw,1:nbw,istep), nbw, nbw, work_blocked(1:work_size), work_size, &
+                                 work_size, na, n_cols, nblk, nblk,        &
+                                 istep*nbw+n_cols-nbw, istep*nbw+n_cols, 1,&
+                                 0, PQRPARAM(1:11), mpi_comm_rows, mpi_comm_cols,&
+                                 blockheuristic)
+      endif
+
+    else !useQR
+
+       call obj%timer%start("hh_block")
+       
+       allocate(blockinfo(4,n_cols/nblk+1))
+       iblock=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc
+          if((lc.eq.n_cols).or.(mod(ncol,nblk).eq.0)) then
+             cur_pcol = pcol(ncol, nblk, np_cols) ! Processor column owning current block
+             !new block
+             iblock=iblock+1
+             lch = local_index(ncol, my_pcol, np_cols, nblk, -1) ! HV local column number
+             blockinfo(1,iblock)=cur_pcol !owner of this block
+             blockinfo(2,iblock)=((lch-1)/nblk)*nblk+1 !first a_mat index of this block
+             blockinfo(3,iblock)=mod(ncol-1,nblk)+1 !length of block
+             blockinfo(4,iblock)=lc !last local cell indes of this block
+          end if
+       end do
+       nblocks=iblock
+          
+       allocate(ex_buff(l_rows*n_cols))
+       lrex  = l_rows
+       ex_buff2d(1:lrex,1:n_cols) => ex_buff
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                ex_buff2d(1:lrex,blc_start+off-1)=a_mat(1:lrex,c_start+off-1)
+             end do
+          end if
+       end do
+       call obj%timer%start("hh_trans")
+       off=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc ! absolute column number of householder Vector
+          nrow = ncol - nbw ! Absolute number of pivot row  
+          if (nrow == 1) then !done
+             taublock(1)=0. 
+             exit
+          end if
+          
+          lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+          off=off+1
+          call get_hh_vec(ex_buff2d(1:lr,n_cols-off+1),vr,tau,vrl)
+          
+          call apply_ht(tau,vr,ex_buff2d(:,1:n_cols-off))
+          if (useGPU_reduction_lower_block_to_tridiagonal) then
+             vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) = vr(1:lr)
+          else
+             vmrCPU(1:lr,lc) = vr(1:lr)
+          endif
+          taublock(lc) = tau
+          vrlblock(lc)=vrl
+       end do
+       call obj%timer%stop("hh_trans")
+          
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                lc=blc_start+off-1
+                lch=c_start+off-1
+                ncol = istep*nbw + lc ! absolute column number of householder Vector
+                nrow = ncol - nbw ! Absolute number of pivot row   
+                lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+
+                if (nrow.gt.1) then
+                   if (useGPU_reduction_lower_block_to_tridiagonal) then
+                      a_mat(1:lr,lch)=vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) 
+                   else
+                      a_mat(1:lr,lch)=vmrCPU(1:lr,lc)  
+                   endif
+                   if (my_prow==prow(nrow, nblk, np_rows)) a_mat(lr,lch) = vrlblock(lc)
+                   a_mat(lr+1:lrex,c_start+off-1)=ex_buff2d(lr+1:lrex,blc_start+off-1)
+                else
+                   a_mat(1:lrex,c_start+off-1)=ex_buff2d(1:lrex,blc_start+off-1)
+                end if
+             end do
+          end if
+       end do
+
+          
+       deallocate(blockinfo)
+       deallocate(ex_buff)
+
+       call obj%timer%stop("hh_block")
+
+       if (useGPU_reduction_lower_block_to_tridiagonal) then
+        ! store column tiles back to GPU
+        if (do_memcpy) then
+
+            successGPU = gpu_memcpy2d((a_dev+ &
+                         int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                         int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                         int((lc_end - lc_start+1),kind=c_intptr_t), &
+                         int(gpuMemcpyHostToDevice,kind=c_int))
+            call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 893,  successGPU)
+
+        endif ! do_memcopy
+      endif ! (useGPU_reduction_lower_block_to_tridiagonal
+
+      ! Calculate scalar products of stored Householder vectors.
+      ! This can be done in different ways, we use dsyrk
+
+      vav = 0
+      call obj%timer%start("blas0")
+      if (useGPU_reduction_lower_block_to_tridiagonal) then
+        if (l_rows > 0) then
+          call SSYRK('U', 'T',            &
+                           int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                           vmrGPU, int(max(l_rows, 1),kind=BLAS_KIND), &
+                           ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      else ! useGPU_reduction_to_tridiagonal
+        if (l_rows > 0) then
+          call SSYRK('U', 'T',           &
+                            int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, vmrCPU, &
+                            int(max(l_rows, 1),kind=BLAS_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      endif
+      call obj%timer%stop("blas0")
+      call symm_matrix_allreduce_&
+         &single &
+                         (obj, n_cols,vav, nbw, nbw,mpi_comm_rows, .true., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+        return
+      endif
+
+         ! Calculate triangular matrix T for block Householder Transformation
+      call obj%timer%start("blas1")
+      do lc=n_cols,1,-1
+         tau = taublock(lc)
+         tmat(lc,lc,istep)=tau
+         if (lc < n_cols) then
+            call STRMV('U', 'T', 'N',&
+                 int(n_cols-lc,kind=BLAS_KIND), tmat(lc+1,lc+1,istep), &
+                 int(nbw,kind=BLAS_KIND), vav(lc+1,lc), 1_BLAS_KIND)
+            
+            tmat(lc,lc+1:n_cols,istep) = -tau * vav(lc+1:n_cols,lc)
+         endif
+      enddo
+      call obj%timer%stop("blas1")
+    endif !useQR
+
+    if (useGPU .and. useQR ) then
+      ! copy the data for furhter usage
+      ! qr worked on *CPU arrarys
+      !vmrGPU(1:max_l_rows * n_cols) = vmrCPU(1:max_l_rows,1:n_cols)
+      if (do_memcpy) then
+          successGPU = gpu_memcpy2d((a_dev+ &
+                       int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                       int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                       int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                       int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                       int((lc_end - lc_start+1),kind=c_intptr_t), &
+                       int(gpuMemcpyHostToDevice,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 1010,  successGPU)
+      endif ! do_memcpy
+    endif ! useGPU .and. useQR
+
+    ! Transpose vmr -> vmc (stored in umc, second half)
+    if (useGPU) then
+      call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &single &
+                        (obj, vmrGPU(:), max_l_rows, mpi_comm_rows, &
+                         umcGPU(max_l_cols * n_cols + 1:), max_l_cols, &
+                         mpi_comm_cols, 1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+                         success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    else ! useGPU
+      call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &single &
+                                        (obj, vmrCPU, max_l_rows, mpi_comm_rows, &
+                                         umcCPU(1,n_cols+1), max_l_cols, mpi_comm_cols, &
+                                         1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+      success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    endif ! useGPU
+
+    ! Calculate umc = A**T * vmr
+    ! Note that the distributed A has to be transposed
+    ! Opposed to direct tridiagonalization there is no need to use the cache locality
+    ! of the tiles, so we can use strips of the matrix
+
+
+    !Code for Algorithm 4
+
+    ! n_way is actually a branch for the number of OpenMP threads
+    n_way = 1
+
+      if (.not.useGPU) then
+        umcCPU(1:l_cols,1:n_cols) = 0.0_rck
+        vmrCPU(1:l_rows,n_cols+1:2*n_cols) = 0.0_rck
+      endif ! useGPU
+
+      if (l_cols > 0 .and. l_rows > 0) then
+
+        if (useGPU) then
+
+            successGPU = gpu_memset(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                        0, max_l_rows*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: vmr_dev", 1291,  successGPU)
+
+
+          successGPU = gpu_memcpy(vmr_dev, int(loc(vmrGPU(1)),kind=c_intptr_t), &
+                        max_l_rows*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: vmrGPU -> vmr_dev", 1323,  successGPU)
+
+
+            successGPU = gpu_memset(umc_dev, 0, l_cols*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: umc_dev", 1341,  successGPU)
+
+
+
+          successGPU = gpu_memcpy(umc_dev+l_cols*n_cols*size_of_datatype, &
+                        int(loc(umcGPU(1+l_cols*n_cols)),kind=c_intptr_t), &
+                        (umc_size-l_cols*n_cols)*size_of_datatype, &
+                        gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev", 1384,  successGPU)
+        endif ! useGPU
+
+        do i=0,(istep*nbw-1)/tile_size
+
+          lcs = i*l_cols_tile+1
+          lce = min(l_cols,(i+1)*l_cols_tile)
+          if (lce<lcs) cycle
+          lre = min(l_rows,(i+1)*l_rows_tile)
+
+          if (useGPU) then
+            call obj%timer%start("gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_SGEMM('T', 'N',                   &
+                                       lce-lcs+1, n_cols, lre,     &
+                                       ONE, (a_dev + ((lcs-1)*matrixRows* &
+                                       size_of_datatype)),         &
+                                       matrixRows, vmr_dev,max_l_rows,    &
+                                       ONE, (umc_dev+ (lcs-1)*     &
+                                           size_of_datatype),      &
+                                       max_l_cols, gpuHandle)
+
+            call obj%timer%stop("gpublas")
+
+            if(i == 0) cycle
+            call obj%timer%start("gpublas")
+
+            lre = min(l_rows,i*l_rows_tile)
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            if (isSkewsymmetric) then
+              call gpublas_SGEMM('N', 'N', lre,n_cols, lce-lcs+1, -ONE, &
+                            (a_dev+ ((lcs-1)*matrixRows*                 &
+                                  size_of_datatype)),             &
+                       matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                              size_of_datatype),              &
+                              max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                            size_of_datatype),              &
+                              max_l_rows, gpuHandle)
+            else
+              call gpublas_SGEMM('N', 'N', lre,n_cols, lce-lcs+1, ONE, &
+                                          (a_dev+ ((lcs-1)*matrixRows*                 &
+                                                size_of_datatype)),             &
+                                     matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                                            size_of_datatype),              &
+                                            max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                                          size_of_datatype),              &
+                                            max_l_rows, gpuHandle)
+            endif
+            call obj%timer%stop("gpublas")
+          else ! useGPU
+
+            call obj%timer%start("blas")
+            call SGEMM('T', 'N',       &
+                                int(lce-lcs+1,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lre,kind=BLAS_KIND), &
+                                ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND), &
+                                vmrCPU, int(max_l_rows,kind=BLAS_KIND), ONE, umcCPU(lcs,1), &
+                                int(max_l_cols,kind=BLAS_KIND) )
+            call obj%timer%stop("blas")
+            if (i == 0) cycle
+            lre = min(l_rows,i*l_rows_tile)
+            call obj%timer%start("blas")
+
+            if (isSkewsymmetric) then
+              call SGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  -ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                           &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+
+            else
+              call SGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                            &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+            endif
+            call obj%timer%stop("blas")
+          endif ! useGPU
+        enddo ! i=0,(istep*nbw-1)/tile_size
+
+        if (useGPU) then
+          if (tile_size < istep*nbw .or. n_way > 1) then
+            successGPU = gpu_memcpy(int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                          vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                          (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyDeviceToHost)
+            call check_memcpy_GPU_f("bandred: vmr_dev -> vmrGPU", 1503,  successGPU)
+          endif
+
+          successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                        umc_dev, l_cols*n_cols*size_of_datatype, gpuMemcpyDeviceToHost)
+          call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU", 1523,  successGPU)
+        endif ! useGPU
+      endif ! l_cols>0 .and. l_rows>0
+
+    ! Sum up all ur(:) parts along rows and add them to the uc(:) parts
+    ! on the processors containing the diagonal
+    ! This is only necessary if ur has been calculated, i.e. if the
+    ! global tile size is smaller than the global remaining matrix
+
+    ! Or if we used the Algorithm 4
+    if (tile_size < istep*nbw .or. n_way > 1) then
+
+      if (useGPU) then
+        call elpa_reduce_add_vectors_&
+             &real&
+             &_&
+             &single &
+                             (obj, vmrGPU(max_l_rows * n_cols + 1:),max_l_rows,  &
+                              mpi_comm_rows, umcGPU,                            &
+                              max_l_cols, mpi_comm_cols, istep*nbw, n_cols, nblk, max_threads_used)
+      else ! useGPU
+        call elpa_reduce_add_vectors_&
+        &real&
+        &_&
+        &single &
+                                         (obj, vmrCPU(1,n_cols+1),max_l_rows,mpi_comm_rows, &
+                                          umcCPU, max_l_cols, mpi_comm_cols, &
+                                          istep*nbw, n_cols, nblk, max_threads_used)
+      endif ! useGPU
+    endif ! tile_size < istep*nbw .or. n_way > 1
+
+    if (l_cols > 0) then
+
+      if (useGPU) then
+
+        if (allocated(tmpGPU)) then
+          deallocate(tmpGPU, stat=istat, errmsg=errorMessage)
+          call check_deallocate_f("bandred: tmpGPU", 1585,  istat,  errorMessage)
+        endif
+
+      else ! useGPU
+
+
+      endif ! useGPU
+    endif ! l_cols > 0
+    ! U = U * Tmat**T
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(umc_dev, int(loc(umcGPU(1)),kind=c_intptr_t), &
+                    l_cols*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev ", 1630,  successGPU)
+
+      successGPU = gpu_memcpy(tmat_dev,int(loc(tmat(1,1,istep)),kind=c_intptr_t), &
+                    nbw*nbw*size_of_datatype,gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: tmat -> tmat_dev ", 1634,  successGPU)
+
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_STRMM('Right', 'Upper', 'T', 'Nonunit',  &
+                          l_cols, n_cols, ONE, tmat_dev, nbw, umc_dev, max_l_cols, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_SGEMM('T', 'N',             &
+                               n_cols, n_cols, l_cols, ONE, umc_dev, max_l_cols, &
+                               (umc_dev+(max_l_cols * n_cols )*size_of_datatype),max_l_cols, &
+                               ZERO, vav_dev, nbw, gpuHandle)
+
+      call gpublas_STRMM('Right', 'Upper', 'T', 'Nonunit',    &
+         n_cols, n_cols, ONE, tmat_dev, nbw, vav_dev, nbw, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(vav),kind=c_intptr_t), &
+                  vav_dev, nbw*nbw*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: vav_dev -> vav ", 1671,  successGPU)
+    else ! useGPU
+
+      call obj%timer%start("blas")
+
+      call STRMM('Right', 'Upper', 'T', 'Nonunit',     &
+                          int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep), &
+                          int(nbw,kind=BLAS_KIND), &
+                          umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+
+      call SGEMM('T', 'N',              &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), &
+                          ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND), umcCPU(1,n_cols+1), &
+                          int(max_l_cols,kind=BLAs_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+
+      call STRMM('Right', 'Upper', 'T', 'Nonunit',    &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep),    &
+                          int(nbw,kind=BLAS_KIND), vav, int(nbw,kind=BLAS_KIND) )
+      call obj%timer%stop("blas")
+
+    endif ! useGPU
+
+    if (isSkewsymmetric) then
+      call ssymm_matrix_allreduce_&
+      &single &
+      (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling ssymm_matrix_allreduce"
+        return
+      endif
+    else
+      call symm_matrix_allreduce_&
+      &single &
+      (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm_matrix_allreduce"
+        return
+      endif
+    endif
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(vav_dev, int(loc(vav),kind=c_intptr_t), &
+                       nbw*nbw*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vav -> vav_dev ", 1742,  successGPU)
+    endif
+
+
+    ! U = U - 0.5 * V * VAV
+
+    if (useGPU) then
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      if (isSkewsymmetric) then
+        call gpublas_SGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                  0.5_rk,                      &
+                                  (umc_dev+(max_l_cols * n_cols )* &
+                                  size_of_datatype),   &
+                                  max_l_cols, vav_dev,nbw,        &
+                                  ONE, umc_dev, max_l_cols, gpuHandle)
+      else
+        call gpublas_SGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                 -0.5_rk,                      &
+                                 (umc_dev+(max_l_cols * n_cols )* &
+                                 size_of_datatype),   &
+                                 max_l_cols, vav_dev,nbw,        &
+                                 ONE, umc_dev, max_l_cols, gpuHandle)
+      endif
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                  umc_dev, umc_size*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU ", 1803,  successGPU)
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+           &real&
+           &_&
+           &single &
+                       (obj, umcGPU(:), max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                        success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+          return
+        endif
+      else
+        call elpa_transpose_vectors_&
+           &real&
+           &_&
+           &single &
+                       (obj, umcGPU, max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+          return
+        endif
+      endif
+
+      successGPU = gpu_memcpy(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                  int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                  (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vmr -> vmrGPU ", 1860,  successGPU)
+    else ! useGPU
+      call obj%timer%start("blas")
+      if (isSkewsymmetric) then
+        call SGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                            0.5_rk, umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav,                        &
+                            int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND) )
+      else
+        call SGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                            -0.5_rk, umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav,                       &
+                            int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND) )
+      endif
+
+      call obj%timer%stop("blas")
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+          &real&
+        &_&
+        &single &
+                                 (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                        vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                        success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+            return
+          endif
+      else
+       call elpa_transpose_vectors_&
+       &real&
+       &_&
+       &single &
+                                (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                          vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                          1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                          success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+            return
+          endif
+      endif
+    endif  ! useGPU
+
+    ! A = A - V*U**T - U*V**T
+
+
+    do i=0,(istep*nbw-1)/tile_size
+      lcs = i*l_cols_tile+1
+      lce = min(l_cols,(i+1)*l_cols_tile)
+      lre = min(l_rows,(i+1)*l_rows_tile)
+      if (lce<lcs .or. lre<1) cycle
+
+      if (useGPU) then
+        call obj%timer%start("gpublas")
+
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_SGEMM('N', 'T',     &
+                                   lre, lce-lcs+1, 2*n_cols, -ONE, &
+                                   vmr_dev, max_l_rows, (umc_dev +(lcs-1)*  &
+                                   size_of_datatype), &
+                                   max_l_cols, ONE, (a_dev+(lcs-1)*matrixRows* &
+                                   size_of_datatype), matrixRows, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+
+        call obj%timer%start("blas")
+        call SGEMM('N', 'T', int(lre,kind=BLAS_KIND),int(lce-lcs+1,kind=BLAS_KIND), &
+                            int(2*n_cols,kind=BLAS_KIND), &
+                            -ONE, &
+                            vmrCPU, int(max_l_rows,kind=BLAS_KIND), umcCPU(lcs,1), &
+                            int(max_l_cols,kind=BLAS_KIND), &
+                            ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+     endif ! useGPU
+    enddo ! i=0,(istep*nbw-1)/tile_size
+
+    if (.not.(useGPU)) then
+      if (allocated(vr)) then
+        deallocate(vr, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vr", 2029,  istat,  errorMessage)
+      endif
+
+      if (allocated(umcCPU)) then
+        deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: umcCPU", 2034,  istat,  errorMessage)
+      endif
+
+      if (allocated(vmrCPU)) then
+        deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vmrCPU", 2039,  istat,  errorMessage)
+      endif
+    endif !useGPU
+
+
+ enddo ! istep - loop
+
+  if (useGPU) then
+
+    ! copy a_dev to a_mat
+    ! we do it here, since a is needed on the host in the following routine
+    ! (band to tridi). Previously, a has been kept on the device and then
+    ! copied in redist_band (called from tridiag_band). However, it seems to
+    ! be easier to do it here.
+    successGPU = gpu_memcpy(int(loc(a_mat),kind=c_intptr_t), &
+                  int(a_dev,kind=c_intptr_t), &
+                  int(matrixRows*matrixCols* size_of_datatype, kind=c_intptr_t), &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("bandred: a_dev -> a_mat ", 2137,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(a_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: a_mat ", 2144,  successGPU)
+
+
+    successGPU = gpu_free(a_dev)
+    call check_dealloc_GPU_f("bandred: a_dev ", 2155,  successGPU)
+
+    successGPU = gpu_free(vav_dev)
+    call check_dealloc_GPU_f("bandred: vav_dev ", 2158,  successGPU)
+
+    successGPU = gpu_free(tmat_dev)
+    call check_dealloc_GPU_f("bandred: tmat_dev ", 2161,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(vav),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: vav", 2167,  successGPU)
+
+      if (associated(umcGPU)) then
+        nullify(umcGPU)
+
+        successGPU = gpu_free_host(umc_host)
+        call check_host_dealloc_GPU_f("bandred: umc_host ", 2180,  successGPU)
+        successGPU = gpu_free(umc_dev)
+        call check_dealloc_GPU_f("bandred: umc_dev ", 2182,  successGPU)
+      endif
+
+      if (associated(vmrGPU)) then
+        nullify(vmrGPU)
+
+        successGPU = gpu_free_host(vmr_host)
+        call check_host_dealloc_GPU_f("bandred: vmr_host ", 2189,  successGPU)
+
+        successGPU = gpu_free(vmr_dev)
+        call check_dealloc_GPU_f("bandred: vmr_dev ", 2192,  successGPU)
+      endif
+
+  endif ! useGPU
+  
+  if (allocated(vr)) then
+    deallocate(vr, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vr", 2215,  istat,  errorMessage)
+  endif
+
+  if (allocated(umcCPU)) then
+    deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: umcCPU", 2221,  istat,  errorMessage)
+  endif
+
+  if (allocated(vmrCPU)) then
+    deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vmrCPU", 2226,  istat,  errorMessage)
+  endif
+
+  if (useQR) then
+    if (which_qr_decomposition == 1) then
+      deallocate(work_blocked, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: work_blocked", 2233,  istat,  errorMessage)
+
+      deallocate(tauvector, stat=istat, errmsg=errorMessage)
+      call check_deallocate_f("bandred: tauvector", 2236,  istat,  errorMessage)
+    endif
+  endif
+  
+  call obj%timer%stop("bandred_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+contains
+  subroutine get_hh_vec(vec_in,vr,tau,vrl)
+    real(kind=rck):: vr(:), vec_in(:), tau, vrl
+    real(kind=rck):: aux1(2), xf
+    real(kind=rk):: vnorm2
+    ! Get Vector to be transformed; distribute last element and norm of
+    ! remaining elements to all procs in current column
+    
+    if (my_prow==prow(nrow, nblk, np_rows)) then
+       aux1(1) = dot_product(vec_in(1:lr-1),vec_in(1:lr-1))
+       aux1(2) = vec_in(lr)
+    else
+       aux1(1) = dot_product(vec_in(1:lr),vec_in(1:lr))
+       aux1(2) = 0.0_rck
+    endif
+
+
+    vnorm2 = aux1(1)
+    vrl    = aux1(2)
+
+    ! Householder transformation
+    call hh_transform_&
+         &real&
+         &_&
+         &single &
+         (obj, vrl, vnorm2, xf, tau, wantDebug)
+    ! Scale vr and store Householder Vector for back transformation
+
+    vr(1:lr) = vec_in(1:lr) * xf
+    if (my_prow==prow(nrow, nblk, np_rows)) vr(lr) = 1.0_rck
+
+  end subroutine get_hh_vec
+  
+
+  subroutine apply_ht(tau,vr,ex_buff2d)
+    real(kind=rck):: tau, vr(:), ex_buff2d(:,:)
+    real(kind=rck):: tauc
+    real(kind=rck):: aux1(nbw)
+    integer:: nlc, imax
+    logical:: use_blas
+
+    imax=ubound(ex_buff2d,2)
+    
+    if((imax.lt.3).or.(max_threads.gt.1)) then
+       !don't use BLAS for very small imax because overhead is too high
+       !don't use BLAS with OpenMP because measurements showed that threading is not effective for these routines
+       use_blas=.false.
+    else
+       use_blas=.true.
+    end if
+    
+    !we need to transform the remaining ex_buff
+    if (lr>0) then
+       if(use_blas) then !note that aux1 is conjg between > and < thresh_blas!!
+          call SGEMV('T',int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND), &
+               ONE, ex_buff2d, size(ex_buff2d,1,kind=BLAS_KIND), vr, 1_BLAS_KIND, ZERO, aux1, &
+               1_BLAS_KIND)
+       else
+          do nlc=1,imax
+             aux1(nlc) = dot_product(vr(1:lr),ex_buff2d(1:lr,nlc))
+          end do
+       end if
+    else
+       aux1(1:imax) = 0.
+    end if
+
+    ! Get global dot products
+
+    if(lr.le.0) return !no data on this processor
+
+    ! Transform
+    tauc=-tau
+    if(use_blas) then
+       call SGER(int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND),tauc,vr,1_BLAS_KIND,&
+            aux1,1_BLAS_KIND,ex_buff2d,ubound(ex_buff2d,1,kind=BLAS_KIND))
+    else
+       do nlc=1,imax         
+          ex_buff2d(1:lr,nlc) = ex_buff2d(1:lr,nlc) + tauc*aux1(nlc)*vr(1:lr)
+       end do
+    end if
+
+  end subroutine apply_ht
+  
+end subroutine bandred_&
+&real&
+&_&
+&single
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+
+subroutine symm_matrix_allreduce_&
+&single &
+                    (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  symm_matrix_allreduce: Does an mpi_allreduce for a symmetric matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+!-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)             :: n, lda, ldb, comm
+  real(kind=rk4)     :: a(lda,*)
+  integer(kind=ik)             :: i, nc
+  integer(kind=MPI_KIND)       :: mpierr
+  real(kind=rk4)     :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)       :: allreduce_request1
+  logical                      :: useNonBlockingCollectives
+  logical                      :: useNonBlockingCollectivesCols
+  logical                      :: useNonBlockingCollectivesRows
+  logical, intent(in)          :: isRows
+  integer(kind=c_int)          :: non_blocking_collectives_rows, error, &
+                                  non_blocking_collectives_cols
+  logical                      :: success
+
+  success = .true.
+
+  call obj%timer%start("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+
+  call obj%get("nbc_row_sym_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_sym_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+
+!      h2=h1
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = a(1:i-1,i)
+    nc = nc+i
+  enddo
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = a(1:i-1,i)
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("&
+          &symm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+
+end subroutine symm_matrix_allreduce_&
+&single
+
+
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+
+subroutine ssymm_matrix_allreduce_&
+&single &
+                    (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  symm_matrix_allreduce: Does an mpi_allreduce for a symmetric matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+!-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)             :: n, lda, ldb, comm
+  real(kind=rk4)     :: a(lda,*)
+  integer(kind=ik)             :: i, nc
+  integer(kind=MPI_KIND)       :: mpierr
+  real(kind=rk4)     :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)       :: allreduce_request1
+  logical                      :: useNonBlockingCollectives
+  logical                      :: useNonBlockingCollectivesCols
+  logical                      :: useNonBlockingCollectivesRows
+  logical, intent(in)          :: isRows
+  integer(kind=c_int)          :: non_blocking_collectives_rows, error, &
+                                  non_blocking_collectives_cols
+  logical                      :: success
+
+  success = .true.
+
+  call obj%timer%start("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+
+  call obj%get("nbc_row_sym_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_sym_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_sym_allreduce. Aborting..."
+    call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+
+!      h2=h1
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = - a(1:i-1,i)
+    nc = nc+i
+  enddo
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = a(1:i-1,i)
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("&
+          &ssymm_matrix_allreduce&
+          &" // &
+          &"_single"&
+          )
+
+end subroutine ssymm_matrix_allreduce_&
+&single
+
+
+
+
+
+
+
+
+
+
+subroutine trans_ev_band_to_full_&
+    &real&
+    &_&
+    &single &
+    (obj, na, nqc, nblk, nbw, a_mat, lda, tmat, q_mat, &
+     ldq, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, useGPU, &
+     useQr, success)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_band_to_full_real/complex:
+!  Transforms the eigenvectors of a band matrix back to the eigenvectors of the original matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a_mat, number of rows of matrix q_mat
+!
+!  nqc         Number of columns of matrix q_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith
+!
+!  a_mat(lda,matrixCols)    Matrix containing the Householder vectors (i.e. matrix a_mat after bandred_real/complex)
+!              Distribution is like in Scalapack.
+!
+!  lda         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat and q_mat
+!
+!  tmat(nbw,nbw,numBlocks) Factors returned by bandred_real/complex
+!
+!  q_mat           On input: Eigenvectors of band matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q_mat
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!-------------------------------------------------------------------------------
+  use precision
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa_abstract_impl
+  use elpa_blas_interfaces
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)     :: obj
+  logical, intent(in)                            :: useGPU
+  logical, intent(in)                            :: useQR
+  integer(kind=ik)                               :: na, nqc, lda, ldq, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, &
+                                                    mpi_comm_cols
+  real(kind=rck)                        :: a_mat(lda,*)
+  real(kind=rck)                        :: q_mat(ldq,*), tmat(nbw,nbw,*)
+
+  integer(kind=ik)                               :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                         :: my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI, mpierr
+  integer(kind=ik)                               :: max_blocks_row, max_blocks_col, max_local_rows, &
+                                                    max_local_cols
+  integer(kind=ik)                               :: l_cols, l_rows, l_colh, n_cols
+  integer(kind=ik)                               :: istep, lc, ncol, nrow, nb, ns
+
+  real(kind=rck), allocatable           :: hvb(:)
+  real(kind=rck), pointer               :: hvm(:,:), tmp1(:), tmp2(:)
+  real(kind=rck), pointer               :: tmp_debug(:)
+  ! hvm_dev is fist used and set in this routine
+  ! q_mat is changed in trans_ev_tridi on the host, copied to device and passed here. this can be adapted
+  ! tmp_dev is first used in this routine
+  ! tmat_complete_dev is not passed along from bandred_real
+  integer(kind=C_intptr_T)                       :: hvm_dev, q_dev, tmp_dev, tmat_complete_dev, dev_offset
+
+  type(c_ptr)                                    :: hvm_host, tmp1_host, tmp2_host
+
+
+
+  integer(kind=ik)                               :: i
+
+  real(kind=rck), allocatable, target   :: tmat_complete(:,:), t_tmp(:,:), t_tmp2(:,:)
+  integer(kind=ik)                               :: t_cols, t_rows, ii, jj
+  integer(kind=ik)                               :: cwy_blocking
+
+  integer(kind=ik)                               :: istat
+  character(200)                                 :: errorMessage
+  character(20)                                  :: gpuString
+  logical                                        :: successGPU
+  integer(kind=c_intptr_t), parameter            :: size_of_datatype = size_of_&
+                                                                       &single&
+                                                                       &_&
+                                                                       &real
+  integer(kind=ik)                               :: blocking_factor, error, blk_end
+  integer(kind=MPI_KIND)                         :: bcast_request1, allreduce_request1, allreduce_request2
+  logical                                        :: useNonBlockingCollectivesCols
+  logical                                        :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                            :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  logical                                        :: success
+  integer(kind=c_intptr_t)                       :: gpuHandle, my_stream
+
+  success = .true.
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_band_to_full_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  call obj%get("nbc_row_elpa2_band_to_full", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_band_to_full", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  call obj%get("blocking_in_band_to_full",blocking_factor,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem getting option for blocking_in_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &real&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+
+  call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+  call obj%timer%stop("mpi_communication")
+
+  max_blocks_row = ((na -1)/nblk)/np_rows + 1 ! Rows of a_mat
+  max_blocks_col = ((nqc-1)/nblk)/np_cols + 1 ! Columns of q_mat!
+
+  max_local_rows = max_blocks_row*nblk
+  max_local_cols = max_blocks_col*nblk
+
+  cwy_blocking = blocking_factor * nbw
+
+  if (useGPU) then
+    ! copy q_mat to q_dev
+    successGPU = gpu_malloc(q_dev,ldq*matrixCols*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: q_dev", 289,  successGPU)
+      successGPU = gpu_host_register(int(loc(q_mat),kind=c_intptr_t),&
+                    ldq*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: q_mat", 295,  successGPU)
+
+    successGPU = gpu_memcpy(q_dev,int(loc(q_mat),kind=c_intptr_t),&
+                  ldq*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_mat -> q_dev", 317,  successGPU)
+
+      successGPU = gpu_malloc_host(tmp1_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp1_host", 324,  successGPU)
+      call c_f_pointer(tmp1_host, tmp1, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(tmp2_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp2_host", 328,  successGPU)
+      call c_f_pointer(tmp2_host, tmp2, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(hvm_host,max_local_rows*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: hvm_host", 332,  successGPU)
+      call c_f_pointer(hvm_host, hvm, (/max_local_rows,cwy_blocking/))
+  else ! useGPU
+    allocate(tmp1(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp1", 343,  istat,  errorMessage)
+
+    allocate(tmp2(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp2", 346,  istat,  errorMessage)
+
+    allocate(hvm(max_local_rows,cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: hvm", 349,  istat,  errorMessage)
+  endif !useGPU
+
+  allocate(hvb(max_local_rows*cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: hvb", 353,  istat,  errorMessage)
+
+  allocate(tmat_complete(cwy_blocking,cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: tmat_complete", 356,  istat,  errorMessage)
+
+  if (useGPU) then
+      successGPU = gpu_host_register(int(loc(tmat_complete),kind=c_intptr_t), &
+                    cwy_blocking * cwy_blocking * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: tmat_complete", 365,  successGPU)
+  endif
+
+
+  if (blocking_factor > 1) then
+    allocate(t_tmp(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp", 389,  istat,  errorMessage)
+
+    allocate(t_tmp2(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp2", 392,  istat,  errorMessage)
+
+  endif
+
+  if (useGPU) then
+    successGPU = gpu_malloc(hvm_dev,max_local_rows*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: hvm_dev", 409,  successGPU)
+
+    successGPU = gpu_malloc(tmp_dev,max_local_cols*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmp_dev", 412,  successGPU)
+
+
+      successGPU = gpu_memset(tmp_dev, 0, max_local_cols*cwy_blocking*size_of_datatype)
+      call check_memset_GPU_f("trans_ev_band_to_full: tmp_dev", 430,  successGPU)
+
+
+
+    successGPU = gpu_malloc(tmat_complete_dev,cwy_blocking*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 477,  successGPU)
+  endif
+
+
+  hvm = 0.0_rck ! Must be set to 0 !!!
+  hvb = 0.0_rck ! Safety only
+  tmp1 = 0.0_rck
+  tmp2 = 0.0_rck
+  tmat_complete = 0.0_rck
+  if (blocking_factor > 1) then
+     t_tmp = 0.0_rck ! Must be set to 0 !!!
+     t_tmp2 = 0.0_rck
+
+  endif
+  l_cols = local_index(nqc, my_pcol, np_cols, nblk, -1) ! Local columns of q_mat
+
+  blk_end = ((na-1)/nbw-1)/blocking_factor + 1
+  do istep=1, blk_end
+
+    ! This the call when using na >= ((blocking_factor+1)*nbw)
+    ! n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw
+    ! Number of columns in current step
+    ! As an alternative we add some special case handling if na < cwy_blocking
+    if (na < cwy_blocking) then
+      n_cols = MAX(0, na-nbw)
+      if ( n_cols .eq. 0 ) then
+        exit
+      end if
+    else
+      n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw ! Number of columns in current step
+    end if
+
+    ! Broadcast all Householder vectors for current step compressed in hvb
+
+    nb = 0
+    ns = 0
+
+    do lc = 1, n_cols
+      ncol = (istep-1)*cwy_blocking + nbw + lc ! absolute column number of householder Vector
+      nrow = ncol - nbw ! absolute number of pivot row
+
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+      l_colh = local_index(ncol , my_pcol, np_cols, nblk, -1) ! HV local column number
+
+      if (my_pcol==pcol(ncol, nblk, np_cols)) hvb(nb+1:nb+l_rows) = a_mat(1:l_rows,l_colh)
+
+      nb = nb+l_rows
+
+      if (lc==n_cols .or. mod(ncol,nblk)==0) then
+        ns = nb
+      endif
+    enddo ! lc
+
+    ! Expand compressed Householder vectors into matrix hvm
+
+    nb = 0
+    do lc = 1, n_cols
+      nrow = (istep-1)*cwy_blocking + lc ! absolute number of pivot row
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+
+      ! could maybe also done on GPU
+      hvm(1:l_rows,lc) = hvb(nb+1:nb+l_rows)
+      if (my_prow==prow(nrow, nblk, np_rows)) hvm(l_rows+1,lc) = 1.0_rck
+      nb = nb+l_rows
+    enddo
+
+    l_rows = local_index(MIN(na,(istep+1)*cwy_blocking), my_prow, np_rows, nblk, -1)
+
+    ! compute tmat2 out of tmat(:,:,)
+    tmat_complete = 0
+    do i = 1, blocking_factor
+      t_cols = MIN(nbw, n_cols - (i-1)*nbw)
+      if (t_cols <= 0) exit
+      t_rows = (i - 1) * nbw
+      tmat_complete(t_rows+1:t_rows+t_cols,t_rows+1:t_rows+t_cols) = tmat(1:t_cols,1:t_cols,(istep-1)*blocking_factor + i)
+
+      if (i > 1) then
+        if (useGPU) then
+          call obj%timer%start("blas")
+          call SGEMM('T', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        else ! useGPU
+          call obj%timer%start("blas")
+          call SGEMM('T', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        endif ! useGPU
+
+
+        if (useGPU) then
+          ! remove cuda_aware section here, does not make sense without MPI add MORE_GPUBLAS instead
+          call obj%timer%start("blas")
+          call STRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call STRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        else !useGPU
+          call obj%timer%start("blas")
+          call STRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call STRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        endif !useGPU
+
+
+      endif
+    enddo
+
+    ! Q = Q - V * T**T * V**T * Q
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        successGPU = gpu_memcpy(hvm_dev, int(loc(hvm),kind=c_intptr_t), &
+                        max_local_rows*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: hvm -> hvm_dev", 1039,  successGPU)
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_SGEMM('T', 'N', &
+                                     n_cols, l_cols, l_rows, ONE, hvm_dev, max_local_rows, &
+                                     q_dev, ldq , ZERO, tmp_dev, n_cols, gpuHandle)
+        call obj%timer%stop("gpublas")
+
+      else ! useGPU
+        call obj%timer%start("blas")
+        call SGEMM('T', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                            hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), q_mat, int(ldq,kind=BLAS_KIND), ZERO, tmp1, &
+                           int(n_cols,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    else ! l_rows>0
+        tmp1(1:l_cols*n_cols) = 0.0_rck
+    endif ! l_rows>0
+
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        ! needed as long as not device to device copy
+        successGPU = gpu_memcpy(tmat_complete_dev, int(loc(tmat_complete),kind=c_intptr_t), &
+                      cwy_blocking*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: tmat_complete -> tmat_complete_dev", 1407,  successGPU)
+
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_STRMM('L', 'U', 'T', 'N', &
+                                   n_cols, l_cols, ONE, tmat_complete_dev, cwy_blocking, &
+                                   tmp_dev, n_cols, gpuHandle)
+        call gpublas_SGEMM('N', 'N', l_rows, l_cols, n_cols, &
+                                    -ONE, hvm_dev, max_local_rows, tmp_dev, n_cols, ONE, q_dev, ldq, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+        call obj%timer%start("blas")
+        call STRMM('L', 'U', 'T', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), &
+                            tmp1, int(n_cols,kind=BLAS_KIND))
+        call SGEMM('N', 'N', int(l_rows,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), &
+                            -ONE, hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), tmp1, int(n_cols,kind=BLAS_KIND), ONE, q_mat, &
+                            int(ldq,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    endif
+
+  enddo ! istep
+
+  deallocate(hvb, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: hvb", 1435,  istat,  errorMessage)
+
+  if (useGPU) then
+    successGPU = gpu_free(hvm_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: hvm_dev", 1439,  successGPU)
+
+    successGPU = gpu_free(tmp_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmp_dev", 1442,  successGPU)
+
+    successGPU = gpu_free(tmat_complete_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 1449,  successGPU)
+
+    ! final transfer of q_dev
+    successGPU = gpu_memcpy(int(loc(q_mat),kind=c_intptr_t), q_dev, ldq*matrixCols*size_of_datatype, &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_dev -> q_mat", 1469,  successGPU)
+
+    successGPU = gpu_free(q_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: q_dev", 1473,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(q_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: q_mat", 1479,  successGPU)
+      nullify(tmp1)
+      nullify(tmp2)
+      nullify(hvm)
+
+    ! take care of new pointers nullify them
+
+
+      successGPU = gpu_free_host(tmp1_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp1_host", 1504,  successGPU)
+
+      successGPU = gpu_free_host(tmp2_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp2_host", 1507,  successGPU)
+
+      successGPU = gpu_free_host(hvm_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: hvm_host", 1510,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(tmat_complete),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: tmat_complete", 1513,  successGPU)
+  else ! useGPU
+    deallocate(tmp1, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp1", 1519,  istat,  errorMessage)
+
+    deallocate(tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp2", 1522,  istat,  errorMessage)
+
+    deallocate(hvm, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: hvm", 1525,  istat,  errorMessage)
+  endif ! useGPU
+
+  deallocate(tmat_complete, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: tmat_complete", 1529,  istat,  errorMessage)
+
+
+  if (blocking_factor > 1) then
+
+    deallocate(t_tmp, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp", 1556,  istat,  errorMessage)
+
+    deallocate(t_tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp2", 1559,  istat,  errorMessage)
+  endif
+
+  call obj%timer%stop("trans_ev_band_to_full_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+end subroutine trans_ev_band_to_full_&
+&real&
+    &_&
+    &single
+
+
+
+
+
+
+subroutine tridiag_band_&
+  &real&
+  &_&
+  &single &
+  (obj, na, nb, nblk, a_mat, lda, d, e, matrixCols, &
+  hh_trans, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, useGPU, wantDebug, nrThreads, isSkewsymmetric, &
+  success)
+  !-------------------------------------------------------------------------------
+  ! tridiag_band_real/complex:
+  ! Reduces a real symmetric band matrix to tridiagonal form
+  !
+  !  na          Order of matrix a
+  !
+  !  nb          Semi bandwith
+  !
+  !  nblk        blocksize of cyclic distribution, must be the same in both directions!
+  !
+  !  a_mat(lda,matrixCols)    Distributed system matrix reduced to banded form in the upper diagonal
+  !
+  !  lda         Leading dimension of a
+  !  matrixCols  local columns of matrix a
+  !
+  ! hh_trans : housholder vectors
+  !
+  !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  mpi_comm_rows
+  !  mpi_comm_cols
+  !              MPI-Communicators for rows/columns
+  !  mpi_comm_all
+  !              MPI-Communicator for the total processor set
+  !-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use elpa2_workload
+  use precision
+  use, intrinsic :: iso_c_binding
+  use redist
+  use elpa_blas_interfaces
+  use elpa_skewsymmetric_blas
+  use elpa_gpu
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU, wantDebug
+  logical, intent(in)                          :: isSkewsymmetric
+  integer(kind=ik), intent(in)                 :: na, nb, nblk, lda, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all
+  real(kind=rck), intent(in)         :: a_mat(lda,*)
+  real(kind=rk), intent(out)        :: d(na), e(na) ! set only on PE 0
+  real(kind=rck), intent(out), allocatable   :: hh_trans(:,:)
+
+  real(kind=rk)                     :: vnorm2
+  real(kind=rck)                     :: hv(nb), tau, x, h(nb), ab_s(1+nb), hv_s(nb), hv_new(nb), tau_new, hf
+  real(kind=rck)                     :: hd(nb), hs(nb)
+
+  integer(kind=ik)                             :: i, n, nc, nr, ns, ne, istep, iblk, nblocks_total, nblocks, nt
+  integer(kind=ik)                             :: my_pe, n_pes
+  integer(kind=ik)                             :: my_prow, np_rows, my_pcol, np_cols
+  integer(kind=MPI_KIND)                       :: my_peMPI, n_pesMPI, mpierr
+  integer(kind=MPI_KIND)                       :: my_prowMPI, np_rowsMPI, my_pcolMPI, np_colsMPI
+  integer(kind=MPI_KIND)                       :: ireq_ab, ireq_hv
+  integer(kind=ik)                             :: na_s, nx, num_hh_vecs, num_chunks, local_size, max_blk_size, n_off
+  integer(kind=ik), intent(in)                 :: nrThreads
+  integer(kind=ik), allocatable                :: global_id(:,:), hh_cnt(:), hh_dst(:)
+  integer(kind=MPI_KIND), allocatable          :: ireq_hhr(:), ireq_hhs(:)
+  integer(kind=ik), allocatable                :: limits(:), snd_limits(:,:)
+  integer(kind=ik), allocatable                :: block_limits(:)
+  real(kind=rck), allocatable         :: ab(:,:), hh_gath(:,:,:), hh_send(:,:,:)
+  integer                                      :: istat
+  integer(kind=ik)                             :: nblockEnd
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+
+  integer(kind=ik)                             :: startAddr
+
+   integer(kind=MPI_KIND)                      :: allreduce_request1, allreduce_request2
+   logical                                     :: useNonBlockingCollectivesAll
+   integer(kind=c_int)                         :: non_blocking_collectives, error
+   logical                                     :: success
+
+   success = .true.
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("tridiag_band_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  call obj%get("nbc_all_elpa2_band_to_tridi", non_blocking_collectives, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives in elpa2_band_to_tridi. Aborting..."
+    call obj%timer%stop("tridiag_band_&
+    &real&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives .eq. 1) then
+    useNonBlockingCollectivesAll = .true.
+  else
+    useNonBlockingCollectivesAll = .false.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_all,kind=MPI_KIND) ,my_peMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_all,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND),my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND),np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND),my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND),np_colsMPI ,mpierr)
+
+  my_pe = int(my_peMPI,kind=MPI_KIND)
+  n_pes = int(n_pesMPI,kind=MPI_KIND)
+  my_prow = int(my_prowMPI,kind=MPI_KIND)
+  np_rows = int(np_rowsMPI,kind=MPI_KIND)
+  my_pcol = int(my_pcolMPI,kind=MPI_KIND)
+  np_cols = int(np_colsMPI,kind=MPI_KIND)
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  ! Get global_id mapping 2D procssor coordinates to global id
+
+  allocate(global_id(0:np_rows-1,0:np_cols-1), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: global_id", 201,  istat,  errorMessage)
+
+  global_id(:,:) = 0
+  global_id(my_prow, my_pcol) = my_pe
+
+
+
+  ! Total number of blocks in the band:
+
+  nblocks_total = (na-1)/nb + 1
+
+  ! Set work distribution
+
+  allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: block_limits", 245,  istat,  errorMessage)
+
+  call divide_band(obj,nblocks_total, n_pes, block_limits)
+
+  ! nblocks: the number of blocks for my task
+  nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+
+  ! allocate the part of the band matrix which is needed by this PE
+  ! The size is 1 block larger than needed to avoid extensive shifts
+  allocate(ab(2*nb,(nblocks+1)*nb), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: ab", 255,  istat,  errorMessage)
+
+  ab = 0.0_rck ! needed for lower half, the extra block should also be set to 0 for safety
+
+  ! n_off: Offset of ab within band
+  n_off = block_limits(my_pe)*nb
+
+  ! Redistribute band in a to ab
+  call redist_band_&
+  &real&
+  &_&
+  &single&
+  &(obj,a_mat, lda, na, nblk, nb, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, ab, &
+   success)
+  if (.not.(success)) then
+    write(error_unit,*) "Error in redist_band. Aborting..."
+    return
+  endif
+
+  ! Calculate the workload for each sweep in the back transformation
+  ! and the space requirements to hold the HH vectors
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: limits", 278,  istat,  errorMessage)
+
+  call determine_workload(obj,na, nb, np_rows, limits)
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  do n = 1, nblocks_total
+    call determine_workload(obj, nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    ! add to number of householder vectors
+    ! please note: for nx==1 the one and only HH Vector is 0 and is neither calculated nor send below!
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_hh_vecs = num_hh_vecs + local_size
+      num_chunks  = num_chunks+1
+    endif
+    nx = nx - nb
+  enddo
+
+  ! Allocate space for HH vectors
+
+  allocate(hh_trans(nb,num_hh_vecs), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_trans", 301,  istat,  errorMessage)
+
+  ! Allocate and init MPI requests
+
+  allocate(ireq_hhr(num_chunks), stat=istat, errmsg=errorMessage) ! Recv requests
+  call check_allocate_f("tridiag_band: ireq_hhr", 306,  istat,  errorMessage)
+  allocate(ireq_hhs(nblocks), stat=istat, errmsg=errorMessage)    ! Send requests
+  call check_allocate_f("tridiag_band: ireq_hhs", 308,  istat,  errorMessage)
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  nt = 0
+  nBlockEnd=1
+  do n = 1, nblocks_total
+    call determine_workload(obj,nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_chunks  = num_chunks+1
+      ! carefull non-block recv data copy must be done at wait or send
+      ! hh_trans(1:nb*local_size,num_hh_vecs+1) = hh_send(1:nb*hh_cnt(iblk),1,iblk)
+
+      num_hh_vecs = num_hh_vecs + local_size
+    endif
+    nx = nx - nb
+    if (n == block_limits(nt+1)) then
+      nt = nt + 1
+    endif
+  enddo
+  ! Buffers for gathering/sending the HH vectors
+
+  allocate(hh_gath(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! gathers HH vectors
+  call check_allocate_f("tridiag_band: hh_gath", 347,  istat,  errorMessage)
+
+  allocate(hh_send(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! send buffer for HH vectors
+  call check_allocate_f("tridiag_band: hh_send", 350,  istat,  errorMessage)
+
+  hh_gath(:,:,:) = 0.0_rck
+  hh_send(:,:,:) = 0.0_rck
+
+  ! Some counters
+
+  allocate(hh_cnt(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_cnt", 358,  istat,  errorMessage)
+
+  allocate(hh_dst(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_dst", 361,  istat,  errorMessage)
+
+  hh_cnt(:) = 1 ! The first transfomation Vector is always 0 and not calculated at all
+  hh_dst(:) = 0 ! PE number for receive
+  ! Limits for sending
+
+  allocate(snd_limits(0:np_rows,nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: snd_limits", 372,  istat,  errorMessage)
+
+  do iblk=1,nblocks
+    call determine_workload(obj, na-(iblk+block_limits(my_pe)-1)*nb, nb, np_rows, snd_limits(:,iblk))
+  enddo
+
+
+  ! ---------------------------------------------------------------------------
+  ! Start of calculations
+
+  na_s = block_limits(my_pe)*nb + 1
+
+  if (my_pe>0 .and. na_s<=na) then
+    ! send first column to previous PE
+    ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+    ab_s(1:nb+1) = ab(1:nb+1,na_s-n_off)
+  endif
+
+if (np_rows*np_cols==1) then
+  startAddr = ubound(hh_trans,dim=2)
+endif
+
+   do istep=1,na-nblockEnd
+
+     if (my_pe==0) then
+       n = MIN(na-na_s,nb) ! number of rows to be reduced
+       hv(:) = 0.0_rck
+       hd(:) = 0.0_rck
+       tau = 0.0_rck
+
+       ! Transform first column of remaining matrix
+       ! The last step (istep=na-1) is only needed for sending the last HH vectors.
+       ! We don't want the sign of the last element flipped (analogous to the other sweeps)
+
+       if (istep < na-1) then
+         ! Transform first column of remaining matrix
+         vnorm2 = sum(ab(3:n+1,na_s-n_off)**2)
+
+          call hh_transform_&
+               &real&
+               &_&
+               &single &
+                          (obj, ab(2,na_s-n_off), vnorm2, hf, tau, wantDebug)
+
+          hv(1) = 1.0_rck
+          hv(2:n) = ab(3:n+1,na_s-n_off)*hf
+       endif
+
+       if (isSkewsymmetric) then
+         d(istep) = 0.0_rk
+       else
+         d(istep) = ab(1,na_s-n_off)
+       endif
+       e(istep) = ab(2,na_s-n_off)
+
+       if (istep == na-1) then
+         if (isSkewsymmetric) then
+           d(na) = 0
+         else
+           d(na) = ab(1,na_s+1-n_off)
+         endif
+
+         e(na) = 0.0_rck
+       endif
+     else
+       if (na>na_s) then
+         ! Receive Householder Vector from previous task, from PE owning subdiagonal
+
+
+         hv(1:nb) = hv_s(1:nb)
+
+         tau = hv(1)
+         hv(1) = 1.0_rck
+       endif
+      endif
+
+      na_s = na_s+1
+      if (na_s-n_off > nb) then
+        ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+        ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rck
+        n_off = n_off + nb
+      endif
+
+
+      do iblk=1,nblocks
+        ns = na_s + (iblk-1)*nb - n_off ! first column in block
+        ne = ns+nb-1                    ! last column in block
+
+        if (ns+n_off>na) exit
+
+        ! Store Householder Vector for back transformation
+
+        hh_cnt(iblk) = hh_cnt(iblk) + 1
+
+        hh_gath(1   ,hh_cnt(iblk),iblk) = tau
+        hh_gath(2:nb,hh_cnt(iblk),iblk) = hv(2:nb)
+
+        if (hh_cnt(iblk) == snd_limits(hh_dst(iblk)+1,iblk)-snd_limits(hh_dst(iblk),iblk)) then
+          ! Wait for last transfer to finish
+          ! Copy vectors into send buffer
+          hh_send(:,1:hh_cnt(iblk),iblk) = hh_gath(:,1:hh_cnt(iblk),iblk)
+          ! Send to destination
+
+          ! do the post-poned irecv here
+          startAddr = startAddr - hh_cnt(iblk)
+          hh_trans(1:nb,startAddr+1:startAddr+hh_cnt(iblk)) = hh_send(1:nb,1:hh_cnt(iblk),iblk)
+
+          ! Reset counter and increase destination row
+          hh_cnt(iblk) = 0
+          hh_dst(iblk) = hh_dst(iblk)+1
+        endif
+
+        ! The following code is structured in a way to keep waiting times for
+        ! other PEs at a minimum, especially if there is only one block.
+        ! For this reason, it requests the last column as late as possible
+        ! and sends the Householder Vector and the first column as early
+        ! as possible.
+        nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+        nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                      ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+
+        ! Multiply diagonal block and subdiagonal block with Householder Vector
+
+        if (iblk==nblocks .and. nc==nb) then
+
+          ! We need the last column from the next PE.
+          ! First do the matrix multiplications without last column ...
+
+          ! Diagonal block, the contribution of the last element is added below!
+          ab(1,ne) = 0.0_rck
+
+          if (wantDebug) call obj%timer%start("blas")
+
+          if (isSkewsymmetric) then
+            hd(:) = 0.0_rk
+            call elpa_sssmv(int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), hv, hd)
+          else
+            call SSYMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                             hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          endif
+          ! Subdiagonal block
+          if (nr>0) call SGEMV('N', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                        tau, ab(nb+1,ns), int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, &
+                                        ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+
+          ! ... then request last column ...
+
+          ab(1:nb+1,ne) = ab_s(1:nb+1)
+
+
+          ! ... and complete the result
+          hs(1:nr) = hs(1:nr) + ab(2:nr+1,ne)*tau*hv(nb)
+          hd(nb) = hd(nb) + ab(1,ne)*hv(nb)*tau
+
+        else ! if (iblk==nblocks .and. nc==nb) then
+
+          ! Normal matrix multiply
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then
+            hd(:) = 0.0_rk
+            call elpa_sssmv(int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), hv, hd)
+          else
+            call SSYMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                              hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          endif
+          if (nr>0) call SGEMV('N', int(nr,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), tau, ab(nb+1,ns), &
+                                      int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+        endif ! if (iblk==nblocks .and. nc==nb) then
+
+        ! Calculate first column of subdiagonal block and calculate new
+        ! Householder transformation for this column
+        hv_new(:) = 0.0_rck ! Needed, last rows must be 0 for nr < nb
+        tau_new = 0.0_rck
+        if (nr>0) then
+
+          ! complete (old) Householder transformation for first column
+
+          ab(nb+1:nb+nr,ns) = ab(nb+1:nb+nr,ns) - hs(1:nr) ! Note: hv(1) == 1
+
+          ! calculate new Householder transformation ...
+          if (nr>1) then
+            vnorm2 = sum(ab(nb+2:nb+nr,ns)**2)
+
+            call hh_transform_&
+                &real&
+                &_&
+                &single &
+               (obj, ab(nb+1,ns), vnorm2, hf, tau_new, wantDebug)
+            hv_new(1) = 1.0_rck
+            hv_new(2:nr) = ab(nb+2:nb+nr,ns)*hf
+            ab(nb+2:,ns) = 0.0_rck
+          endif ! nr > 1
+
+          ! ... and send it away immediatly if this is the last block
+
+          if (iblk==nblocks) then
+            hv_s(1) = tau_new
+            hv_s(2:) = hv_new(2:)
+
+          endif
+
+        endif
+
+        ! Transform diagonal block
+        if (.NOT. isSkewsymmetric) then
+          x = dot_product(hv(1:nc),hd(1:nc))*tau
+        endif
+
+        if (.NOT. isSkewsymmetric) then
+          hd(1:nc) = hd(1:nc) - 0.5_rk*x*hv(1:nc)
+        endif
+        if (my_pe>0 .and. iblk==1) then
+
+          ! The first column of the diagonal block has to be send to the previous PE
+          ! Calculate first column only ...
+          if (isSkewsymmetric) then
+            ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*hv(1) + hv(1:nc)*hd(1)
+          else
+            ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*hv(1) - hv(1:nc)*hd(1)
+          endif
+          ! ... send it away ...
+          ab_s(1:nb+1) = ab(1:nb+1,ns)
+
+          ! ... and calculate remaining columns with rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then 
+            if (nc>1) call elpa_sssr2(int(nc-1,kind=BLAS_KIND), hd(2), hv(2), ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          else
+            if (nc>1) call SSYR2('L', int(nc-1,kind=BLAS_KIND), -ONE, hd(2), 1_BLAS_KIND, &
+                                       hv(2), 1_BLAS_KIND, ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          endif
+          if (wantDebug) call obj%timer%stop("blas")
+
+        else ! (my_pe>0 .and. iblk==1)
+          ! No need to  send, just a rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (isSkewsymmetric) then 
+            call elpa_sssr2(int(nc,kind=BLAS_KIND), hd, hv, ab(1,ns), int(2*nb-1,kind=BLAS_KIND))
+          else
+            call SSYR2('L', int(nc,kind=BLAS_KIND), -ONE, hd, 1_BLAS_KIND,  &
+                              hv, 1_BLAS_KIND, ab(1,ns), int(2*nb-1,kind=BLAS_KIND) )
+          endif
+          if (wantDebug) call obj%timer%stop("blas")
+        endif  ! (my_pe>0 .and. iblk==1)
+
+        ! Do the remaining double Householder transformation on the subdiagonal block cols 2 ... nb
+
+        if (nr > 0) then
+          if (nr > 1) then
+            if (wantDebug) call obj%timer%start("blas")
+            call SGEMV('T', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                tau_new, ab(nb,ns+1), int(2*nb-1,kind=BLAS_KIND), &
+                                hv_new, 1_BLAS_KIND, ZERO, h(2), 1_BLAS_KIND)
+            if (wantDebug) call obj%timer%stop("blas")
+            x = dot_product(hs(1:nr),hv_new(1:nr))*tau_new
+            h(2:nb) = h(2:nb) - x*hv(2:nb)
+            ! Unfortunately there is no BLAS routine like DSYR2 for a nonsymmetric rank 2 update
+            do i=2,nb
+              ab(2+nb-i:1+nb+nr-i,i+ns-1) = ab(2+nb-i:1+nb+nr-i,i+ns-1) - hv_new(1:nr)*h(i) - hs(1:nr)*hv(i)
+            enddo
+          else ! nr > 1
+            ! No double Householder transformation for nr=1, just complete the row
+            do i=2,nb
+              ab(2+nb-i,i+ns-1) = ab(2+nb-i,i+ns-1) - hs(1)*hv(i)
+            enddo
+          endif ! nr > 1
+        endif ! nr > 0
+
+        ! Use new HH Vector for the next block
+        hv(:) = hv_new(:)
+        tau = tau_new
+
+      enddo
+
+
+  enddo ! istep
+
+  ! Finish the last outstanding requests
+
+
+
+
+  deallocate(ab, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ab", 1232,  istat,  errorMessage)
+
+  deallocate(ireq_hhr, ireq_hhs, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ireq_hhr", 1235,  istat,  errorMessage)
+
+  deallocate(hh_cnt, hh_dst, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_dst", 1238,  istat,  errorMessage)
+
+  deallocate(hh_gath, hh_send, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_gath", 1241,  istat,  errorMessage)
+
+  deallocate(limits, snd_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: limits", 1244,  istat,  errorMessage)
+
+  deallocate(block_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: block_limits", 1247,  istat,  errorMessage)
+
+  deallocate(global_id, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: global_id", 1250,  istat,  errorMessage)
+
+  call obj%timer%stop("tridiag_band_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  ! intel compiler bug makes these ifdefs necessary
+end subroutine tridiag_band_real_&
+&single
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+!#if 1 == 1
+!#endif
+
+!#if COMPLEXCASE == 1
+!#undef WITH_CUDA_AWARE_MPI_TRANS_TRIDI_TO_BAND
+!#endif
+
+subroutine trans_ev_tridi_to_band_&
+&real&
+&_&
+&single &
+(obj, na, nev, nblk, nbw, q, ldq, matrixCols,         &
+ hh_trans, my_pe, mpi_comm_rows, mpi_comm_cols, wantDebug, useGPU, max_threads_in, success, &
+ kernel)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_tridi_to_band_real/complex:
+!  Transforms the eigenvectors of a tridiagonal matrix back to the eigenvectors of the band matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a, number of rows of matrix q
+!
+!  nev         Number eigenvectors to compute (= columns of matrix q)
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nb          semi bandwith
+!
+!  q           On input: Eigenvectors of tridiagonal matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q
+!  matrixCols  local columns of matrix q
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns/both
+!
+!-------------------------------------------------------------------------------
+  use ELPA_utilities, only : error_unit
+  use elpa_abstract_impl
+  use elpa2_workload
+  use pack_unpack_cpu
+  use pack_unpack_gpu
+  use compute_hh_trafo
+  use elpa_gpu
+  use precision
+  use, intrinsic :: iso_c_binding
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU
+
+  integer(kind=ik), intent(in)                 :: kernel, my_pe
+  integer(kind=ik), intent(in)                 :: na, nev, nblk, nbw, ldq, matrixCols, mpi_comm_rows, mpi_comm_cols
+
+  real(kind=rck), target              :: q(ldq,*)
+
+  real(kind=rck), intent(in),target   :: hh_trans(:,:)
+  integer(kind=c_intptr_t)                     :: hh_trans_dev
+  type(c_ptr)                                  :: hh_trans_mpi_dev
+  real(kind=rck), pointer             :: hh_trans_mpi_fortran_ptr(:,:)
+
+
+  integer(kind=ik)                             :: np_rows, my_prow, np_cols, my_pcol
+  integer(kind=MPI_KIND)                       :: np_rowsMPI, my_prowMPI, np_colsMPI, my_pcolMPI
+  integer(kind=ik)                             :: i, j, ip, sweep, nbuf, l_nev, a_dim2
+  integer(kind=ik)                             :: current_n, current_local_n, current_n_start, current_n_end
+  integer(kind=ik)                             :: next_n, next_local_n, next_n_start, next_n_end
+  integer(kind=ik)                             :: bottom_msg_length, top_msg_length, next_top_msg_length
+  integer(kind=ik)                             :: stripe_width, last_stripe_width, stripe_count
+  integer(kind=ik)                             :: num_result_blocks, num_result_buffers, num_bufs_recvd
+  integer(kind=ik)                             :: a_off, current_tv_off, max_blk_size
+  integer(kind=ik)                             :: src, src_offset, dst, offset, nfact, num_blk
+  integer(kind=MPI_KIND)                       :: mpierr
+
+  logical                                      :: flag
+  real(kind=rck), pointer             :: aIntern(:,:,:)
+  real(kind=rck)                      :: a_var
+
+  type(c_ptr)                                  :: aIntern_ptr
+
+  real(kind=rck), allocatable, target :: row(:)
+
+  integer(kind=c_intptr_t)                     :: row_dev
+  type(c_ptr)                                  :: row_mpi_dev
+  real(kind=rck), pointer             :: row_mpi_fortran_ptr(:)
+
+  real(kind=rck), pointer             :: row_group(:,:)
+
+  real(kind=rck), allocatable, target :: top_border_send_buffer(:,:)
+  real(kind=rck), allocatable, target :: top_border_recv_buffer(:,:)
+  real(kind=rck), allocatable, target :: bottom_border_send_buffer(:,:)
+  real(kind=rck), allocatable, target :: bottom_border_recv_buffer(:,:)
+
+  integer(kind=c_intptr_t)                     :: top_border_recv_buffer_dev, top_border_send_buffer_dev
+  type(c_ptr)                                  :: top_border_recv_buffer_mpi_dev, top_border_send_buffer_mpi_dev
+  real(kind=rck), pointer             :: top_border_recv_buffer_mpi_fortran_ptr(:,:), &
+                                                  top_border_send_buffer_mpi_fortran_ptr(:,:)
+  integer(kind=c_intptr_t)                     :: bottom_border_send_buffer_dev, bottom_border_recv_buffer_dev
+  type(c_ptr)                                  :: bottom_border_send_buffer_mpi_dev, bottom_border_recv_buffer_mpi_dev
+  real(kind=rck), pointer             :: bottom_border_send_buffer_mpi_fortran_ptr(:,:), &
+                                                  bottom_border_recv_buffer_mpi_fortran_ptr(:,:)
+  type(c_ptr)                                  :: aIntern_mpi_dev
+  real(kind=rck), pointer             :: aIntern_mpi_fortran_ptr(:,:,:)
+
+  integer(kind=c_intptr_t)                     :: aIntern_dev
+  integer(kind=c_intptr_t)                     :: bcast_buffer_dev
+
+  type(c_ptr)                                  :: bcast_buffer_mpi_dev
+  real(kind=rck), pointer             :: bcast_buffer_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: num
+  integer(kind=c_intptr_t)                     :: dev_offset, dev_offset_1
+  integer(kind=c_intptr_t)                     :: row_group_dev
+
+  type(c_ptr)                                  :: row_group_mpi_dev
+  real(kind=rck), pointer             :: row_group_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: q_dev
+  type(c_ptr)                                  :: q_mpi_dev
+  real(kind=rck), pointer             :: q_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: hh_tau_dev
+  real(kind=rck), pointer             :: hh_tau_debug(:)
+  integer(kind=ik)                             :: row_group_size, unpack_idx
+
+  type(c_ptr)                                  :: row_group_host, bcast_buffer_host
+
+  integer(kind=ik)                             :: n_times
+  integer(kind=ik)                             :: chunk, this_chunk
+
+  real(kind=rck), allocatable,target  :: result_buffer(:,:,:)
+  integer(kind=c_intptr_t)                     :: result_buffer_dev
+
+  type(c_ptr)                                  :: result_buffer_mpi_dev
+  real(kind=rck), pointer             :: result_buffer_mpi_fortran_ptr(:,:,:)
+
+  real(kind=rck), pointer             :: bcast_buffer(:,:)
+
+  integer(kind=ik)                             :: n_off
+
+  integer(kind=MPI_KIND), allocatable          :: result_send_request(:), result_recv_request(:)
+  integer(kind=ik), allocatable                :: limits(:)
+  integer(kind=MPI_KIND), allocatable          :: top_send_request(:), bottom_send_request(:)
+  integer(kind=MPI_KIND), allocatable          :: top_recv_request(:), bottom_recv_request(:)
+
+  ! MPI send/recv tags, arbitrary
+
+  integer(kind=ik), parameter                  :: bottom_recv_tag = 111
+  integer(kind=ik), parameter                  :: top_recv_tag    = 222
+  integer(kind=ik), parameter                  :: result_recv_tag = 333
+
+  integer(kind=ik), intent(in)                 :: max_threads_in
+  integer(kind=ik)                             :: max_threads
+
+
+
+  ! Just for measuring the kernel performance
+  real(kind=c_double)                          :: kernel_time, kernel_time_recv ! MPI_WTIME always needs double
+  ! long integer
+  integer(kind=lik)                            :: kernel_flops, kernel_flops_recv
+
+  logical, intent(in)                          :: wantDebug
+  logical                                      :: success
+  integer(kind=ik)                             :: istat, print_flops
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+  logical                                      :: successGPU
+  integer(kind=ik)                             :: j1
+  integer(kind=ik)                             :: error
+  integer(kind=c_intptr_t), parameter          :: size_of_datatype = size_of_&
+                                                                 &single&
+                                                                 &_&
+                                                                 &real
+  logical, parameter                           :: allComputeOnGPU = .true.
+
+  integer(kind=MPI_KIND)                     :: bcast_request1, allreduce_request1, allreduce_request2, &
+                                                allreduce_request3, allreduce_request4
+  logical                                    :: useNonBlockingCollectivesCols
+  logical                                    :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                        :: non_blocking_collectives_rows, non_blocking_collectives_cols
+
+  integer(kind=c_intptr_t)                   :: gpuHandle, my_stream
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_tridi_to_band_&
+  &real&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+
+  max_threads = max_threads_in
+
+  call obj%get("nbc_row_elpa2_tridi_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for rows in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  call obj%get("nbc_col_elpa2_tridi_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for cols in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  n_times = 0
+  if (useGPU) then
+    unpack_idx = 0
+    row_group_size = 0
+  endif
+
+  success = .true.
+  kernel_time = 0.0
+  kernel_flops = 0
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call MPI_Comm_rank(int(mpi_comm_rows,kind=MPI_KIND) , my_prowMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_rows,kind=MPI_KIND) , np_rowsMPI , mpierr)
+  call MPI_Comm_rank(int(mpi_comm_cols,kind=MPI_KIND) , my_pcolMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_cols,kind=MPI_KIND) , np_colsMPI , mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &real&
+                            &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &real&
+                            &: band backtransform works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  nfact = nbw / nblk
+
+
+  ! local number of eigenvectors
+  l_nev = local_index(nev, my_pcol, np_cols, nblk, -1)
+
+  if (l_nev==0) then
+    stripe_width = 0
+    stripe_count = 0
+    last_stripe_width = 0
+
+  else ! l_nev
+
+
+    ! Suggested stripe width is 48 since 48*64 real*8 numbers should fit into
+    ! every primary cache
+    ! Suggested stripe width is 48 - should this be reduced for the complex case ???
+
+    if (useGPU) then
+      stripe_width = 1024 ! Must be a multiple of 4
+      stripe_count = (l_nev - 1) / stripe_width + 1
+
+    else ! useGPU
+      call obj%get("stripewidth_real",stripe_width, error)
+
+      !stripe_width = 96 ! Must be a multiple of 8
+      stripe_width = 2 * stripe_width
+
+
+      stripe_count = (l_nev-1)/stripe_width + 1
+
+      ! Adapt stripe width so that last one doesn't get too small
+
+      stripe_width = (l_nev-1)/stripe_count + 1
+
+      if (kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK2 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK4 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_AVX512_BLOCK6 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK2 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK4 .or. &
+          kernel .eq. ELPA_2STAGE_REAL_SVE512_BLOCK6  &
+          ) then
+
+
+       stripe_width = ((stripe_width+15)/16)*16 ! Must be a multiple of 16 because of AVX-512 memory alignment of 64 bytes
+                                               ! (16 * sizeof(float) == 64)
+
+     else
+       stripe_width = ((stripe_width+7)/8)*8 ! Must be a multiple of 8 because of AVX/SSE memory alignment of 32 bytes
+                                            ! (8 * sizeof(float) == 32)
+     endif
+
+   endif ! useGPU
+
+   last_stripe_width = l_nev - (stripe_count-1)*stripe_width
+
+  endif ! l_nev
+
+  ! Determine the matrix distribution at the beginning
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: limits", 633,  istat,  errorMessage)
+  call determine_workload(obj,na, nbw, np_rows, limits)
+
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  a_dim2 = max_blk_size + nbw
+
+  if (useGPU) then
+
+    if (allComputeOnGPU) then
+      if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+      successGPU = gpu_malloc(q_dev, ldq*matrixCols* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: q_dev", 646,  successGPU)
+
+      successGPU =  gpu_memcpy(q_dev, int(loc(q(1,1)),kind=c_intptr_t),  &
+                               ldq*matrixCols * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q -> q_dev", 672,  successGPU)
+
+      ! associate with c_ptr
+      q_mpi_dev = transfer(q_dev, q_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(q_mpi_dev, q_mpi_fortran_ptr, &
+                       [ldq,matrixCols])
+      if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+      successGPU = gpu_malloc(hh_trans_dev, size(hh_trans,dim=1)*size(hh_trans,dim=2)* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: hh_trans_dev", 683,  successGPU)
+      ! associate with c_ptr
+      hh_trans_mpi_dev = transfer(hh_trans_dev, hh_trans_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(hh_trans_mpi_dev, hh_trans_mpi_fortran_ptr, &
+                       [size(hh_trans,dim=1),size(hh_trans,dim=2)])
+      successGPU =  gpu_memcpy(c_loc(hh_trans_mpi_fortran_ptr(1,1)),  &
+                               c_loc(hh_trans(1,1)), &
+                               size(hh_trans,dim=1)*size(hh_trans,dim=2) * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("tridi_to_band: hh_trans -> hh_trans_dev", 716,  successGPU)
+
+    endif ! allComputeOnGPU
+
+    num = (stripe_width*a_dim2*stripe_count)* size_of_datatype
+    successGPU = gpu_malloc(aIntern_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: aIntern_dev", 727,  successGPU)
+
+    ! openmp loop here
+
+      successGPU = gpu_memset(aIntern_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: aIntern_dev", 743,  successGPU)
+
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      aIntern_mpi_dev = transfer(aIntern_dev, aIntern_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(aIntern_mpi_dev, aIntern_mpi_fortran_ptr, &
+                       [stripe_width,a_dim2,stripe_count])
+    endif ! allComputeOnGPU
+
+    ! "row_group" and "row_group_dev" are needed for GPU optimizations
+      successGPU = gpu_malloc_host(row_group_host,l_nev*nblk*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: row_group_host", 781,  successGPU)
+      call c_f_pointer(row_group_host, row_group, (/l_nev,nblk/))
+
+    row_group(:, :) = 0.0_rck
+    num =  (l_nev*nblk)* size_of_datatype
+    successGPU = gpu_malloc(row_group_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_group_dev", 792,  successGPU)
+
+
+      successGPU = gpu_memset(row_group_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_group_dev", 807,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      row_group_mpi_dev = transfer(row_group_dev, row_group_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(row_group_mpi_dev, row_group_mpi_fortran_ptr, &
+                       [l_nev,nblk])
+    endif ! allComputeOnGPU
+
+  else ! GPUs are not used
+
+
+
+    if (posix_memalign(aIntern_ptr, 64_c_intptr_t, stripe_width*a_dim2*stripe_count*  &
+        C_SIZEOF(a_var)) /= 0) then
+      print *,"trans_ev_tridi_to_band_real: error when allocating aIntern"//errorMessage
+      stop 1
+    endif
+
+    call c_f_pointer(aIntern_ptr, aIntern,[stripe_width,a_dim2,stripe_count] )
+    !allocate(aIntern(stripe_width,a_dim2,stripe_count), stat=istat, errmsg=errorMessage)
+
+    aIntern(:,:,:) = 0.0_rck
+  endif !useGPU
+
+  allocate(row(l_nev), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: row", 862,  istat,  errorMessage)
+
+  row(:) = 0.0_rck
+
+  if (useGPU .and. allComputeOnGPU) then
+    num =  (l_nev)* size_of_datatype
+    successGPU = gpu_malloc(row_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_dev", 869,  successGPU)
+
+      successGPU = gpu_memset(row_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_dev", 886,  successGPU)
+
+
+    ! associate with c_ptr
+    row_mpi_dev = transfer(row_dev, row_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(row_mpi_dev, row_mpi_fortran_ptr, &
+                     [l_nev])
+  endif
+
+  ! Copy q from a block cyclic distribution into a distribution with contiguous rows,
+  ! and transpose the matrix using stripes of given stripe_width for cache blocking.
+
+  ! The peculiar way it is done below is due to the fact that the last row should be
+  ! ready first since it is the first one to start below
+
+
+
+  if (wantDebug) call obj%timer%start("ip_loop")
+  do ip = np_rows-1, 0, -1
+    if (my_prow == ip) then
+      ! Receive my rows which have not yet been received
+      src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+      do i=limits(ip)+1,limits(ip+1)
+        src = mod((i-1)/nblk, np_rows)
+
+        if (src < my_prow) then
+
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            my_stream = obj%gpu_setup%my_stream
+            call unpack_and_prepare_row_group_&
+            &real&
+            &_gpu_&
+            &single &
+                          ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                                      stripe_width, last_stripe_width, a_dim2, l_nev,&
+                                      row_group_size, nblk, unpack_idx, &
+                                       i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+            if (allComputeOnGPU) then
+              ! memcpy row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1091,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1097,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev, row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+
+            call unpack_row_&
+                &real&
+                &_cpu_&
+                &single &
+                (obj, aIntern, row,i-limits(ip), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        elseif (src == my_prow) then
+
+          src_offset = src_offset+1
+
+          if (useGPU) then
+
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &real&
+                 &_gpu_&
+                 &single &
+             ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                          stripe_width, last_stripe_width, a_dim2, l_nev,&
+                          row_group_size, nblk, unpack_idx, &
+                          i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_SCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            else ! allComputeOnGPU
+              row_group(:, row_group_size) = q(src_offset, 1:l_nev)
+            endif ! allComputeOnGPU
+          else ! useGPU
+            row(:) = q(src_offset, 1:l_nev)
+          endif ! useGPU
+
+
+          if (useGPU) then
+
+          else
+            call unpack_row_&
+                 &real&
+                 &_cpu_&
+                 &single &
+                            (obj, aIntern, row,i-limits(ip),  stripe_count, stripe_width, last_stripe_width)
+          endif
+
+
+        endif ! src == my_prow
+      enddo ! i=limits(ip)+1,limits(ip+1)
+
+
+      ! Send all rows which have not yet been send
+
+
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_SCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1219,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+            endif
+          enddo
+        enddo
+      else !  allComputeOnGPU
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+              row(:) = q(src_offset, 1:l_nev)
+
+            endif
+          enddo
+        enddo
+      endif ! allComputeOnGPU
+
+    else if (my_prow < ip) then
+
+      ! Send all rows going to PE ip
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+
+            if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_SCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+            if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+
+            ! is there a way to avoid this device_synchronize ?
+            if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+            successGPU = gpu_devicesynchronize()
+            call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1277,  successGPU)
+            if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+          endif
+        enddo
+      else ! allComputeOnGPU
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+            row(:) = q(src_offset, 1:l_nev)
+          endif
+        enddo
+      endif  ! allComputeOnGPU
+
+      ! Receive all rows from PE ip
+      do i=limits(my_prow)+1,limits(my_prow+1)
+        src = mod((i-1)/nblk, np_rows)
+        if (src == ip) then
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &real&
+                 &_gpu_&
+                 &single&
+                 &( obj, &
+                 row_group, row_group_dev, aIntern_dev, stripe_count,  &
+                 stripe_width, last_stripe_width, a_dim2, l_nev,       &
+                 row_group_size, nblk, unpack_idx,                     &
+                 i - limits(my_prow), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1458,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1464,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev,row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+            call unpack_row_&
+                 &real&
+                 &_cpu_&
+                 &single &
+                 (obj, aIntern, row,i-limits(my_prow), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        endif
+      enddo ! i=limits(my_prow)+1,limits(my_prow+1)
+    endif ! (my_prow < ip)
+  enddo ! ip = np_rows-1, 0, -1
+
+  if (wantDebug) call obj%timer%stop("ip_loop")
+
+  if (wantDebug) call obj%timer%start("allocate")
+
+  if (useGPU) then
+    ! Force an unpacking of all remaining rows that haven't been unpacked yet
+
+    call unpack_and_prepare_row_group_&
+         &real&
+         &_gpu_&
+         &single&
+         &( obj, &
+         row_group, row_group_dev, aIntern_dev, stripe_count, &
+         stripe_width, last_stripe_width, &
+         a_dim2, l_nev, row_group_size, nblk, unpack_idx,     &
+         -1, .true., wantDebug, allComputeOnGPU, my_stream)
+
+  endif
+
+  ! Set up result buffer queue
+
+  num_result_blocks = ((na-1)/nblk + np_rows - my_prow) / np_rows
+
+  num_result_buffers = 4*nfact
+  allocate(result_buffer(l_nev,nblk,num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_buffer", 1520,  istat,  errorMessage)
+
+  allocate(result_send_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_send_request", 1523,  istat,  errorMessage)
+
+  allocate(result_recv_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_recv_request", 1526,  istat,  errorMessage)
+
+  if (useGPU .and. allComputeOnGPU) then
+    num_result_buffers = 4*nfact
+    num =  (l_nev*nblk*num_result_buffers)* size_of_datatype
+    successGPU = gpu_malloc(result_buffer_dev, num* size_of_datatype)
+    call check_alloc_GPU_f("tridi_to_band: result_buffer_dev", 1532,  successGPU)
+
+    ! associate with c_ptr
+    result_buffer_mpi_dev = transfer(result_buffer_dev, result_buffer_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(result_buffer_mpi_dev, result_buffer_mpi_fortran_ptr, &
+                     [l_nev,nblk,num_result_buffers])
+  endif
+
+
+  ! Queue up buffers
+
+  ! carefull the "recv" has to be done at the corresponding wait or send
+  ! result_buffer(1: l_nev*nblk,1,j) =result_buffer(1:l_nev*nblk,1,nbuf)
+
+
+  num_bufs_recvd = 0 ! No buffers received yet
+
+  ! Initialize top/bottom requests
+
+  allocate(top_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_send_request", 1589,  istat,  errorMessage)
+
+  allocate(top_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_recv_request", 1592,  istat,  errorMessage)
+
+  allocate(bottom_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_send_request", 1595,  istat,  errorMessage)
+
+  allocate(bottom_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_recv_request", 1598,  istat,  errorMessage)
+
+
+
+  allocate(top_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_send_buffer", 1628,  istat,  errorMessage)
+
+  allocate(top_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_recv_buffer", 1631,  istat,  errorMessage)
+
+  allocate(bottom_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_send_buffer", 1634,  istat,  errorMessage)
+
+  allocate(bottom_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_recv_buffer", 1637,  istat,  errorMessage)
+
+  top_border_send_buffer(:,:) = 0.0_rck
+  top_border_recv_buffer(:,:) = 0.0_rck
+  bottom_border_send_buffer(:,:) = 0.0_rck
+  bottom_border_recv_buffer(:,:) = 0.0_rck
+
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      ! top_border_recv_buffer and top_border_send_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(top_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1655,  successGPU)
+
+      successGPU = gpu_malloc(top_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1658,  successGPU)
+
+        successGPU = gpu_memset(top_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1673,  successGPU)
+        successGPU = gpu_memset(top_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1675,  successGPU)
+
+
+      ! associate with c_ptr
+      top_border_recv_buffer_mpi_dev = transfer(top_border_recv_buffer_dev, top_border_recv_buffer_mpi_dev)
+      top_border_send_buffer_mpi_dev = transfer(top_border_send_buffer_dev, top_border_send_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(top_border_recv_buffer_mpi_dev, top_border_recv_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+      call c_f_pointer(top_border_send_buffer_mpi_dev, top_border_send_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+
+      ! bottom_border_send_buffer and bottom_border_recv_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(bottom_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1710,  successGPU)
+      successGPU = gpu_malloc(bottom_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1712,  successGPU)
+
+
+        successGPU = gpu_memset(bottom_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1728,  successGPU)
+        successGPU = gpu_memset(bottom_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1730,  successGPU)
+
+
+      ! associate with c_ptr
+      bottom_border_send_buffer_mpi_dev = transfer(bottom_border_send_buffer_dev, bottom_border_send_buffer_mpi_dev)
+      bottom_border_recv_buffer_mpi_dev = transfer(bottom_border_recv_buffer_dev, bottom_border_recv_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(bottom_border_send_buffer_mpi_dev, bottom_border_send_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+      call c_f_pointer(bottom_border_recv_buffer_mpi_dev, bottom_border_recv_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+    endif ! allComputeOnGPU
+
+      successGPU = gpu_host_register(int(loc(top_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_send_buffer", 1767,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(top_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_recv_buffer", 1772,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_send_buffer", 1777,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_recv_buffer", 1782,  successGPU)
+  endif ! useGPU
+
+
+  ! Initialize broadcast buffer
+
+  if (useGPU) then
+      successGPU = gpu_malloc_host(bcast_buffer_host,nbw*max_blk_size*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: bcast_buffer_host", 1796,  successGPU)
+      call c_f_pointer(bcast_buffer_host, bcast_buffer, (/nbw,max_blk_size/))
+  else
+    allocate(bcast_buffer(nbw, max_blk_size), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("tridi_to_band: bcast_buffer", 1805,  istat,  errorMessage)
+  endif
+
+  bcast_buffer = 0.0_rck
+
+  if (useGPU) then
+    num =  ( nbw * max_blk_size) * size_of_datatype
+    successGPU = gpu_malloc(bcast_buffer_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: bcast_buffer_dev", 1813,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      bcast_buffer_mpi_dev = transfer(bcast_buffer_dev, bcast_buffer_mpi_dev)
+      call c_f_pointer(bcast_buffer_mpi_dev, bcast_buffer_mpi_fortran_ptr, &
+                      [nbw, max_blk_size])
+    endif ! allComputeOnGPU
+
+
+      successGPU = gpu_memset( bcast_buffer_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 1834,  successGPU)
+
+
+    num =  (max_blk_size)* size_of_datatype
+    successGPU = gpu_malloc( hh_tau_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: hh_tau_dev", 1850,  successGPU)
+
+
+      successGPU = gpu_memset( hh_tau_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: hh_tau_dev", 1864,  successGPU)
+
+  endif ! useGPU
+
+  current_tv_off = 0 ! Offset of next row to be broadcast
+
+  ! ------------------- start of work loop -------------------
+
+  ! Pay attention that for a_off zero indexing is assumed
+  a_off = 0 ! offset in aIntern (to avoid unnecessary shifts)
+
+  top_msg_length = 0
+  bottom_msg_length = 0
+  if (wantDebug) call obj%timer%stop("allocate")
+
+  if (wantDebug) call obj%timer%start("sweep_loop")
+  do sweep = 0, (na-1)/nbw
+
+    current_n = na - sweep*nbw
+    call determine_workload(obj,current_n, nbw, np_rows, limits)
+    current_n_start = limits(my_prow)
+    current_n_end   = limits(my_prow+1)
+    current_local_n = current_n_end - current_n_start
+
+    next_n = max(current_n - nbw, 0)
+    call determine_workload(obj,next_n, nbw, np_rows, limits)
+    next_n_start = limits(my_prow)
+    next_n_end   = limits(my_prow+1)
+    next_local_n = next_n_end - next_n_start
+
+    if (next_n_end < next_n) then
+      bottom_msg_length = current_n_end - next_n_end
+    else
+      bottom_msg_length = 0
+    endif
+
+    if (next_local_n > 0) then
+      next_top_msg_length = current_n_start - next_n_start
+    else
+      next_top_msg_length = 0
+    endif
+
+    if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+      do i = 1, stripe_count
+
+
+        if (useGPU) then
+        else !useGPU
+        endif !useGPU
+!            carefull the recieve has to be done at the corresponding wait or send
+!            bottom_border_recv_buffer(1:nbw*stripe_width,1,i) = top_border_send_buffer(1:nbw*stripe_width,1,i)
+
+      enddo ! i = 1, stripe_count
+    endif ! sweep==0 .and. current_n_end < current_n .and. l_nev > 0
+
+    if (current_local_n > 1) then
+      if (useGPU .and. allComputeOnGPU) then
+        if (my_pcol == mod(sweep,np_cols)) then
+          if (wantDebug) call obj%timer%start("cuda_memcpy")
+          successGPU =  gpu_memcpy(c_loc(bcast_buffer_mpi_fortran_ptr(1,1)), &
+                                   c_loc(hh_trans_mpi_fortran_ptr(1,current_tv_off+1)),  &
+                                     size(hh_trans,dim=1) * (current_tv_off+current_local_n-(current_tv_off+1)+1) * &
+                                     size_of_datatype, &
+                                     gpuMemcpyDeviceToDevice)
+          call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2027,  successGPU)
+          if (wantDebug) call obj%timer%stop("cuda_memcpy")
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      else !useGPU
+        if (my_pcol == mod(sweep,np_cols)) then
+          bcast_buffer(:,1:current_local_n) =    &
+          hh_trans(:,current_tv_off+1:current_tv_off+current_local_n)
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      endif ! useGPU
+
+      if (useGPU .and. .not.(allComputeOnGPU)) then
+        if (wantDebug) call obj%timer%start("memcpy")
+        successGPU =  gpu_memcpy(bcast_buffer_dev, int(loc(bcast_buffer(1,1)),kind=c_intptr_t),  &
+                                 nbw * current_local_n *    &
+                                 size_of_datatype, &
+                                 gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2142,  successGPU)
+        if (wantDebug) call obj%timer%stop("memcpy")
+      endif ! useGPU
+
+      if (useGPU) then
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &real&
+             &_gpu_&
+             &single&
+             (bcast_buffer_dev, hh_tau_dev, nbw, &
+             current_local_n, .false., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+
+    else ! (current_local_n > 1) then
+
+      ! for current_local_n == 1 the one and only HH Vector is 0 and not stored in hh_trans_real/complex
+      bcast_buffer(:,1) = 0.0_rck
+      if (useGPU) then
+
+          successGPU = gpu_memset(bcast_buffer_dev, 0, nbw * size_of_datatype)
+          call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 2176,  successGPU)
+
+
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &real&
+             &_gpu_&
+             &single&
+             &( &
+             bcast_buffer_dev, hh_tau_dev, &
+             nbw, 1, .true., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+    endif ! (current_local_n > 1) then
+
+    if (l_nev == 0) cycle
+
+    if (current_local_n > 0) then
+
+      do i = 1, stripe_count
+
+        !wait_b
+        if (current_n_end < current_n) then
+
+
+
+          n_off = current_local_n+a_off
+
+          if (useGPU) then
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_memcpy")
+              successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                       c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                       stripe_width*nbw* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2378,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_memcpy")
+            else ! allComputeOnGPU
+              if (wantDebug) call obj%timer%start("memcpy")
+              dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width *a_dim2 )) * size_of_datatype
+              successGPU =  gpu_memcpy( aIntern_dev + dev_offset , &
+                                      int(loc(bottom_border_recv_buffer(1,i)),kind=c_intptr_t), &
+                                       stripe_width*nbw*  size_of_datatype,    &
+                                       gpuMemcpyHostToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2404,  successGPU)
+              if (wantDebug) call obj%timer%stop("memcpy")
+            endif ! allComputeOnGPU
+          else ! useGPU
+            aIntern(:,n_off+1:n_off+nbw,i) = reshape( &
+            bottom_border_recv_buffer(1:stripe_width*nbw,i),(/stripe_width,nbw/))
+          endif ! useGPU
+
+
+          if (next_n_end < next_n) then
+
+            if (useGPU) then
+            else ! useGPU
+            endif ! useGPU
+!!                carefull the recieve has to be done at the corresponding wait or send
+!!                bottom_border_recv_buffer(1:stripe_width,1:nbw,i) =  top_border_send_buffer(1:stripe_width,1:nbw,i)
+
+            endif ! (next_n_end < next_n)
+          endif ! (current_n_end < current_n)
+
+          if (current_local_n <= bottom_msg_length + top_msg_length) then
+
+            !wait_t
+            if (top_msg_length>0) then
+
+
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! the MPI_IRECV will be done CUDA_AWARE we thus do not need a host to device copy
+                  ! However, we have to copy from top_border_recv_buffer_mpi_fortran_ptr to aIntern_mpi_fortran_ptr
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+                  !Fortran pointer for indexing
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                          c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                          stripe_width*top_msg_length* size_of_datatype,      &
+                                          gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2659,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  !             host_offset= (0 + (0 * stripe_width) + ( (i-1) * stripe_width * nbw ) ) * 8
+                  successGPU =  gpu_memcpy( aIntern_dev+dev_offset , int(loc(top_border_recv_buffer(1,i)),kind=c_intptr_t),  &
+                                             stripe_width*top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2684,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+            endif ! top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+                &real&
+                &_&
+                &single&
+                &(obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, &
+                max_threads, &
+                a_off, nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+                hh_tau_dev, kernel_flops, kernel_time, n_times, 0, current_local_n, i, &
+                last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+
+            !send_b        1
+
+            if (bottom_msg_length>0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                           c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 2946,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 2954,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy( int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 2979,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3033,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3040,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+            endif !(bottom_msg_length>0)
+
+          else ! current_local_n <= bottom_msg_length + top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &real&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, &
+             current_local_n - bottom_msg_length, bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !send_b
+            if (bottom_msg_length > 0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                            c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                             stripe_width * bottom_msg_length * size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 3326,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset,  &
+                                           stripe_width*bottom_msg_length* size_of_datatype,  &
+                                           gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 3351,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3407,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3414,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+
+            endif ! (bottom_msg_length > 0)
+
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &real&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, top_msg_length, &
+             current_local_n-top_msg_length-bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !wait_t
+            if (top_msg_length>0) then
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                           c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                           stripe_width* top_msg_length* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3664,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  ! copy top_border_recv_buffer to aIntern_dev, maybe not necessary if CUDA_AWARE IRECV
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(aIntern_dev + dev_offset ,int(loc( top_border_recv_buffer(:,i)),kind=c_intptr_t),  &
+                                        stripe_width * top_msg_length * size_of_datatype,   &
+                                        gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3689,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+           endif
+
+           !compute
+
+           if (wantDebug) call obj%timer%start("compute_hh_trafo")
+           call compute_hh_trafo_&
+             &real&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, max_threads, &
+             a_off, nbw, max_blk_size,  bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, 0, top_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+           if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+           if (.not.success) then
+             success=.false.
+             return
+           endif
+
+         endif ! which if branch
+
+         if (next_top_msg_length > 0) then
+           !request top_border data
+
+!             carefull the "recieve" has to be done at the corresponding wait or send
+!              top_border_recv_buffer(1:stripe_width,1:next_top_msg_length,i) =  &
+!               bottom_border_send_buffer(1:stripe_width,1:next_top_msg_length,i)
+
+
+         endif ! next_top_msg_length > 0
+
+         !send_t
+         if (my_prow > 0) then
+
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (wantDebug) call obj%timer%start("cuda_memcpy")
+               successGPU =  gpu_memcpy(c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                        c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                        stripe_width* nbw* size_of_datatype,      &
+                                        gpuMemcpyDeviceToDevice)
+               call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 4067,  successGPU)
+               if (wantDebug) call obj%timer%stop("cuda_memcpy")
+             else ! allComputeOnGPU
+               if (wantDebug) call obj%timer%start("memcpy")
+               dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+               successGPU =  gpu_memcpy(int(loc(top_border_send_buffer(:,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                         stripe_width*nbw * size_of_datatype, &
+                                         gpuMemcpyDeviceToHost)
+               call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> top_border_send_buffer", 4092,  successGPU)
+               if (wantDebug) call obj%timer%stop("memcpy")
+             endif ! allComputeOnGPU
+           else ! useGPU
+             top_border_send_buffer(:,i) = reshape(aIntern(:,a_off+1:a_off+nbw,i),(/stripe_width*nbw/))
+           endif ! useGPU
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4145,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4151,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+               if (next_n_end < next_n) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4174,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4180,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+             else ! allComputeOnGPU
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+               endif
+               if (next_n_end < next_n) then
+                 bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+               endif
+             endif ! allComputeOnGPU
+           else ! useGPU
+             if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+               bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+             endif
+             if (next_n_end < next_n) then
+               bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+             endif
+           endif ! useGPU
+
+         endif ! my_prow > 0
+
+         ! Care that there are not too many outstanding top_recv_request's
+         if (stripe_count > 1) then
+           if (i > 1) then
+           else ! i > 1
+          endif ! i > 1
+        endif ! stripe_count > 1
+      enddo ! i = 1, stripe_count
+
+      top_msg_length = next_top_msg_length
+
+    else ! current_local_n > 0
+      ! wait for last top_send_request
+
+    endif  ! current_local_n > 0
+
+    ! Care about the result
+
+    if (my_prow == 0) then
+
+      ! topmost process sends nbw rows to destination processes
+
+      do j=0, nfact-1
+        num_blk = sweep*nfact+j ! global number of destination block, 0 based
+        if (num_blk*nblk >= na) exit
+
+        nbuf = mod(num_blk, num_result_buffers) + 1 ! buffer number to get this block
+
+        dst = mod(num_blk, np_rows)
+
+        if (dst == 0) then
+          if (useGPU) then
+            row_group_size = min(na - num_blk*nblk, nblk)
+
+            call pack_row_group_&
+                 &real&
+                 &_gpu_&
+                 &single&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, last_stripe_width, a_dim2, l_nev, &
+                         row_group(:, :), j * nblk + a_off, row_group_size, &
+                         result_buffer_dev, nblk, num_result_buffers, nbuf, .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! memcpy DeviceToDevice row_group_dev -> q_dev
+              do i = 1, row_group_size
+               if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+               gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+               call gpublas_SCOPY(l_nev, c_loc(row_group_mpi_fortran_ptr(1,i)), 1, &
+                                           c_loc(q_mpi_fortran_ptr((num_blk / np_rows) * nblk + i,1)), ldq, gpuHandle)
+               if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              enddo
+            else ! allComputeOnGPU
+              do i = 1, row_group_size
+                q((num_blk / np_rows) * nblk + i, 1 : l_nev) = row_group(:, i)
+              enddo
+            endif ! allComputeOnGPU
+          else ! useGPU
+
+            do i = 1, min(na - num_blk*nblk, nblk)
+              call pack_row_&
+                   &real&
+                   &_cpu_&
+                   &single&
+                   &(obj, aIntern, row, j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+              q((num_blk/np_rows)*nblk+i,1:l_nev) = row(:)
+            enddo
+          endif ! useGPU
+
+        else ! (dst == 0)
+
+          if (useGPU) then
+
+            call pack_row_group_&
+                 &real&
+                 &_gpu_&
+                 &single&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, &
+                   last_stripe_width, a_dim2, l_nev, &
+                   result_buffer(:, :, nbuf), j * nblk + a_off, nblk, &
+                   result_buffer_dev, nblk, num_result_buffers, nbuf, .true., wantDebug, allComputeOnGPU, my_stream)
+
+          else  ! useGPU
+            do i = 1, nblk
+              call pack_row_&
+                   &real&
+                   &_cpu_&
+                   &single&
+                   &(obj, aIntern, result_buffer(:,i,nbuf),j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+            enddo
+          endif ! useGPU
+
+        endif ! (dst == 0)
+      enddo  !j=0, nfact-1
+
+    else ! (my_prow == 0)
+
+      ! receive and store final result
+
+      do j = num_bufs_recvd, num_result_blocks-1
+
+        nbuf = mod(j, num_result_buffers) + 1 ! buffer number to get this block
+
+        ! If there is still work to do, just test for the next result request
+        ! and leave the loop if it is not ready, otherwise wait for all
+        ! outstanding requests
+
+        if (next_local_n > 0) then
+            ! needed
+            !successGPU = gpu_devicesynchronize()
+          flag = .true.
+
+          if (.not.flag) exit
+
+        else ! (next_local_n > 0)
+        endif ! (next_local_n > 0)
+
+        ! Fill result buffer into q
+        num_blk = j*np_rows + my_prow ! global number of current block, 0 based
+        if (useGPU) then
+          if (allComputeOnGPU) then
+            do i = 1, min(na - num_blk*nblk, nblk)
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_SCOPY(l_nev, c_loc(result_buffer_mpi_fortran_ptr(1,i,nbuf)), 1, &
+                                          c_loc(q_mpi_fortran_ptr(j*nblk + i,1)), ldq, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            enddo
+          else ! allComputeOnGPU
+            do i = 1, min(na - num_blk*nblk, nblk)
+              q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+            enddo
+          endif ! allComputeOnGPU
+        else ! useGPU
+          do i = 1, min(na - num_blk*nblk, nblk)
+            q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+          enddo
+        endif ! useGPU
+        ! Queue result buffer again if there are outstanding blocks left
+
+
+      enddo ! j = num_bufs_recvd, num_result_blocks-1
+      num_bufs_recvd = j
+
+    endif ! (my_prow == 0)
+
+    ! Shift the remaining rows to the front of aIntern (if necessary)
+
+    offset = nbw - top_msg_length
+    if (offset<0) then
+      if (wantDebug) write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                                         &real&
+                                         &: internal error, offset for shifting = ',offset
+      success = .false.
+      return
+    endif
+
+    a_off = a_off + offset
+    if (a_off + next_local_n + nbw >= a_dim2) then
+      do i = 1, stripe_count
+        if (useGPU) then
+          chunk = min(next_local_n,a_off)
+
+          if (chunk < 1) exit
+
+          if (wantDebug) call obj%timer%start("normal_memcpy")
+          do j = top_msg_length+1, top_msg_length+next_local_n, chunk
+            this_chunk = min(j+chunk-1,top_msg_length+next_local_n)-j+1
+            dev_offset = ((j-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            dev_offset_1 = ((j+a_off-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            num = stripe_width*this_chunk*size_of_datatype
+            successGPU = gpu_memcpy(aIntern_dev+dev_offset, aIntern_dev+dev_offset_1, num, gpuMemcpyDeviceToDevice)
+
+            call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> aIntern_dev", 4648,  successGPU)
+          end do
+          if (wantDebug) call obj%timer%stop("normal_memcpy")
+        else ! not useGPU
+          do j = top_msg_length+1, top_msg_length+next_local_n
+            aIntern(:,j,i) = aIntern(:,j+a_off,i)
+          end do
+        end if
+      end do ! stripe_count
+
+      a_off = 0
+    end if
+  end do ! sweep
+  if (wantDebug) call obj%timer%stop("sweep_loop")
+
+  ! Just for safety:
+
+  if (my_prow == 0) then
+
+  endif
+
+
+  call obj%get("print_flops",print_flops,error)
+
+
+  if (useGPU .and. allComputeOnGPU) then
+    ! finally copy q_dev to q
+    if (wantDebug) call obj%timer%start("cuda_memcpy")
+    successGPU =  gpu_memcpy(int(loc(q(1,1)),kind=c_intptr_t),  &
+                             q_dev, &
+                             ldq*matrixCols * size_of_datatype, &
+                             gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q_dev -> q", 4771,  successGPU)
+    if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+  endif
+
+  if (my_prow==0 .and. my_pcol==0 .and.print_flops == 1) then
+      write(error_unit,'(" Kernel time:",f10.3," MFlops: ",es12.5)')  kernel_time, kernel_flops/kernel_time*1.d-6
+  endif
+
+  ! deallocate all working space
+
+  if (.not.(useGPU)) then
+    nullify(aIntern)
+    call free(aIntern_ptr)
+  endif
+
+  deallocate(row, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: row", 4789,  istat,  errorMessage)
+
+  deallocate(limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: limits", 4792,  istat,  errorMessage)
+
+  deallocate(result_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_send_request", 4795,  istat,  errorMessage)
+
+  deallocate(result_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_recv_request", 4798,  istat,  errorMessage)
+
+  deallocate(result_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_buffer", 4801,  istat,  errorMessage)
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(result_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: result_buffer_dev", 4806,  successGPU)
+      nullify(result_buffer_mpi_fortran_ptr)
+    endif
+
+      nullify(bcast_buffer)
+
+      successGPU = gpu_free_host(bcast_buffer_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: bcast_buffer_host", 4816,  successGPU)
+  else ! useGPU
+    deallocate(bcast_buffer, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("tridi_to_band: bcast_buffer", 4824,  istat,  errorMessage)
+  endif ! useGPU
+
+
+  if (useGPU) then
+    successGPU = gpu_free(aIntern_dev)
+    call check_dealloc_GPU_f("tridi_to_band: aIntern_dev", 4830,  successGPU)
+
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(q_dev)
+      call check_dealloc_GPU_f("tridi_to_band: q_dev", 4834,  successGPU)
+      nullify(q_mpi_fortran_ptr)
+
+      successGPU = gpu_free(hh_trans_dev)
+      call check_dealloc_GPU_f("tridi_to_band: hh_trans_dev", 4838,  successGPU)
+      nullify(hh_trans_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 4842,  successGPU)
+      nullify(top_border_recv_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 4846,  successGPU)
+      nullify(top_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 4850,  successGPU)
+      nullify(bottom_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 4854,  successGPU)
+      nullify(bottom_border_recv_buffer_mpi_fortran_ptr)
+
+      nullify(aIntern_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU = gpu_free(hh_tau_dev)
+    call check_dealloc_GPU_f("tridi_to_band: hh_tau_dev", 4861,  successGPU)
+
+      nullify(row_group)
+
+      successGPU = gpu_free_host(row_group_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: row_group_host", 4869,  successGPU)
+
+    successGPU = gpu_free(row_group_dev)
+    call check_dealloc_GPU_f("tridi_to_band: row_group_dev", 4877,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(row_group_mpi_fortran_ptr)
+
+      successGPU = gpu_free(row_dev)
+      call check_dealloc_GPU_f("tridi_to_band: row_dev", 4883,  successGPU)
+      nullify(row_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU =  gpu_free(bcast_buffer_dev)
+    call check_dealloc_GPU_f("tridi_to_band: bcast_buffer_dev", 4888,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(bcast_buffer_mpi_fortran_ptr)
+    endif
+
+      successGPU = gpu_host_unregister(int(loc(top_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_send_buffer", 4898,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(top_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_recv_buffer", 4901,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_send_buffer", 4904,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_recv_buffer", 4907,  successGPU)
+
+  endif ! useGPU
+
+  deallocate(top_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_send_buffer", 4927,  istat,  errorMessage)
+
+  deallocate(top_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_recv_buffer", 4930,  istat,  errorMessage)
+
+  deallocate(bottom_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_send_buffer", 4933,  istat,  errorMessage)
+
+  deallocate(bottom_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_recv_buffer", 4936,  istat,  errorMessage)
+
+  deallocate(top_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_send_request", 4939,  istat,  errorMessage)
+
+  deallocate(top_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_recv_request", 4942,  istat,  errorMessage)
+
+  deallocate(bottom_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_send_request", 4945,  istat,  errorMessage)
+
+  deallocate(bottom_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_recv_request", 4948,  istat,  errorMessage)
+
+  call obj%timer%stop("trans_ev_tridi_to_band_&
+                      &real&
+                      &" // &
+                      &"_single" //&
+                      gpuString)
+  return
+
+end subroutine
+
+! vim: syntax=fortran
+
+
+
+    subroutine band_band_real_&
+&single &
+                  (obj, na, nb, nbCol, nb2, nb2Col, ab, ab2, d, e, communicator)
+    !-------------------------------------------------------------------------------
+    ! band_band_real:
+    ! Reduces a real symmetric banded matrix to a real symmetric matrix with smaller bandwidth. Householder transformations are not stored.
+    ! Matrix size na and original bandwidth nb have to be a multiple of the target bandwidth nb2. (Hint: expand your matrix with
+    ! zero entries, if this
+    ! requirement doesn't hold)
+    !
+    !  na          Order of matrix
+    !
+    !  nb          Semi bandwidth of original matrix
+    !
+    !  nb2         Semi bandwidth of target matrix
+    !
+    !  ab          Input matrix with bandwidth nb. The leading dimension of the banded matrix has to be 2*nb. The parallel data layout
+    !              has to be accordant to divide_band(), i.e. the matrix columns block_limits(n)*nb+1 to min(na, block_limits(n+1)*nb)
+    !              are located on rank n.
+    !
+    !  ab2         Output matrix with bandwidth nb2. The leading dimension of the banded matrix is 2*nb2. The parallel data layout is
+    !              accordant to divide_band(), i.e. the matrix columns block_limits(n)*nb2+1 to min(na, block_limits(n+1)*nb2) are located
+    !              on rank n.
+    !
+    !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0, set only if ab2 = 1 (output)
+    !
+    !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0, set only if ab2 = 1 (output)
+    !
+    !  communicator
+    !              MPI-Communicator for the total processor set
+    !-------------------------------------------------------------------------------
+      use elpa_abstract_impl
+      use elpa2_workload
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)               :: na, nb, nbCol, nb2, nb2Col, communicator
+      real(kind=rk), intent(inout)               :: ab(2*nb,nbCol) ! removed assumed size
+      real(kind=rk), intent(inout)               :: ab2(2*nb2,nb2Col) ! removed assumed size
+      real(kind=rk), intent(out)                 :: d(na), e(na) ! set only on PE 0
+
+      real(kind=rk)                              :: hv(nb,nb2), w(nb,nb2), w_new(nb,nb2), tau(nb2), hv_new(nb,nb2), &
+                                                  tau_new(nb2), ab_s(1+nb,nb2), ab_r(1+nb,nb2), ab_s2(2*nb2,nb2), hv_s(nb,nb2)
+
+      real(kind=rk)                              :: work(nb*nb2), work2(nb2*nb2)
+      integer(kind=ik)                         :: lwork, info
+      integer(kind=BLAS_KIND)                  :: infoBLAS
+
+      integer(kind=ik)                         :: istep, i, n, dest
+      integer(kind=ik)                         :: n_off, na_s
+      integer(kind=ik)                         :: my_pe, n_pes
+      integer(kind=MPI_KIND)                   :: my_peMPI, n_pesMPI, mpierr
+      integer(kind=ik)                         :: nblocks_total, nblocks
+      integer(kind=ik)                         :: nblocks_total2, nblocks2
+      integer(kind=MPI_KIND)                   :: ireq_ab, ireq_hv
+!      integer(kind=ik), allocatable            :: mpi_statuses(:,:)
+      integer(kind=ik), allocatable            :: block_limits(:), block_limits2(:)
+      integer(kind=MPI_KIND), allocatable      :: ireq_ab2(:)
+
+      integer(kind=ik)                         :: j, nc, nr, ns, ne, iblk
+      integer(kind=ik)                         :: istat
+      character(200)                           :: errorMessage
+
+      call obj%timer%start("band_band_real" // "_single")
+
+      call obj%timer%start("mpi_communication")
+      call mpi_comm_rank(int(communicator,kind=MPI_KIND) ,my_peMPI ,mpierr)
+      call mpi_comm_size(int(communicator,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+      my_pe = int(my_peMPI,kind=c_int)
+      n_pes = int(n_pesMPI,kind=c_int)
+      call obj%timer%stop("mpi_communication")
+
+      ! Total number of blocks in the band:
+      nblocks_total = (na-1)/nb + 1
+      nblocks_total2 = (na-1)/nb2 + 1
+
+      ! Set work distribution
+      allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating block_limits "//errorMessage
+        stop 1
+      endif
+      call divide_band(obj, nblocks_total, n_pes, block_limits)
+
+      allocate(block_limits2(0:n_pes), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating block_limits2 "//errorMessage
+        stop 1
+      endif
+
+      call divide_band(obj, nblocks_total2, n_pes, block_limits2)
+
+      ! nblocks: the number of blocks for my task
+      nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+      nblocks2 = block_limits2(my_pe+1) - block_limits2(my_pe)
+
+      allocate(ireq_ab2(1:nblocks2), stat=istat, errmsg=errorMessage)
+      if (istat .ne. 0) then
+        print *,"error allocating ireq_ab2 "//errorMessage
+        stop 1
+      endif
+
+      ! carefull the "recieve" has to be done at the corresponding send or wait
+!      if (nb2>1) then
+!        do i=0,nblocks2-1
+!          ab2(1:2*nb2*nb2,i*nb2+1:i*nb2+1+nb2-1) = ab_s2(1:2*nb2,i*nb2+1:nb2)
+!        enddo
+!      endif
+
+      ! n_off: Offset of ab within band
+      n_off = block_limits(my_pe)*nb
+      lwork = nb*nb2
+      dest = 0
+      ! ---------------------------------------------------------------------------
+      ! Start of calculations
+
+      na_s = block_limits(my_pe)*nb + 1
+
+      if (my_pe>0 .and. na_s<=na) then
+        ! send first nb2 columns to previous PE
+        ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+        do i=1,nb2
+          ab_s(1:nb+1,i) = ab(1:nb+1,na_s-n_off+i-1)
+        enddo
+      endif
+
+      do istep=1,na/nb2
+
+        if (my_pe==0) then
+
+          n = MIN(na-na_s-nb2+1,nb) ! number of rows to be reduced
+          hv(:,:) = 0.0_rk
+          tau(:) = 0.0_rk
+
+          ! The last step (istep=na-1) is only needed for sending the last HH vectors.
+          ! We don't want the sign of the last element flipped (analogous to the other sweeps)
+          if (istep < na/nb2) then
+
+            ! Transform first block column of remaining matrix
+      call obj%timer%start("blas")
+            call SGEQRF(int(n,kind=BLAS_KIND), int(nb2,kind=BLAS_KIND), ab(1+nb2,na_s-n_off), &
+                                 int(2*nb-1,kind=BLAs_KIND), tau, work, int(lwork,kind=BLAS_KIND), &
+                                 infoBLAS)
+      info = int(infoBLAS,kind=ik)
+      call obj%timer%stop("blas")
+
+            do i=1,nb2
+              hv(i,i) = 1.0_rk
+              hv(i+1:n,i) = ab(1+nb2+1:1+nb2+n-i,na_s-n_off+i-1)
+              ab(1+nb2+1:2*nb,na_s-n_off+i-1) = 0.0_rk
+            enddo
+
+          endif
+
+          if (nb2==1) then
+            d(istep) = ab(1,na_s-n_off)
+            e(istep) = ab(2,na_s-n_off)
+            if (istep == na) then
+              e(na) = 0.0_rk
+            endif
+          else
+            ab_s2 = 0.0_rk
+            ab_s2(:,:) = ab(1:nb2+1,na_s-n_off:na_s-n_off+nb2-1)
+            if (block_limits2(dest+1)<istep) then
+              dest = dest+1
+            endif
+            ! do irecv here
+            if (nb2>1) then
+              do i= 0,nblocks2-1
+                ab2(1:2*nb2*nb2,i*nb2+1:i+nb2+1+nb2-1) = ab_s2(1:2*nb2,1:nb2)
+              enddo
+            endif
+
+          endif
+
+        else
+          if (na>na_s+nb2-1) then
+            ! Receive Householder vectors from previous task, from PE owning subdiagonal
+           hv(1:nb,1:nb2) = hv_s(1:nb,1:nb2)
+
+            do i=1,nb2
+              tau(i) = hv(i,i)
+              hv(i,i) = 1.0_rk
+            enddo
+          endif
+        endif
+
+        na_s = na_s+nb2
+        if (na_s-n_off > nb) then
+          ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+          ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rk
+          n_off = n_off + nb
+        endif
+
+        do iblk=1,nblocks
+          ns = na_s + (iblk-1)*nb - n_off ! first column in block
+          ne = ns+nb-nb2                    ! last column in block
+
+          if (ns+n_off>na) exit
+
+            nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+            nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                          ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+            call wy_gen_&
+      &single&
+      &(obj,nc,nb2,w,hv,tau,work,nb)
+
+            if (iblk==nblocks .and. nc==nb) then
+              !request last nb2 columns
+             ab_r(1:nb+1,1:nb2) = ab_s(1:nb+1,1:nb2)
+              do i=1,nb2
+                ab(1:nb+1,ne+i-1) = ab_r(:,i)
+              enddo
+            endif
+            hv_new(:,:) = 0.0_rk ! Needed, last rows must be 0 for nr < nb
+            tau_new(:) = 0.0_rk
+
+            if (nr>0) then
+              call wy_right_&
+        &single&
+        &(obj,nr,nb,nb2,ab(nb+1,ns),2*nb-1,w,hv,work,nb)
+        call obj%timer%start("blas")
+              call SGEQRF(int(nr,kind=BLAS_KIND), int(nb2,kind=BLAS_KIND), ab(nb+1,ns), &
+                                   int(2*nb-1,kind=BLAS_KIND), tau_new, work, int(lwork,kind=BLAS_KIND), &
+                                   infoBLAS)
+        info = int(infoBLAS,kind=ik)
+        call obj%timer%stop("blas")
+              do i=1,nb2
+                hv_new(i,i) = 1.0_rk
+                hv_new(i+1:,i) = ab(nb+2:2*nb-i+1,ns+i-1)
+                ab(nb+2:,ns+i-1) = 0.0_rk
+              enddo
+
+              !send hh-Vector
+              if (iblk==nblocks) then
+                hv_s = hv_new
+                do i=1,nb2
+                  hv_s(i,i) = tau_new(i)
+                enddo
+
+              endif
+            endif
+
+            call wy_symm_&
+      &single&
+      &(obj,nc,nb2,ab(1,ns),2*nb-1,w,hv,work,work2,nb)
+
+            if (my_pe>0 .and. iblk==1) then
+              !send first nb2 columns to previous PE
+              do i=1,nb2
+                ab_s(1:nb+1,i) = ab(1:nb+1,ns+i-1)
+              enddo
+
+            endif
+
+            if (nr>0) then
+              call wy_gen_&
+        &single&
+        &(obj,nr,nb2,w_new,hv_new,tau_new,work,nb)
+              call wy_left_&
+        &single&
+        &(obj,nb-nb2,nr,nb2,ab(nb+1-nb2,ns+nb2),2*nb-1,w_new,hv_new,work,nb)
+            endif
+
+            ! Use new HH Vector for the next block
+            hv(:,:) = hv_new(:,:)
+            tau = tau_new
+          enddo
+        enddo
+
+        ! Finish the last outstanding requests
+
+        deallocate(block_limits, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating block_limits "//errorMessage
+          stop 1
+        endif
+
+        deallocate(block_limits2, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating block_limits2 "//errorMessage
+          stop 1
+        endif
+
+        deallocate(ireq_ab2, stat=istat, errmsg=errorMessage)
+        if (istat .ne. 0) then
+          print *,"error deallocating ireq_ab2 "//errorMessage
+          stop 1
+        endif
+
+        call obj%timer%stop("band_band_real" // "_single")
+
+    end subroutine
+
+    subroutine wy_gen_&
+    &single&
+    &(obj, n, nb, W, Y, tau, mem, lda)
+
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !length of householder-vectors
+      integer(kind=ik), intent(in)            :: nb     !number of householder-vectors
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of Y and W
+      real(kind=rk), intent(in)               :: Y(lda,nb)  !matrix containing nb householder-vectors of length b
+      real(kind=rk), intent(in)               :: tau(nb)    !tau values
+      real(kind=rk), intent(out)              :: W(lda,nb)  !output matrix W
+      real(kind=rk), intent(in)               :: mem(nb)    !memory for a temporary matrix of size nb
+
+      integer(kind=ik)                        :: i
+
+   call obj%timer%start("wy_gen" // "_single")
+
+   W(1:n,1) = tau(1)*Y(1:n,1)
+   do i=2,nb
+     W(1:n,i) = tau(i)*Y(1:n,i)
+     call obj%timer%start("blas")
+     call SGEMV('T', int(n,kind=BLAS_KIND), int(i-1,kind=BLAS_KIND),  1.0_rk, Y, int(lda,kind=BLAS_KIND), &
+                         W(1,i), 1_BLAS_KIND, 0.0_rk, mem, 1_BLAS_KIND)
+     call SGEMV('N', int(n,kind=BLAS_KIND), int(i-1,kind=BLAS_KIND), -1.0_rk, W, int(lda,kind=BLAS_KIND), &
+                         mem, 1_BLAS_KIND, 1.0_rk, W(1,i), 1_BLAS_KIND)
+     call obj%timer%stop("blas")
+   enddo
+   call obj%timer%stop("wy_gen" // "_single")
+    end subroutine
+
+    subroutine wy_left_&
+    &single&
+    &(obj, n, m, nb, A, lda, W, Y, mem, lda2)
+
+      use precision
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !width of the matrix A
+      integer(kind=ik), intent(in)            :: m      !length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed   ! remove assumed size
+      real(kind=rk), intent(in)               :: W(m,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(m,nb)    !blocked transformation matrix Y
+      real(kind=rk), intent(inout)            :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+
+   call obj%timer%start("wy_left" // "_single")
+   call obj%timer%start("blas")
+   call SGEMM('T', 'N', int(nb,kind=BLAS_KIND), int(n,kind=BLAS_KIND), int(m,kind=BLAS_KIND), &
+                       1.0_rk, W, int(lda2,kind=BLAS_KIND), A, int(lda,kind=BLAS_KIND), 0.0_rk, mem, &
+                       int(nb,kind=BLAS_KIND))
+   call SGEMM('N', 'N', int(m,kind=BLAS_KIND), int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                       -1.0_rk, Y, int(lda2,kind=BLAS_KIND), mem, int(nb,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+   call obj%timer%stop("blas")
+   call obj%timer%stop("wy_left" // "_single")
+    end subroutine
+
+    subroutine wy_right_&
+    &single&
+    &(obj, n, m, nb, A, lda, W, Y, mem, lda2)
+
+      use precision
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !height of the matrix A
+      integer(kind=ik), intent(in)            :: m      !length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed  ! remove assumed size
+      real(kind=rk), intent(in)               :: W(m,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(m,nb)    !blocked transformation matrix Y
+      real(kind=rk), intent(inout)            :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+
+
+      call obj%timer%start("wy_right" // "_single")
+      call obj%timer%start("blas")
+      call SGEMM('N', 'N', int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(m,kind=BLAS_KIND), &
+                          1.0_rk, A, int(lda,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem, int(n,kind=BLAS_KIND))
+      call SGEMM('N', 'T', int(n,kind=BLAS_KIND), int(m,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                          -1.0_rk, mem, int(n,kind=BLAS_KIND), Y, int(lda2,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+      call obj%timer%stop("blas")
+      call obj%timer%stop("wy_right" // "_single")
+
+    end subroutine
+
+    subroutine wy_symm_&
+    &single&
+    &(obj, n, nb, A, lda, W, Y, mem, mem2, lda2)
+
+      use elpa_abstract_impl
+      use elpa_blas_interfaces
+
+      use precision
+      implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: rck = C_FLOAT
+  real(kind=rck), parameter      :: ZERO=0.0_rk, ONE = 1.0_rk
+
+      class(elpa_abstract_impl_t), intent(inout) :: obj
+      integer(kind=ik), intent(in)            :: n      !width/heigth of the matrix A; length of matrix W and Y
+      integer(kind=ik), intent(in)            :: nb     !width of matrix W and Y
+      integer(kind=ik), intent(in)            :: lda        !leading dimension of A
+      integer(kind=ik), intent(in)            :: lda2       !leading dimension of W and Y
+      real(kind=rk), intent(inout)            :: A(lda,*)   !matrix to be transformed  ! remove assumed size
+      real(kind=rk), intent(in)               :: W(n,nb)    !blocked transformation matrix W
+      real(kind=rk), intent(in)               :: Y(n,nb)    !blocked transformation matrix Y
+      real(kind=rk)                           :: mem(n,nb)  !memory for a temporary matrix of size n x nb
+      real(kind=rk)                           :: mem2(nb,nb)    !memory for a temporary matrix of size nb x nb
+
+      call obj%timer%start("wy_symm" // "_single")
+      call obj%timer%start("blas")
+      call SSYMM('L', 'L', int(n, kind=BLAS_KIND), int(nb,kind=BLAS_KIND), 1.0_rk, A, &
+                          int(lda,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem, int(n,kind=BLAS_KIND))
+      call SGEMM('T', 'N', int(nb,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(n,kind=BLAS_KIND), &
+                          1.0_rk, mem, int(n,kind=BLAS_KIND), W, int(lda2,kind=BLAS_KIND), 0.0_rk, mem2, &
+                          int(nb,kind=BLAS_KIND))
+      call SGEMM('N', 'N', int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), &
+                          -0.5_rk, Y, int(lda2,kind=BLAS_KIND), mem2, int(nb,kind=BLAS_KIND), 1.0_rk, mem, int(n,kind=BLAS_KIND))
+      call SSYR2K('L', 'N',int(n,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), -1.0_rk, Y, int(lda2,kind=BLAS_KIND), &
+                           mem, int(n,kind=BLAS_KIND), 1.0_rk, A, int(lda,kind=BLAS_KIND))
+      call obj%timer%stop("blas")
+      call obj%timer%stop("wy_symm" // "_single")
+
+    end subroutine
+
+
+
+! complex double precision
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+! - works with mimic loop
+! - is it the sharing of device pointers?
+
+
+subroutine bandred_&
+&complex&
+&_&
+&double &
+(obj, na, a_mat, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, tmat, &
+wantDebug, useGPU, success, &
+max_threads, isSkewsymmetric)
+
+!-------------------------------------------------------------------------------
+!  bandred_real/complex: Reduces a distributed symmetric matrix to band form
+!
+!  Parameters
+!
+!  na          Order of matrix
+!
+!  a_mat(matrixRows,matrixCols)    Distributed matrix which should be reduced.
+!              Distribution is like in Scalapack.
+!              Opposed to Scalapack, a_mat(:,:) must be set completely (upper and lower half)
+!              a_mat(:,:) is overwritten on exit with the band and the Householder vectors
+!              in the upper half.
+!
+!  matrixRows         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith of output matrix
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!  tmat(nbw,nbw,numBlocks)    where numBlocks = (na-1)/nbw + 1
+!              Factors for the Householder vectors (returned), needed for back transformation
+!
+!-------------------------------------------------------------------------------
+
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa1_compute
+  use precision
+  use elpa_blas_interfaces
+  use elpa_abstract_impl
+  !use cuda_functions
+  !use hip_functions
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: ck = C_DOUBLE_COMPLEX
+  integer, parameter :: rck = C_DOUBLE_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)  :: obj
+  integer(kind=ik)                            :: na, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols
+
+  complex(kind=rck)                     :: a_mat(matrixRows,*)
+  complex(kind=rck)                     :: tmat(nbw,nbw,*)
+
+  logical, intent(in)                         :: useGPU
+  logical, intent(in)                         :: isSkewsymmetric
+  character(20)                               :: gpuString
+
+  integer(kind=ik)                            :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                      :: mpierr,  my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI
+  integer(kind=ik)                            :: l_cols, l_rows, max_l_rows, max_l_cols
+  integer(kind=ik),allocatable                :: blockinfo(:,:)
+  integer(kind=ik)                            :: i, j, lcs, lce, lre, lc, lr, cur_pcol, n_cols, nrow
+  integer(kind=ik)                            :: istep, ncol, lch, lcx, iblock, nblocks, c_start, &
+                                                blc_start, blc_end, blc_len
+  integer(kind=ik)                            :: tile_size, l_rows_tile, l_cols_tile
+
+  complex(kind=rck)                    :: vrl, tau
+  complex(kind=rck)                    :: vav(nbw,nbw)
+
+  complex(kind=rck), allocatable        :: tmpGPU(:)
+  complex(kind=rck), pointer            :: vmrGPU(:), umcGPU(:)
+  complex(kind=rck), pointer            :: vmrGPU_2d(:,:), umcGPU_2d(:,:)
+  complex(kind=rck), allocatable        :: vmrCPU(:,:), umcCPU(:,:), vmrCPU_qr(:,:)
+  complex(kind=rck), allocatable        :: vr(:)
+  complex(kind=rck)                     :: taublock(nbw), vrlblock(nbw)
+  complex(kind=rck), allocatable, target:: ex_buff(:)
+  complex(kind=rck), pointer, contiguous:: ex_buff2d(:,:)
+
+  integer(kind=C_intptr_T)                    :: a_dev, vmr_dev, umc_dev, tmat_dev, vav_dev
+  integer(kind=C_intptr_T)                    :: a_dev0, a_dev1, vmr_dev0, vmr_dev1, umc_dev0, umc_dev1
+  type(c_ptr)                                 :: a_dev_ptr, vmr_dev_ptr, umc_dev_ptr
+  complex(kind=rck), pointer            :: vmr_dev_fortran_ptr, umc_dev_fortran_ptr, a_dev_fortran_ptr
+  type(c_ptr)                                 :: vmr_host, umc_host
+  complex(kind=rck), pointer            :: vmr_debug(:), umc_debug(:)
+  integer(kind=ik)                            :: ierr
+  integer(kind=ik)                            :: cur_l_rows, cur_l_cols
+  integer(kind=ik)                            :: vmr_size, umc_size
+  integer(kind=ik)                            :: l_rows2, vmr_size2, umc_size2
+  integer(kind=c_intptr_t)                    :: lc_start, lc_end
+  integer(kind=c_intptr_t)                    :: lce_1, lcs_1, lre_1
+  integer(kind=ik)                            :: lr_end
+  !integer(kind=ik)                            :: na_cols
+  !integer(kind=BLAS_KIND)                     :: na_colsBLAS
+  integer(kind=ik)                            :: na_rows
+  integer(kind=BLAS_KIND)                     :: na_rowsBLAS
+
+  logical, intent(in)                         :: wantDebug
+  logical, intent(out)                        :: success
+  logical                                     :: successGPU
+  integer(kind=ik)                            :: istat
+  character(200)                              :: errorMessage
+  integer(kind=ik)                            :: min_tile_size, error
+
+  integer(kind=ik)                            :: mystart, myend, m_way, n_way, work_per_thread, m_id, n_id, n_threads, &
+                                                ii, off, lrex
+  integer(kind=c_intptr_t), parameter           :: size_of_datatype = size_of_&
+                                                                    &double&
+                                                                    &_&
+                                                                    &complex
+
+  logical                                     :: useGPU_reduction_lower_block_to_tridiagonal
+  integer(kind=ik),intent(in)                 :: max_threads
+  integer(kind=ik)                            :: max_threads_used
+  logical                                     :: do_memcpy
+  integer(kind=ik)                            :: i_blk,blk_off, blk_end
+
+  integer(kind=MPI_KIND)                      :: bcast_request, allreduce_request1, allreduce_request2, &
+                                                 allreduce_request3, allreduce_request4, allreduce_request5, &
+                                                 allreduce_request6
+  integer(kind=MPI_KIND), allocatable         :: breq(:)
+  
+  logical                                     :: useNonBlockingCollectivesCols
+  logical                                     :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                         :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  integer(kind=c_int)                         :: myThreadID, mimick
+  integer(kind=c_int)                         :: memcols
+
+  integer(kind=c_intptr_t)                    :: gpuHandle, my_stream
+
+
+  max_threads_used = max_threads
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("bandred_&
+  &complex&
+  &" // &
+  "_double" // &
+  gpuString )
+
+  call obj%get("nbc_row_elpa2_full_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_full_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+ 
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+ 
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  useGPU_reduction_lower_block_to_tridiagonal = .false.
+ 
+  if (useGPU) then
+    useGPU_reduction_lower_block_to_tridiagonal = .true.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+  success = .true.
+
+
+  ! Semibandwith nbw must be a multiple of blocksize nblk
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &complex&
+                             &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &complex&
+                             &: ELPA2 works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  ! na_rows in used nowhere; only na_cols
+  if (useGPU) then
+
+    ! Here we convert the regular host array into a pinned host array
+    successGPU = gpu_malloc(a_dev, matrixRows*matrixCols* size_of_datatype)
+    call check_alloc_GPU_f("bandred: a_dev", 344,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(vav),kind=c_intptr_t), &
+                  nbw * nbw * size_of_datatype,&
+                  gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: vav", 352,  successGPU)
+
+    successGPU = gpu_malloc(vav_dev, nbw*nbw* size_of_datatype)
+    call check_alloc_GPU_f("bandred: vav_dev", 358,  successGPU)
+  endif ! useGPU
+
+  ! Matrix is split into tiles; work is done only for tiles on the diagonal or above
+
+  tile_size = nblk*least_common_multiple(np_rows,np_cols) ! minimum global tile size
+
+  ! make tile_size a smallest possible multiple of previously defined tile size, such that it is
+  ! larger or equal to min_tile_size
+  ! min_tile_size has been originally hardcoded as 128 * max(np_rows, np_cols), so it is now the implicit value
+  ! it can, however, be set by the user
+  call obj%get("min_tile_size", min_tile_size ,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for min_tile_size. Aborting..."
+    success = .false.
+    return
+  endif
+  if(min_tile_size == 0) then
+    ! not set by the user, use the default value
+    min_tile_size = 128*max(np_rows, np_cols)
+  endif
+  tile_size = ((min_tile_size-1)/tile_size+1)*tile_size
+
+  l_rows_tile = tile_size/np_rows ! local rows of a tile
+  l_cols_tile = tile_size/np_cols ! local cols of a tile
+
+
+  blk_end = (na-1)/nbw
+  if (useGPU) then
+ 
+      successGPU = gpu_host_register(int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: a_mat", 437,  successGPU)
+
+    cur_l_rows = 0
+    cur_l_cols = 0
+
+    successGPU = gpu_memcpy(a_dev, int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("bandred: a_dev", 464,  successGPU)
+
+    successGPU = gpu_malloc(tmat_dev, nbw*nbw*size_of_datatype)
+    call check_alloc_GPU_f("bandred: tmat_dev", 468,  successGPU)
+
+
+
+
+
+    istep = (na-1)/nbw
+    blk_end = (na-1)/nbw
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size = cur_l_rows*2*n_cols
+    umc_size = cur_l_cols*2*n_cols
+
+    istep = (na-1)/nbw - 1
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows2 = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows2,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size2 = cur_l_rows*2*n_cols
+    umc_size2 = cur_l_cols*2*n_cols
+
+    l_rows = max(l_rows,l_rows2)
+    vmr_size = max(vmr_size,vmr_size2)
+    umc_size = max(umc_size,umc_size2)
+
+    allocate(vr(l_rows + 1), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("bandred: vr", 505,  istat,  errorMessage)
+
+      successGPU = gpu_malloc_host(vmr_host,vmr_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: vmr_host", 511,  successGPU)
+      call c_f_pointer(vmr_host, vmrGPU, (/vmr_size/))
+
+    successGPU = gpu_malloc(vmr_dev, vmr_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: vmr_dev", 520,  successGPU)
+
+
+      successGPU = gpu_malloc_host(umc_host,umc_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: umc_host", 527,  successGPU)
+      call c_f_pointer(umc_host, umcGPU, (/umc_size/))
+
+    successGPU = gpu_malloc(umc_dev, umc_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: umc_dev", 536,  successGPU)
+
+
+
+  endif ! useGPU
+
+  do istep = blk_end, 1, -1
+
+    n_cols = MIN(na,(istep+1)*nbw) - istep*nbw ! Number of columns in current step
+
+    ! Number of local columns/rows of remaining matrix
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+
+
+    max_l_rows = max(l_rows,1)
+    max_l_cols = max(l_cols,1)
+
+    ! Allocate vmr and umc to their exact sizes so that they can be used in bcasts and reduces
+
+    if (useGPU) then
+      vmr_size = max_l_rows * 2 * n_cols
+      umc_size = max_l_cols * 2 * n_cols
+    else ! GPU not used
+
+      ! unify the the name vmr and vmrCPU, as well as vmrGPU
+      ! the same for umcCPU and umcGPU
+      ! Allocate vmr and umcCPU to their exact sizes so that they can be used in bcasts and reduces
+
+      allocate(vmrCPU(max_l_rows,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU", 607,  istat,  errorMessage)
+
+      allocate(umcCPU(max_l_cols,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: umcCPU", 610,  istat,  errorMessage)
+
+      allocate(vr(l_rows+1), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vr", 613,  istat,  errorMessage)
+
+    endif ! use GPU
+
+    if (useGPU) then
+      vmrGPU(1 : max_l_rows * n_cols) = 0.0_rck
+      umcGPU(1 : umc_size) = 0.0_rck
+    else ! useGPU
+      vmrCPU(1:l_rows,1:n_cols) = 0.0_rck
+    endif ! useGPU
+
+
+    vr(:) = 0.0_rck
+    tmat(:,:,istep) = 0.0_rck
+    if (useGPU) then
+      lc_start = local_index(istep*nbw+1, my_pcol, np_cols, nblk, -1)
+      lc_end   = local_index(istep*nbw+n_cols, my_pcol, np_cols, nblk, -1)
+      lr_end   = local_index((istep-1)*nbw + n_cols, my_prow, np_rows, nblk, -1)
+
+      if (lc_start .le. 0) lc_start = 1
+
+      do_memcpy = .false.
+
+      ! Note: mod(nbw,nblk) == 0
+      do i_blk = 1, nbw/nblk
+        blk_off = (i_blk-1) * nblk
+        cur_pcol = pcol(istep*nbw+1+blk_off, nblk, np_cols)
+
+        if (my_pcol == cur_pcol) then
+          do_memcpy = .true.
+        endif
+      enddo
+
+      if (do_memcpy) then
+
+          successGPU = gpu_memcpy2d(int(loc(a_mat(1, lc_start)),kind=c_intptr_t), &
+                        int((matrixRows*size_of_datatype),kind=c_intptr_t), &
+                        (a_dev + int( ( (lc_start-1) * matrixRows*size_of_datatype),kind=c_intptr_t )), &
+                        int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                        int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                        int((lc_end - lc_start+1),kind=c_intptr_t),int(gpuMemcpyDeviceToHost,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_dev -> a_mat", 680,  successGPU)
+
+      endif ! do_memcpy
+    endif ! useGPU
+
+    ! Reduce current block to lower triangular form
+
+       call obj%timer%start("hh_block")
+       
+       allocate(blockinfo(4,n_cols/nblk+1))
+       iblock=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc
+          if((lc.eq.n_cols).or.(mod(ncol,nblk).eq.0)) then
+             cur_pcol = pcol(ncol, nblk, np_cols) ! Processor column owning current block
+             !new block
+             iblock=iblock+1
+             lch = local_index(ncol, my_pcol, np_cols, nblk, -1) ! HV local column number
+             blockinfo(1,iblock)=cur_pcol !owner of this block
+             blockinfo(2,iblock)=((lch-1)/nblk)*nblk+1 !first a_mat index of this block
+             blockinfo(3,iblock)=mod(ncol-1,nblk)+1 !length of block
+             blockinfo(4,iblock)=lc !last local cell indes of this block
+          end if
+       end do
+       nblocks=iblock
+          
+       allocate(ex_buff(l_rows*n_cols))
+       lrex  = l_rows
+       ex_buff2d(1:lrex,1:n_cols) => ex_buff
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                ex_buff2d(1:lrex,blc_start+off-1)=a_mat(1:lrex,c_start+off-1)
+             end do
+          end if
+       end do
+       call obj%timer%start("hh_trans")
+       off=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc ! absolute column number of householder Vector
+          nrow = ncol - nbw ! Absolute number of pivot row  
+          if (nrow == 1) then !done
+             taublock(1)=0. 
+             exit
+          end if
+          
+          lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+          off=off+1
+          call get_hh_vec(ex_buff2d(1:lr,n_cols-off+1),vr,tau,vrl)
+          
+          call apply_ht(tau,vr,ex_buff2d(:,1:n_cols-off))
+          if (useGPU_reduction_lower_block_to_tridiagonal) then
+             vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) = vr(1:lr)
+          else
+             vmrCPU(1:lr,lc) = vr(1:lr)
+          endif
+          taublock(lc) = conjg(tau)
+          vrlblock(lc)=vrl
+       end do
+       call obj%timer%stop("hh_trans")
+          
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                lc=blc_start+off-1
+                lch=c_start+off-1
+                ncol = istep*nbw + lc ! absolute column number of householder Vector
+                nrow = ncol - nbw ! Absolute number of pivot row   
+                lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+
+                if (nrow.gt.1) then
+                   if (useGPU_reduction_lower_block_to_tridiagonal) then
+                      a_mat(1:lr,lch)=vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) 
+                   else
+                      a_mat(1:lr,lch)=vmrCPU(1:lr,lc)  
+                   endif
+                   if (my_prow==prow(nrow, nblk, np_rows)) a_mat(lr,lch) = vrlblock(lc)
+                   a_mat(lr+1:lrex,c_start+off-1)=ex_buff2d(lr+1:lrex,blc_start+off-1)
+                else
+                   a_mat(1:lrex,c_start+off-1)=ex_buff2d(1:lrex,blc_start+off-1)
+                end if
+             end do
+          end if
+       end do
+
+          
+       deallocate(blockinfo)
+       deallocate(ex_buff)
+
+       call obj%timer%stop("hh_block")
+
+       if (useGPU_reduction_lower_block_to_tridiagonal) then
+        ! store column tiles back to GPU
+        if (do_memcpy) then
+
+            successGPU = gpu_memcpy2d((a_dev+ &
+                         int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                         int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                         int((lc_end - lc_start+1),kind=c_intptr_t), &
+                         int(gpuMemcpyHostToDevice,kind=c_int))
+            call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 893,  successGPU)
+
+        endif ! do_memcopy
+      endif ! (useGPU_reduction_lower_block_to_tridiagonal
+
+      ! Calculate scalar products of stored Householder vectors.
+      ! This can be done in different ways, we use dsyrk
+
+      vav = 0
+      call obj%timer%start("blas0")
+      if (useGPU_reduction_lower_block_to_tridiagonal) then
+        if (l_rows > 0) then
+          call ZHERK('U', 'C',            &
+                           int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                           vmrGPU, int(max(l_rows, 1),kind=BLAS_KIND), &
+                           ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      else ! useGPU_reduction_to_tridiagonal
+        if (l_rows > 0) then
+          call ZHERK('U', 'C',           &
+                            int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, vmrCPU, &
+                            int(max(l_rows, 1),kind=BLAS_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      endif
+      call obj%timer%stop("blas0")
+      call herm_matrix_allreduce_&
+         &double &
+                         (obj, n_cols,vav, nbw, nbw,mpi_comm_rows, .true., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+        return
+      endif
+
+         ! Calculate triangular matrix T for block Householder Transformation
+      call obj%timer%start("blas1")
+      do lc=n_cols,1,-1
+         tau = taublock(lc)
+         tmat(lc,lc,istep)=tau
+         if (lc < n_cols) then
+            call ZTRMV('U', 'C', 'N',&
+                 int(n_cols-lc,kind=BLAS_KIND), tmat(lc+1,lc+1,istep), &
+                 int(nbw,kind=BLAS_KIND), vav(lc+1,lc), 1_BLAS_KIND)
+            
+            tmat(lc,lc+1:n_cols,istep) = -tau * conjg(vav(lc+1:n_cols,lc))
+         endif
+      enddo
+      call obj%timer%stop("blas1")
+
+
+    ! Transpose vmr -> vmc (stored in umc, second half)
+    if (useGPU) then
+      call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &double &
+                        (obj, vmrGPU(:), max_l_rows, mpi_comm_rows, &
+                         umcGPU(max_l_cols * n_cols + 1:), max_l_cols, &
+                         mpi_comm_cols, 1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+                         success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    else ! useGPU
+      call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &double &
+                                        (obj, vmrCPU, max_l_rows, mpi_comm_rows, &
+                                         umcCPU(1,n_cols+1), max_l_cols, mpi_comm_cols, &
+                                         1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+      success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    endif ! useGPU
+
+    ! Calculate umc = A**T * vmr
+    ! Note that the distributed A has to be transposed
+    ! Opposed to direct tridiagonalization there is no need to use the cache locality
+    ! of the tiles, so we can use strips of the matrix
+
+
+    !Code for Algorithm 4
+
+    ! n_way is actually a branch for the number of OpenMP threads
+    n_way = 1
+
+      if (.not.useGPU) then
+        umcCPU(1:l_cols,1:n_cols) = 0.0_rck
+        vmrCPU(1:l_rows,n_cols+1:2*n_cols) = 0.0_rck
+      endif ! useGPU
+
+      if (l_cols > 0 .and. l_rows > 0) then
+
+        if (useGPU) then
+
+            successGPU = gpu_memset(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                        0, max_l_rows*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: vmr_dev", 1291,  successGPU)
+
+
+          successGPU = gpu_memcpy(vmr_dev, int(loc(vmrGPU(1)),kind=c_intptr_t), &
+                        max_l_rows*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: vmrGPU -> vmr_dev", 1323,  successGPU)
+
+
+            successGPU = gpu_memset(umc_dev, 0, l_cols*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: umc_dev", 1341,  successGPU)
+
+
+
+          successGPU = gpu_memcpy(umc_dev+l_cols*n_cols*size_of_datatype, &
+                        int(loc(umcGPU(1+l_cols*n_cols)),kind=c_intptr_t), &
+                        (umc_size-l_cols*n_cols)*size_of_datatype, &
+                        gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev", 1384,  successGPU)
+        endif ! useGPU
+
+        do i=0,(istep*nbw-1)/tile_size
+
+          lcs = i*l_cols_tile+1
+          lce = min(l_cols,(i+1)*l_cols_tile)
+          if (lce<lcs) cycle
+          lre = min(l_rows,(i+1)*l_rows_tile)
+
+          if (useGPU) then
+            call obj%timer%start("gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_ZGEMM('C', 'N',                   &
+                                       lce-lcs+1, n_cols, lre,     &
+                                       ONE, (a_dev + ((lcs-1)*matrixRows* &
+                                       size_of_datatype)),         &
+                                       matrixRows, vmr_dev,max_l_rows,    &
+                                       ONE, (umc_dev+ (lcs-1)*     &
+                                           size_of_datatype),      &
+                                       max_l_cols, gpuHandle)
+
+            call obj%timer%stop("gpublas")
+
+            if(i == 0) cycle
+            call obj%timer%start("gpublas")
+
+            lre = min(l_rows,i*l_rows_tile)
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            if (isSkewsymmetric) then
+              call gpublas_ZGEMM('N', 'N', lre,n_cols, lce-lcs+1, -ONE, &
+                            (a_dev+ ((lcs-1)*matrixRows*                 &
+                                  size_of_datatype)),             &
+                       matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                              size_of_datatype),              &
+                              max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                            size_of_datatype),              &
+                              max_l_rows, gpuHandle)
+            else
+              call gpublas_ZGEMM('N', 'N', lre,n_cols, lce-lcs+1, ONE, &
+                                          (a_dev+ ((lcs-1)*matrixRows*                 &
+                                                size_of_datatype)),             &
+                                     matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                                            size_of_datatype),              &
+                                            max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                                          size_of_datatype),              &
+                                            max_l_rows, gpuHandle)
+            endif
+            call obj%timer%stop("gpublas")
+          else ! useGPU
+
+            call obj%timer%start("blas")
+            call ZGEMM('C', 'N',       &
+                                int(lce-lcs+1,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lre,kind=BLAS_KIND), &
+                                ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND), &
+                                vmrCPU, int(max_l_rows,kind=BLAS_KIND), ONE, umcCPU(lcs,1), &
+                                int(max_l_cols,kind=BLAS_KIND) )
+            call obj%timer%stop("blas")
+            if (i == 0) cycle
+            lre = min(l_rows,i*l_rows_tile)
+            call obj%timer%start("blas")
+
+            if (isSkewsymmetric) then
+              call ZGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  -ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                           &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+
+            else
+              call ZGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                            &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+            endif
+            call obj%timer%stop("blas")
+          endif ! useGPU
+        enddo ! i=0,(istep*nbw-1)/tile_size
+
+        if (useGPU) then
+          if (tile_size < istep*nbw .or. n_way > 1) then
+            successGPU = gpu_memcpy(int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                          vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                          (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyDeviceToHost)
+            call check_memcpy_GPU_f("bandred: vmr_dev -> vmrGPU", 1503,  successGPU)
+          endif
+
+          successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                        umc_dev, l_cols*n_cols*size_of_datatype, gpuMemcpyDeviceToHost)
+          call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU", 1523,  successGPU)
+        endif ! useGPU
+      endif ! l_cols>0 .and. l_rows>0
+
+    ! Sum up all ur(:) parts along rows and add them to the uc(:) parts
+    ! on the processors containing the diagonal
+    ! This is only necessary if ur has been calculated, i.e. if the
+    ! global tile size is smaller than the global remaining matrix
+
+    ! Or if we used the Algorithm 4
+    if (tile_size < istep*nbw .or. n_way > 1) then
+
+      if (useGPU) then
+        call elpa_reduce_add_vectors_&
+             &complex&
+             &_&
+             &double &
+                             (obj, vmrGPU(max_l_rows * n_cols + 1:),max_l_rows,  &
+                              mpi_comm_rows, umcGPU,                            &
+                              max_l_cols, mpi_comm_cols, istep*nbw, n_cols, nblk, max_threads_used)
+      else ! useGPU
+        call elpa_reduce_add_vectors_&
+        &complex&
+        &_&
+        &double &
+                                         (obj, vmrCPU(1,n_cols+1),max_l_rows,mpi_comm_rows, &
+                                          umcCPU, max_l_cols, mpi_comm_cols, &
+                                          istep*nbw, n_cols, nblk, max_threads_used)
+      endif ! useGPU
+    endif ! tile_size < istep*nbw .or. n_way > 1
+
+    if (l_cols > 0) then
+
+      if (useGPU) then
+
+        if (allocated(tmpGPU)) then
+          deallocate(tmpGPU, stat=istat, errmsg=errorMessage)
+          call check_deallocate_f("bandred: tmpGPU", 1585,  istat,  errorMessage)
+        endif
+
+      else ! useGPU
+
+
+      endif ! useGPU
+    endif ! l_cols > 0
+    ! U = U * Tmat**T
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(umc_dev, int(loc(umcGPU(1)),kind=c_intptr_t), &
+                    l_cols*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev ", 1630,  successGPU)
+
+      successGPU = gpu_memcpy(tmat_dev,int(loc(tmat(1,1,istep)),kind=c_intptr_t), &
+                    nbw*nbw*size_of_datatype,gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: tmat -> tmat_dev ", 1634,  successGPU)
+
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_ZTRMM('Right', 'Upper', 'C', 'Nonunit',  &
+                          l_cols, n_cols, ONE, tmat_dev, nbw, umc_dev, max_l_cols, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_ZGEMM('C', 'N',             &
+                               n_cols, n_cols, l_cols, ONE, umc_dev, max_l_cols, &
+                               (umc_dev+(max_l_cols * n_cols )*size_of_datatype),max_l_cols, &
+                               ZERO, vav_dev, nbw, gpuHandle)
+
+      call gpublas_ZTRMM('Right', 'Upper', 'C', 'Nonunit',    &
+         n_cols, n_cols, ONE, tmat_dev, nbw, vav_dev, nbw, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(vav),kind=c_intptr_t), &
+                  vav_dev, nbw*nbw*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: vav_dev -> vav ", 1671,  successGPU)
+    else ! useGPU
+
+      call obj%timer%start("blas")
+
+      call ZTRMM('Right', 'Upper', 'C', 'Nonunit',     &
+                          int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep), &
+                          int(nbw,kind=BLAS_KIND), &
+                          umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+
+      call ZGEMM('C', 'N',              &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), &
+                          ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND), umcCPU(1,n_cols+1), &
+                          int(max_l_cols,kind=BLAs_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+
+      call ZTRMM('Right', 'Upper', 'C', 'Nonunit',    &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep),    &
+                          int(nbw,kind=BLAS_KIND), vav, int(nbw,kind=BLAS_KIND) )
+      call obj%timer%stop("blas")
+
+    endif ! useGPU
+
+    call herm_matrix_allreduce_&
+         &double &
+         (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+    if (.not.(success)) then
+      write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+      return
+    endif
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(vav_dev, int(loc(vav),kind=c_intptr_t), &
+                       nbw*nbw*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vav -> vav_dev ", 1742,  successGPU)
+    endif
+
+
+    ! U = U - 0.5 * V * VAV
+
+    if (useGPU) then
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      if (isSkewsymmetric) then
+        call gpublas_ZGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                  (0.5_rk, 0.0_rk), &
+                                  (umc_dev+(max_l_cols * n_cols )* &
+                                  size_of_datatype),   &
+                                  max_l_cols, vav_dev,nbw,        &
+                                  ONE, umc_dev, max_l_cols, gpuHandle)
+      else
+        call gpublas_ZGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                 (-0.5_rk, 0.0_rk), &
+                                 (umc_dev+(max_l_cols * n_cols )* &
+                                 size_of_datatype),   &
+                                 max_l_cols, vav_dev,nbw,        &
+                                 ONE, umc_dev, max_l_cols, gpuHandle)
+      endif
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                  umc_dev, umc_size*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU ", 1803,  successGPU)
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+           &complex&
+           &_&
+           &double &
+                       (obj, umcGPU(:), max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                        success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+          return
+        endif
+      else
+        call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &double &
+                       (obj, umcGPU, max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+          return
+        endif
+      endif
+
+      successGPU = gpu_memcpy(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                  int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                  (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vmr -> vmrGPU ", 1860,  successGPU)
+    else ! useGPU
+      call obj%timer%start("blas")
+      call ZGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                         (-0.5_rk, 0.0_rk),     &
+                         umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav, &
+                         int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      call obj%timer%stop("blas")
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+          &complex&
+        &_&
+        &double &
+                                 (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                        vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                        success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+            return
+          endif
+      else
+       call elpa_transpose_vectors_&
+       &complex&
+       &_&
+       &double &
+                                (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                          vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                          1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                          success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+            return
+          endif
+      endif
+    endif  ! useGPU
+
+    ! A = A - V*U**T - U*V**T
+
+
+    do i=0,(istep*nbw-1)/tile_size
+      lcs = i*l_cols_tile+1
+      lce = min(l_cols,(i+1)*l_cols_tile)
+      lre = min(l_rows,(i+1)*l_rows_tile)
+      if (lce<lcs .or. lre<1) cycle
+
+      if (useGPU) then
+        call obj%timer%start("gpublas")
+
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_ZGEMM('N', 'C',     &
+                                   lre, lce-lcs+1, 2*n_cols, -ONE, &
+                                   vmr_dev, max_l_rows, (umc_dev +(lcs-1)*  &
+                                   size_of_datatype), &
+                                   max_l_cols, ONE, (a_dev+(lcs-1)*matrixRows* &
+                                   size_of_datatype), matrixRows, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+
+        call obj%timer%start("blas")
+        call ZGEMM('N', 'C', int(lre,kind=BLAS_KIND),int(lce-lcs+1,kind=BLAS_KIND), &
+                            int(2*n_cols,kind=BLAS_KIND), &
+                            -ONE, &
+                            vmrCPU, int(max_l_rows,kind=BLAS_KIND), umcCPU(lcs,1), &
+                            int(max_l_cols,kind=BLAS_KIND), &
+                            ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+     endif ! useGPU
+    enddo ! i=0,(istep*nbw-1)/tile_size
+
+    if (.not.(useGPU)) then
+      if (allocated(vr)) then
+        deallocate(vr, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vr", 2029,  istat,  errorMessage)
+      endif
+
+      if (allocated(umcCPU)) then
+        deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: umcCPU", 2034,  istat,  errorMessage)
+      endif
+
+      if (allocated(vmrCPU)) then
+        deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vmrCPU", 2039,  istat,  errorMessage)
+      endif
+    endif !useGPU
+
+
+ enddo ! istep - loop
+
+  if (useGPU) then
+
+    ! copy a_dev to a_mat
+    ! we do it here, since a is needed on the host in the following routine
+    ! (band to tridi). Previously, a has been kept on the device and then
+    ! copied in redist_band (called from tridiag_band). However, it seems to
+    ! be easier to do it here.
+    successGPU = gpu_memcpy(int(loc(a_mat),kind=c_intptr_t), &
+                  int(a_dev,kind=c_intptr_t), &
+                  int(matrixRows*matrixCols* size_of_datatype, kind=c_intptr_t), &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("bandred: a_dev -> a_mat ", 2137,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(a_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: a_mat ", 2144,  successGPU)
+
+
+    successGPU = gpu_free(a_dev)
+    call check_dealloc_GPU_f("bandred: a_dev ", 2155,  successGPU)
+
+    successGPU = gpu_free(vav_dev)
+    call check_dealloc_GPU_f("bandred: vav_dev ", 2158,  successGPU)
+
+    successGPU = gpu_free(tmat_dev)
+    call check_dealloc_GPU_f("bandred: tmat_dev ", 2161,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(vav),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: vav", 2167,  successGPU)
+
+      if (associated(umcGPU)) then
+        nullify(umcGPU)
+
+        successGPU = gpu_free_host(umc_host)
+        call check_host_dealloc_GPU_f("bandred: umc_host ", 2180,  successGPU)
+        successGPU = gpu_free(umc_dev)
+        call check_dealloc_GPU_f("bandred: umc_dev ", 2182,  successGPU)
+      endif
+
+      if (associated(vmrGPU)) then
+        nullify(vmrGPU)
+
+        successGPU = gpu_free_host(vmr_host)
+        call check_host_dealloc_GPU_f("bandred: vmr_host ", 2189,  successGPU)
+
+        successGPU = gpu_free(vmr_dev)
+        call check_dealloc_GPU_f("bandred: vmr_dev ", 2192,  successGPU)
+      endif
+
+  endif ! useGPU
+  
+  if (allocated(vr)) then
+    deallocate(vr, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vr", 2215,  istat,  errorMessage)
+  endif
+
+  if (allocated(umcCPU)) then
+    deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: umcCPU", 2221,  istat,  errorMessage)
+  endif
+
+  if (allocated(vmrCPU)) then
+    deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vmrCPU", 2226,  istat,  errorMessage)
+  endif
+
+  
+  call obj%timer%stop("bandred_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+contains
+  subroutine get_hh_vec(vec_in,vr,tau,vrl)
+    complex(kind=rck):: vr(:), vec_in(:), tau, vrl
+    complex(kind=rck):: aux1(2), xf
+    real(kind=rk):: vnorm2
+    ! Get Vector to be transformed; distribute last element and norm of
+    ! remaining elements to all procs in current column
+    
+    if (my_prow==prow(nrow, nblk, np_rows)) then
+       aux1(1) = dot_product(vec_in(1:lr-1),vec_in(1:lr-1))
+       aux1(2) = vec_in(lr)
+    else
+       aux1(1) = dot_product(vec_in(1:lr),vec_in(1:lr))
+       aux1(2) = 0.0_rck
+    endif
+
+
+    vnorm2 = real(aux1(1),kind=rk)
+    vrl    = aux1(2)
+
+    ! Householder transformation
+    call hh_transform_&
+         &complex&
+         &_&
+         &double &
+         (obj, vrl, vnorm2, xf, tau, wantDebug)
+    ! Scale vr and store Householder Vector for back transformation
+
+    vr(1:lr) = vec_in(1:lr) * xf
+    if (my_prow==prow(nrow, nblk, np_rows)) vr(lr) = 1.0_rck
+
+  end subroutine get_hh_vec
+  
+
+  subroutine apply_ht(tau,vr,ex_buff2d)
+    complex(kind=rck):: tau, vr(:), ex_buff2d(:,:)
+    complex(kind=rck):: tauc
+    complex(kind=rck):: aux1(nbw)
+    integer:: nlc, imax
+    logical:: use_blas
+
+    imax=ubound(ex_buff2d,2)
+    
+    if((imax.lt.3).or.(max_threads.gt.1)) then
+       !don't use BLAS for very small imax because overhead is too high
+       !don't use BLAS with OpenMP because measurements showed that threading is not effective for these routines
+       use_blas=.false.
+    else
+       use_blas=.true.
+    end if
+    
+    !we need to transform the remaining ex_buff
+    if (lr>0) then
+       if(use_blas) then !note that aux1 is conjg between > and < thresh_blas!!
+          call ZGEMV('C',int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND), &
+               ONE, ex_buff2d, size(ex_buff2d,1,kind=BLAS_KIND), vr, 1_BLAS_KIND, ZERO, aux1, &
+               1_BLAS_KIND)
+       else
+          do nlc=1,imax
+             aux1(nlc) = dot_product(vr(1:lr),ex_buff2d(1:lr,nlc))
+          end do
+       end if
+    else
+       aux1(1:imax) = 0.
+    end if
+
+    ! Get global dot products
+
+    if(lr.le.0) return !no data on this processor
+
+    ! Transform
+    tauc=-conjg(tau)
+    if(use_blas) then
+       call ZGERC(int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND),tauc,vr,1_BLAS_KIND,&
+            aux1,1_BLAS_KIND,ex_buff2d,ubound(ex_buff2d,1,kind=BLAS_KIND))
+    else
+       do nlc=1,imax         
+          ex_buff2d(1:lr,nlc) = ex_buff2d(1:lr,nlc) + tauc*aux1(nlc)*vr(1:lr)
+       end do
+    end if
+
+  end subroutine apply_ht
+  
+end subroutine bandred_&
+&complex&
+&_&
+&double
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+subroutine herm_matrix_allreduce_&
+&double &
+                               (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  herm_matrix_allreduce: Does an mpi_allreduce for a hermitian matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)               :: n, lda, ldb, comm
+  complex(kind=CK8) :: a(lda,ldb)
+
+  integer(kind=ik)               :: i, nc
+  integer(kind=MPI_KIND)         :: mpierr
+  complex(kind=CK8) :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)         :: allreduce_request1
+  logical                        :: useNonBlockingCollectivesCols
+  logical                        :: useNonBlockingCollectivesRows
+  logical                        :: useNonBlockingCollectives
+  logical, intent(in)            :: isRows
+  integer(kind=c_int)            :: non_blocking_collectives_rows, error, &
+                                    non_blocking_collectives_cols
+  logical                        :: success
+
+  success = .true.
+
+  call obj%timer%start("herm_matrix_allreduce" // "_double")
+
+  call obj%get("nbc_row_herm_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_herm_allreduce. Aborting..."
+    call obj%timer%stop("herm_matrix_allreduce" // "_double")
+    success = .false.
+    return
+  endif
+  call obj%get("nbc_col_herm_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_herm_allreduce. Aborting..."
+    call obj%timer%stop("herm_matrix_allreduce" // "_double")
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+!       h2(1:nc) = h1(1:nc)
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = conjg(a(1:i-1,i))
+    nc = nc+i
+  enddo
+
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = conjg(a(1:i-1,i))
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("herm_matrix_allreduce" // "_double")
+
+end subroutine herm_matrix_allreduce_&
+&double
+
+
+
+
+
+
+
+
+
+subroutine trans_ev_band_to_full_&
+    &complex&
+    &_&
+    &double &
+    (obj, na, nqc, nblk, nbw, a_mat, lda, tmat, q_mat, &
+     ldq, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, useGPU, &
+     success)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_band_to_full_real/complex:
+!  Transforms the eigenvectors of a band matrix back to the eigenvectors of the original matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a_mat, number of rows of matrix q_mat
+!
+!  nqc         Number of columns of matrix q_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith
+!
+!  a_mat(lda,matrixCols)    Matrix containing the Householder vectors (i.e. matrix a_mat after bandred_real/complex)
+!              Distribution is like in Scalapack.
+!
+!  lda         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat and q_mat
+!
+!  tmat(nbw,nbw,numBlocks) Factors returned by bandred_real/complex
+!
+!  q_mat           On input: Eigenvectors of band matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q_mat
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!-------------------------------------------------------------------------------
+  use precision
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa_abstract_impl
+  use elpa_blas_interfaces
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: ck = C_DOUBLE_COMPLEX
+  integer, parameter :: rck = C_DOUBLE_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)     :: obj
+  logical, intent(in)                            :: useGPU
+  integer(kind=ik)                               :: na, nqc, lda, ldq, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, &
+                                                    mpi_comm_cols
+  complex(kind=rck)                        :: a_mat(lda,*)
+  complex(kind=rck)                        :: q_mat(ldq,*), tmat(nbw,nbw,*)
+
+  integer(kind=ik)                               :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                         :: my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI, mpierr
+  integer(kind=ik)                               :: max_blocks_row, max_blocks_col, max_local_rows, &
+                                                    max_local_cols
+  integer(kind=ik)                               :: l_cols, l_rows, l_colh, n_cols
+  integer(kind=ik)                               :: istep, lc, ncol, nrow, nb, ns
+
+  complex(kind=rck), allocatable           :: hvb(:)
+  complex(kind=rck), pointer               :: hvm(:,:), tmp1(:), tmp2(:)
+  complex(kind=rck), pointer               :: tmp_debug(:)
+  ! hvm_dev is fist used and set in this routine
+  ! q_mat is changed in trans_ev_tridi on the host, copied to device and passed here. this can be adapted
+  ! tmp_dev is first used in this routine
+  ! tmat_complete_dev is not passed along from bandred_real
+  integer(kind=C_intptr_T)                       :: hvm_dev, q_dev, tmp_dev, tmat_complete_dev, dev_offset
+
+  type(c_ptr)                                    :: hvm_host, tmp1_host, tmp2_host
+
+
+
+  integer(kind=ik)                               :: i
+
+  complex(kind=rck), allocatable, target   :: tmat_complete(:,:), t_tmp(:,:), t_tmp2(:,:)
+  integer(kind=ik)                               :: t_cols, t_rows, ii, jj
+  integer(kind=ik)                               :: cwy_blocking
+
+  integer(kind=ik)                               :: istat
+  character(200)                                 :: errorMessage
+  character(20)                                  :: gpuString
+  logical                                        :: successGPU
+  integer(kind=c_intptr_t), parameter            :: size_of_datatype = size_of_&
+                                                                       &double&
+                                                                       &_&
+                                                                       &complex
+  integer(kind=ik)                               :: blocking_factor, error, blk_end
+  integer(kind=MPI_KIND)                         :: bcast_request1, allreduce_request1, allreduce_request2
+  logical                                        :: useNonBlockingCollectivesCols
+  logical                                        :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                            :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  logical                                        :: success
+  integer(kind=c_intptr_t)                       :: gpuHandle, my_stream
+
+  success = .true.
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_band_to_full_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  call obj%get("nbc_row_elpa2_band_to_full", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_band_to_full", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  call obj%get("blocking_in_band_to_full",blocking_factor,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem getting option for blocking_in_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+
+  call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+  call obj%timer%stop("mpi_communication")
+
+  max_blocks_row = ((na -1)/nblk)/np_rows + 1 ! Rows of a_mat
+  max_blocks_col = ((nqc-1)/nblk)/np_cols + 1 ! Columns of q_mat!
+
+  max_local_rows = max_blocks_row*nblk
+  max_local_cols = max_blocks_col*nblk
+
+  cwy_blocking = blocking_factor * nbw
+
+  if (useGPU) then
+    ! copy q_mat to q_dev
+    successGPU = gpu_malloc(q_dev,ldq*matrixCols*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: q_dev", 289,  successGPU)
+      successGPU = gpu_host_register(int(loc(q_mat),kind=c_intptr_t),&
+                    ldq*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: q_mat", 295,  successGPU)
+
+    successGPU = gpu_memcpy(q_dev,int(loc(q_mat),kind=c_intptr_t),&
+                  ldq*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_mat -> q_dev", 317,  successGPU)
+
+      successGPU = gpu_malloc_host(tmp1_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp1_host", 324,  successGPU)
+      call c_f_pointer(tmp1_host, tmp1, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(tmp2_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp2_host", 328,  successGPU)
+      call c_f_pointer(tmp2_host, tmp2, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(hvm_host,max_local_rows*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: hvm_host", 332,  successGPU)
+      call c_f_pointer(hvm_host, hvm, (/max_local_rows,cwy_blocking/))
+  else ! useGPU
+    allocate(tmp1(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp1", 343,  istat,  errorMessage)
+
+    allocate(tmp2(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp2", 346,  istat,  errorMessage)
+
+    allocate(hvm(max_local_rows,cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: hvm", 349,  istat,  errorMessage)
+  endif !useGPU
+
+  allocate(hvb(max_local_rows*cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: hvb", 353,  istat,  errorMessage)
+
+  allocate(tmat_complete(cwy_blocking,cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: tmat_complete", 356,  istat,  errorMessage)
+
+  if (useGPU) then
+      successGPU = gpu_host_register(int(loc(tmat_complete),kind=c_intptr_t), &
+                    cwy_blocking * cwy_blocking * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: tmat_complete", 365,  successGPU)
+  endif
+
+
+  if (blocking_factor > 1) then
+    allocate(t_tmp(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp", 389,  istat,  errorMessage)
+
+    allocate(t_tmp2(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp2", 392,  istat,  errorMessage)
+
+  endif
+
+  if (useGPU) then
+    successGPU = gpu_malloc(hvm_dev,max_local_rows*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: hvm_dev", 409,  successGPU)
+
+    successGPU = gpu_malloc(tmp_dev,max_local_cols*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmp_dev", 412,  successGPU)
+
+
+      successGPU = gpu_memset(tmp_dev, 0, max_local_cols*cwy_blocking*size_of_datatype)
+      call check_memset_GPU_f("trans_ev_band_to_full: tmp_dev", 430,  successGPU)
+
+
+
+    successGPU = gpu_malloc(tmat_complete_dev,cwy_blocking*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 477,  successGPU)
+  endif
+
+
+  hvm = 0.0_rck ! Must be set to 0 !!!
+  hvb = 0.0_rck ! Safety only
+  tmp1 = 0.0_rck
+  tmp2 = 0.0_rck
+  tmat_complete = 0.0_rck
+  if (blocking_factor > 1) then
+     t_tmp = 0.0_rck ! Must be set to 0 !!!
+     t_tmp2 = 0.0_rck
+
+  endif
+  l_cols = local_index(nqc, my_pcol, np_cols, nblk, -1) ! Local columns of q_mat
+
+  blk_end = ((na-1)/nbw-1)/blocking_factor + 1
+  do istep=1, blk_end
+
+    ! This the call when using na >= ((blocking_factor+1)*nbw)
+    ! n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw
+    ! Number of columns in current step
+    ! As an alternative we add some special case handling if na < cwy_blocking
+    if (na < cwy_blocking) then
+      n_cols = MAX(0, na-nbw)
+      if ( n_cols .eq. 0 ) then
+        exit
+      end if
+    else
+      n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw ! Number of columns in current step
+    end if
+
+    ! Broadcast all Householder vectors for current step compressed in hvb
+
+    nb = 0
+    ns = 0
+
+    do lc = 1, n_cols
+      ncol = (istep-1)*cwy_blocking + nbw + lc ! absolute column number of householder Vector
+      nrow = ncol - nbw ! absolute number of pivot row
+
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+      l_colh = local_index(ncol , my_pcol, np_cols, nblk, -1) ! HV local column number
+
+      if (my_pcol==pcol(ncol, nblk, np_cols)) hvb(nb+1:nb+l_rows) = a_mat(1:l_rows,l_colh)
+
+      nb = nb+l_rows
+
+      if (lc==n_cols .or. mod(ncol,nblk)==0) then
+        ns = nb
+      endif
+    enddo ! lc
+
+    ! Expand compressed Householder vectors into matrix hvm
+
+    nb = 0
+    do lc = 1, n_cols
+      nrow = (istep-1)*cwy_blocking + lc ! absolute number of pivot row
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+
+      ! could maybe also done on GPU
+      hvm(1:l_rows,lc) = hvb(nb+1:nb+l_rows)
+      if (my_prow==prow(nrow, nblk, np_rows)) hvm(l_rows+1,lc) = 1.0_rck
+      nb = nb+l_rows
+    enddo
+
+    l_rows = local_index(MIN(na,(istep+1)*cwy_blocking), my_prow, np_rows, nblk, -1)
+
+    ! compute tmat2 out of tmat(:,:,)
+    tmat_complete = 0
+    do i = 1, blocking_factor
+      t_cols = MIN(nbw, n_cols - (i-1)*nbw)
+      if (t_cols <= 0) exit
+      t_rows = (i - 1) * nbw
+      tmat_complete(t_rows+1:t_rows+t_cols,t_rows+1:t_rows+t_cols) = tmat(1:t_cols,1:t_cols,(istep-1)*blocking_factor + i)
+
+      if (i > 1) then
+        if (useGPU) then
+          call obj%timer%start("blas")
+          call ZGEMM('C', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        else ! useGPU
+          call obj%timer%start("blas")
+          call ZGEMM('C', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        endif ! useGPU
+
+
+        if (useGPU) then
+          ! remove cuda_aware section here, does not make sense without MPI add MORE_GPUBLAS instead
+          call obj%timer%start("blas")
+          call ZTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call ZTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        else !useGPU
+          call obj%timer%start("blas")
+          call ZTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call ZTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        endif !useGPU
+
+
+      endif
+    enddo
+
+    ! Q = Q - V * T**T * V**T * Q
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        successGPU = gpu_memcpy(hvm_dev, int(loc(hvm),kind=c_intptr_t), &
+                        max_local_rows*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: hvm -> hvm_dev", 1039,  successGPU)
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_ZGEMM('C', 'N', &
+                                     n_cols, l_cols, l_rows, ONE, hvm_dev, max_local_rows, &
+                                     q_dev, ldq , ZERO, tmp_dev, n_cols, gpuHandle)
+        call obj%timer%stop("gpublas")
+
+      else ! useGPU
+        call obj%timer%start("blas")
+        call ZGEMM('C', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                            hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), q_mat, int(ldq,kind=BLAS_KIND), ZERO, tmp1, &
+                           int(n_cols,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    else ! l_rows>0
+        tmp1(1:l_cols*n_cols) = 0.0_rck
+    endif ! l_rows>0
+
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        ! needed as long as not device to device copy
+        successGPU = gpu_memcpy(tmat_complete_dev, int(loc(tmat_complete),kind=c_intptr_t), &
+                      cwy_blocking*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: tmat_complete -> tmat_complete_dev", 1407,  successGPU)
+
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_ZTRMM('L', 'U', 'C', 'N', &
+                                   n_cols, l_cols, ONE, tmat_complete_dev, cwy_blocking, &
+                                   tmp_dev, n_cols, gpuHandle)
+        call gpublas_ZGEMM('N', 'N', l_rows, l_cols, n_cols, &
+                                    -ONE, hvm_dev, max_local_rows, tmp_dev, n_cols, ONE, q_dev, ldq, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+        call obj%timer%start("blas")
+        call ZTRMM('L', 'U', 'C', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), &
+                            tmp1, int(n_cols,kind=BLAS_KIND))
+        call ZGEMM('N', 'N', int(l_rows,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), &
+                            -ONE, hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), tmp1, int(n_cols,kind=BLAS_KIND), ONE, q_mat, &
+                            int(ldq,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    endif
+
+  enddo ! istep
+
+  deallocate(hvb, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: hvb", 1435,  istat,  errorMessage)
+
+  if (useGPU) then
+    successGPU = gpu_free(hvm_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: hvm_dev", 1439,  successGPU)
+
+    successGPU = gpu_free(tmp_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmp_dev", 1442,  successGPU)
+
+    successGPU = gpu_free(tmat_complete_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 1449,  successGPU)
+
+    ! final transfer of q_dev
+    successGPU = gpu_memcpy(int(loc(q_mat),kind=c_intptr_t), q_dev, ldq*matrixCols*size_of_datatype, &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_dev -> q_mat", 1469,  successGPU)
+
+    successGPU = gpu_free(q_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: q_dev", 1473,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(q_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: q_mat", 1479,  successGPU)
+      nullify(tmp1)
+      nullify(tmp2)
+      nullify(hvm)
+
+    ! take care of new pointers nullify them
+
+
+      successGPU = gpu_free_host(tmp1_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp1_host", 1504,  successGPU)
+
+      successGPU = gpu_free_host(tmp2_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp2_host", 1507,  successGPU)
+
+      successGPU = gpu_free_host(hvm_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: hvm_host", 1510,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(tmat_complete),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: tmat_complete", 1513,  successGPU)
+  else ! useGPU
+    deallocate(tmp1, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp1", 1519,  istat,  errorMessage)
+
+    deallocate(tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp2", 1522,  istat,  errorMessage)
+
+    deallocate(hvm, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: hvm", 1525,  istat,  errorMessage)
+  endif ! useGPU
+
+  deallocate(tmat_complete, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: tmat_complete", 1529,  istat,  errorMessage)
+
+
+  if (blocking_factor > 1) then
+
+    deallocate(t_tmp, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp", 1556,  istat,  errorMessage)
+
+    deallocate(t_tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp2", 1559,  istat,  errorMessage)
+  endif
+
+  call obj%timer%stop("trans_ev_band_to_full_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+end subroutine trans_ev_band_to_full_&
+&complex&
+    &_&
+    &double
+
+
+
+
+
+
+subroutine tridiag_band_&
+  &complex&
+  &_&
+  &double &
+  (obj, na, nb, nblk, a_mat, lda, d, e, matrixCols, &
+  hh_trans, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, useGPU, wantDebug, nrThreads, isSkewsymmetric, &
+  success)
+  !-------------------------------------------------------------------------------
+  ! tridiag_band_real/complex:
+  ! Reduces a real symmetric band matrix to tridiagonal form
+  !
+  !  na          Order of matrix a
+  !
+  !  nb          Semi bandwith
+  !
+  !  nblk        blocksize of cyclic distribution, must be the same in both directions!
+  !
+  !  a_mat(lda,matrixCols)    Distributed system matrix reduced to banded form in the upper diagonal
+  !
+  !  lda         Leading dimension of a
+  !  matrixCols  local columns of matrix a
+  !
+  ! hh_trans : housholder vectors
+  !
+  !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  mpi_comm_rows
+  !  mpi_comm_cols
+  !              MPI-Communicators for rows/columns
+  !  mpi_comm_all
+  !              MPI-Communicator for the total processor set
+  !-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use elpa2_workload
+  use precision
+  use, intrinsic :: iso_c_binding
+  use redist
+  use elpa_blas_interfaces
+  use elpa_skewsymmetric_blas
+  use elpa_gpu
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: ck = C_DOUBLE_COMPLEX
+  integer, parameter :: rck = C_DOUBLE_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU, wantDebug
+  logical, intent(in)                          :: isSkewsymmetric
+  integer(kind=ik), intent(in)                 :: na, nb, nblk, lda, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all
+  complex(kind=rck), intent(in)         :: a_mat(lda,*)
+  real(kind=rk), intent(out)        :: d(na), e(na) ! set only on PE 0
+  complex(kind=rck), intent(out), allocatable   :: hh_trans(:,:)
+
+  real(kind=rk)                     :: vnorm2
+  complex(kind=rck)                     :: hv(nb), tau, x, h(nb), ab_s(1+nb), hv_s(nb), hv_new(nb), tau_new, hf
+  complex(kind=rck)                     :: hd(nb), hs(nb)
+
+  integer(kind=ik)                             :: i, n, nc, nr, ns, ne, istep, iblk, nblocks_total, nblocks, nt
+  integer(kind=ik)                             :: my_pe, n_pes
+  integer(kind=ik)                             :: my_prow, np_rows, my_pcol, np_cols
+  integer(kind=MPI_KIND)                       :: my_peMPI, n_pesMPI, mpierr
+  integer(kind=MPI_KIND)                       :: my_prowMPI, np_rowsMPI, my_pcolMPI, np_colsMPI
+  integer(kind=MPI_KIND)                       :: ireq_ab, ireq_hv
+  integer(kind=ik)                             :: na_s, nx, num_hh_vecs, num_chunks, local_size, max_blk_size, n_off
+  integer(kind=ik), intent(in)                 :: nrThreads
+  integer(kind=ik), allocatable                :: global_id(:,:), hh_cnt(:), hh_dst(:)
+  integer(kind=MPI_KIND), allocatable          :: ireq_hhr(:), ireq_hhs(:)
+  integer(kind=ik), allocatable                :: limits(:), snd_limits(:,:)
+  integer(kind=ik), allocatable                :: block_limits(:)
+  complex(kind=rck), allocatable         :: ab(:,:), hh_gath(:,:,:), hh_send(:,:,:)
+  integer                                      :: istat
+  integer(kind=ik)                             :: nblockEnd
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+
+  integer(kind=ik)                             :: startAddr
+
+   integer(kind=MPI_KIND)                      :: allreduce_request1, allreduce_request2
+   logical                                     :: useNonBlockingCollectivesAll
+   integer(kind=c_int)                         :: non_blocking_collectives, error
+   logical                                     :: success
+
+   success = .true.
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("tridiag_band_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  call obj%get("nbc_all_elpa2_band_to_tridi", non_blocking_collectives, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives in elpa2_band_to_tridi. Aborting..."
+    call obj%timer%stop("tridiag_band_&
+    &complex&
+    &" // &
+    &"_double" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives .eq. 1) then
+    useNonBlockingCollectivesAll = .true.
+  else
+    useNonBlockingCollectivesAll = .false.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_all,kind=MPI_KIND) ,my_peMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_all,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND),my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND),np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND),my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND),np_colsMPI ,mpierr)
+
+  my_pe = int(my_peMPI,kind=MPI_KIND)
+  n_pes = int(n_pesMPI,kind=MPI_KIND)
+  my_prow = int(my_prowMPI,kind=MPI_KIND)
+  np_rows = int(np_rowsMPI,kind=MPI_KIND)
+  my_pcol = int(my_pcolMPI,kind=MPI_KIND)
+  np_cols = int(np_colsMPI,kind=MPI_KIND)
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  ! Get global_id mapping 2D procssor coordinates to global id
+
+  allocate(global_id(0:np_rows-1,0:np_cols-1), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: global_id", 201,  istat,  errorMessage)
+
+  global_id(:,:) = 0
+  global_id(my_prow, my_pcol) = my_pe
+
+
+
+  ! Total number of blocks in the band:
+
+  nblocks_total = (na-1)/nb + 1
+
+  ! Set work distribution
+
+  allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: block_limits", 245,  istat,  errorMessage)
+
+  call divide_band(obj,nblocks_total, n_pes, block_limits)
+
+  ! nblocks: the number of blocks for my task
+  nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+
+  ! allocate the part of the band matrix which is needed by this PE
+  ! The size is 1 block larger than needed to avoid extensive shifts
+  allocate(ab(2*nb,(nblocks+1)*nb), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: ab", 255,  istat,  errorMessage)
+
+  ab = 0.0_rck ! needed for lower half, the extra block should also be set to 0 for safety
+
+  ! n_off: Offset of ab within band
+  n_off = block_limits(my_pe)*nb
+
+  ! Redistribute band in a to ab
+  call redist_band_&
+  &complex&
+  &_&
+  &double&
+  &(obj,a_mat, lda, na, nblk, nb, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, ab, &
+   success)
+  if (.not.(success)) then
+    write(error_unit,*) "Error in redist_band. Aborting..."
+    return
+  endif
+
+  ! Calculate the workload for each sweep in the back transformation
+  ! and the space requirements to hold the HH vectors
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: limits", 278,  istat,  errorMessage)
+
+  call determine_workload(obj,na, nb, np_rows, limits)
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  do n = 1, nblocks_total
+    call determine_workload(obj, nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    ! add to number of householder vectors
+    ! please note: for nx==1 the one and only HH Vector is 0 and is neither calculated nor send below!
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_hh_vecs = num_hh_vecs + local_size
+      num_chunks  = num_chunks+1
+    endif
+    nx = nx - nb
+  enddo
+
+  ! Allocate space for HH vectors
+
+  allocate(hh_trans(nb,num_hh_vecs), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_trans", 301,  istat,  errorMessage)
+
+  ! Allocate and init MPI requests
+
+  allocate(ireq_hhr(num_chunks), stat=istat, errmsg=errorMessage) ! Recv requests
+  call check_allocate_f("tridiag_band: ireq_hhr", 306,  istat,  errorMessage)
+  allocate(ireq_hhs(nblocks), stat=istat, errmsg=errorMessage)    ! Send requests
+  call check_allocate_f("tridiag_band: ireq_hhs", 308,  istat,  errorMessage)
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  nt = 0
+  nBlockEnd=1
+  do n = 1, nblocks_total
+    call determine_workload(obj,nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_chunks  = num_chunks+1
+      ! carefull non-block recv data copy must be done at wait or send
+      ! hh_trans(1:nb*local_size,num_hh_vecs+1) = hh_send(1:nb*hh_cnt(iblk),1,iblk)
+
+      num_hh_vecs = num_hh_vecs + local_size
+    endif
+    nx = nx - nb
+    if (n == block_limits(nt+1)) then
+      nt = nt + 1
+    endif
+  enddo
+  ! Buffers for gathering/sending the HH vectors
+
+  allocate(hh_gath(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! gathers HH vectors
+  call check_allocate_f("tridiag_band: hh_gath", 347,  istat,  errorMessage)
+
+  allocate(hh_send(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! send buffer for HH vectors
+  call check_allocate_f("tridiag_band: hh_send", 350,  istat,  errorMessage)
+
+  hh_gath(:,:,:) = 0.0_rck
+  hh_send(:,:,:) = 0.0_rck
+
+  ! Some counters
+
+  allocate(hh_cnt(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_cnt", 358,  istat,  errorMessage)
+
+  allocate(hh_dst(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_dst", 361,  istat,  errorMessage)
+
+  hh_cnt(:) = 1 ! The first transfomation Vector is always 0 and not calculated at all
+  hh_dst(:) = 0 ! PE number for receive
+  ! Limits for sending
+
+  allocate(snd_limits(0:np_rows,nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: snd_limits", 372,  istat,  errorMessage)
+
+  do iblk=1,nblocks
+    call determine_workload(obj, na-(iblk+block_limits(my_pe)-1)*nb, nb, np_rows, snd_limits(:,iblk))
+  enddo
+
+
+  ! ---------------------------------------------------------------------------
+  ! Start of calculations
+
+  na_s = block_limits(my_pe)*nb + 1
+
+  if (my_pe>0 .and. na_s<=na) then
+    ! send first column to previous PE
+    ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+    ab_s(1:nb+1) = ab(1:nb+1,na_s-n_off)
+  endif
+
+if (np_rows*np_cols==1) then
+  startAddr = ubound(hh_trans,dim=2)
+endif
+
+   do istep=1,na-nblockEnd
+
+     if (my_pe==0) then
+       n = MIN(na-na_s,nb) ! number of rows to be reduced
+       hv(:) = 0.0_rck
+       hd(:) = 0.0_rck
+       tau = 0.0_rck
+
+       ! Transform first column of remaining matrix
+       ! Opposed to the real case, the last step (istep=na-1) is needed here for making
+       ! the last subdiagonal element a real number
+
+         vnorm2 = sum(real(ab(3:n+1,na_s-n_off),kind=rk8)**2+dimag(ab(3:n+1,na_s-n_off))**2)
+         if (n<2) vnorm2 = 0.0_rk ! Safety only
+
+          call hh_transform_&
+               &complex&
+               &_&
+               &double &
+                          (obj, ab(2,na_s-n_off), vnorm2, hf, tau, wantDebug)
+
+          hv(1) = 1.0_rck
+          hv(2:n) = ab(3:n+1,na_s-n_off)*hf
+
+       d(istep) = real(ab(1,na_s-n_off), kind=rk)
+       e(istep) = real(ab(2,na_s-n_off), kind=rk)
+
+       if (istep == na-1) then
+
+         d(na) = real(ab(1,na_s+1-n_off),kind=rk)
+         e(na) = 0.0_rck
+       endif
+     else
+       if (na>na_s) then
+         ! Receive Householder Vector from previous task, from PE owning subdiagonal
+
+
+         hv(1:nb) = hv_s(1:nb)
+
+         tau = hv(1)
+         hv(1) = 1.0_rck
+       endif
+      endif
+
+      na_s = na_s+1
+      if (na_s-n_off > nb) then
+        ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+        ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rck
+        n_off = n_off + nb
+      endif
+
+
+      do iblk=1,nblocks
+        ns = na_s + (iblk-1)*nb - n_off ! first column in block
+        ne = ns+nb-1                    ! last column in block
+
+        if (ns+n_off>na) exit
+
+        ! Store Householder Vector for back transformation
+
+        hh_cnt(iblk) = hh_cnt(iblk) + 1
+
+        hh_gath(1   ,hh_cnt(iblk),iblk) = tau
+        hh_gath(2:nb,hh_cnt(iblk),iblk) = hv(2:nb)
+
+        if (hh_cnt(iblk) == snd_limits(hh_dst(iblk)+1,iblk)-snd_limits(hh_dst(iblk),iblk)) then
+          ! Wait for last transfer to finish
+          ! Copy vectors into send buffer
+          hh_send(:,1:hh_cnt(iblk),iblk) = hh_gath(:,1:hh_cnt(iblk),iblk)
+          ! Send to destination
+
+          ! do the post-poned irecv here
+          startAddr = startAddr - hh_cnt(iblk)
+          hh_trans(1:nb,startAddr+1:startAddr+hh_cnt(iblk)) = hh_send(1:nb,1:hh_cnt(iblk),iblk)
+
+          ! Reset counter and increase destination row
+          hh_cnt(iblk) = 0
+          hh_dst(iblk) = hh_dst(iblk)+1
+        endif
+
+        ! The following code is structured in a way to keep waiting times for
+        ! other PEs at a minimum, especially if there is only one block.
+        ! For this reason, it requests the last column as late as possible
+        ! and sends the Householder Vector and the first column as early
+        ! as possible.
+        nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+        nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                      ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+
+        ! Multiply diagonal block and subdiagonal block with Householder Vector
+
+        if (iblk==nblocks .and. nc==nb) then
+
+          ! We need the last column from the next PE.
+          ! First do the matrix multiplications without last column ...
+
+          ! Diagonal block, the contribution of the last element is added below!
+          ab(1,ne) = 0.0_rck
+
+          if (wantDebug) call obj%timer%start("blas")
+
+          call ZHEMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                           hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          ! Subdiagonal block
+          if (nr>0) call ZGEMV('N', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                        tau, ab(nb+1,ns), int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, &
+                                        ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+
+          ! ... then request last column ...
+
+          ab(1:nb+1,ne) = ab_s(1:nb+1)
+
+
+          ! ... and complete the result
+          hs(1:nr) = hs(1:nr) + ab(2:nr+1,ne)*tau*hv(nb)
+          hd(nb) = hd(nb) + ab(1,ne)*hv(nb)*tau
+
+        else ! if (iblk==nblocks .and. nc==nb) then
+
+          ! Normal matrix multiply
+          if (wantDebug) call obj%timer%start("blas")
+          call ZHEMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                             hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          if (nr>0) call ZGEMV('N', int(nr,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), tau, ab(nb+1,ns), &
+                                      int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+        endif ! if (iblk==nblocks .and. nc==nb) then
+
+        ! Calculate first column of subdiagonal block and calculate new
+        ! Householder transformation for this column
+        hv_new(:) = 0.0_rck ! Needed, last rows must be 0 for nr < nb
+        tau_new = 0.0_rck
+        if (nr>0) then
+
+          ! complete (old) Householder transformation for first column
+
+          ab(nb+1:nb+nr,ns) = ab(nb+1:nb+nr,ns) - hs(1:nr) ! Note: hv(1) == 1
+
+          ! calculate new Householder transformation ...
+          if (nr>1) then
+            vnorm2 = sum(real(ab(nb+2:nb+nr,ns),kind=rk8)**2+dimag(ab(nb+2:nb+nr,ns))**2)
+
+            call hh_transform_&
+                &complex&
+                &_&
+                &double &
+               (obj, ab(nb+1,ns), vnorm2, hf, tau_new, wantDebug)
+            hv_new(1) = 1.0_rck
+            hv_new(2:nr) = ab(nb+2:nb+nr,ns)*hf
+            ab(nb+2:,ns) = 0.0_rck
+          endif ! nr > 1
+
+          ! ... and send it away immediatly if this is the last block
+
+          if (iblk==nblocks) then
+            hv_s(1) = tau_new
+            hv_s(2:) = hv_new(2:)
+
+          endif
+
+        endif
+
+        ! Transform diagonal block
+        x = dot_product(hv(1:nc),hd(1:nc))*conjg(tau)
+
+          hd(1:nc) = hd(1:nc) - 0.5_rk*x*hv(1:nc)
+        if (my_pe>0 .and. iblk==1) then
+
+          ! The first column of the diagonal block has to be send to the previous PE
+          ! Calculate first column only ...
+          ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*conjg(hv(1)) - hv(1:nc)*conjg(hd(1))
+          ! ... send it away ...
+          ab_s(1:nb+1) = ab(1:nb+1,ns)
+
+          ! ... and calculate remaining columns with rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (nc>1) call ZHER2('L', int(nc-1,kind=BLAS_KIND), -ONE, hd(2), 1_BLAS_KIND, &
+                                     hv(2), 1_BLAS_KIND, ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          if (wantDebug) call obj%timer%stop("blas")
+
+        else ! (my_pe>0 .and. iblk==1)
+          ! No need to  send, just a rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          call ZHER2('L', int(nc,kind=BLAS_KIND), -ONE, hd, 1_BLAS_KIND, hv, 1_BLAS_KIND, &
+                              ab(1,ns), int(2*nb-1,kind=BLAS_KIND))
+          if (wantDebug) call obj%timer%stop("blas")
+        endif  ! (my_pe>0 .and. iblk==1)
+
+        ! Do the remaining double Householder transformation on the subdiagonal block cols 2 ... nb
+
+        if (nr > 0) then
+          if (nr > 1) then
+            if (wantDebug) call obj%timer%start("blas")
+            call ZGEMV('C', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                tau_new, ab(nb,ns+1), int(2*nb-1,kind=BLAS_KIND), &
+                                hv_new, 1_BLAS_KIND, ZERO, h(2), 1_BLAS_KIND)
+            if (wantDebug) call obj%timer%stop("blas")
+            x = dot_product(hs(1:nr),hv_new(1:nr))*tau_new
+            h(2:nb) = h(2:nb) - x*hv(2:nb)
+            ! Unfortunately there is no BLAS routine like DSYR2 for a nonsymmetric rank 2 update
+            do i=2,nb
+              ab(2+nb-i:1+nb+nr-i,i+ns-1) = ab(2+nb-i:1+nb+nr-i,i+ns-1) - hv_new(1:nr)*conjg(h(i)) - hs(1:nr)*conjg(hv(i))
+            enddo
+          else ! nr > 1
+            ! No double Householder transformation for nr=1, just complete the row
+            do i=2,nb
+              ab(2+nb-i,i+ns-1) = ab(2+nb-i,i+ns-1) - hs(1)*conjg(hv(i))
+            enddo
+          endif ! nr > 1
+        endif ! nr > 0
+
+        ! Use new HH Vector for the next block
+        hv(:) = hv_new(:)
+        tau = tau_new
+
+      enddo
+
+
+  enddo ! istep
+
+  ! Finish the last outstanding requests
+
+
+
+
+  deallocate(ab, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ab", 1232,  istat,  errorMessage)
+
+  deallocate(ireq_hhr, ireq_hhs, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ireq_hhr", 1235,  istat,  errorMessage)
+
+  deallocate(hh_cnt, hh_dst, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_dst", 1238,  istat,  errorMessage)
+
+  deallocate(hh_gath, hh_send, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_gath", 1241,  istat,  errorMessage)
+
+  deallocate(limits, snd_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: limits", 1244,  istat,  errorMessage)
+
+  deallocate(block_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: block_limits", 1247,  istat,  errorMessage)
+
+  deallocate(global_id, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: global_id", 1250,  istat,  errorMessage)
+
+  call obj%timer%stop("tridiag_band_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+  ! intel compiler bug makes these ifdefs necessary
+end subroutine tridiag_band_complex_&
+&double
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+!#if REALCASE == 1
+!#endif
+
+!#if 1 == 1
+!#undef WITH_CUDA_AWARE_MPI_TRANS_TRIDI_TO_BAND
+!#endif
+
+subroutine trans_ev_tridi_to_band_&
+&complex&
+&_&
+&double &
+(obj, na, nev, nblk, nbw, q, ldq, matrixCols,         &
+ hh_trans, my_pe, mpi_comm_rows, mpi_comm_cols, wantDebug, useGPU, max_threads_in, success, &
+ kernel)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_tridi_to_band_real/complex:
+!  Transforms the eigenvectors of a tridiagonal matrix back to the eigenvectors of the band matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a, number of rows of matrix q
+!
+!  nev         Number eigenvectors to compute (= columns of matrix q)
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nb          semi bandwith
+!
+!  q           On input: Eigenvectors of tridiagonal matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q
+!  matrixCols  local columns of matrix q
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns/both
+!
+!-------------------------------------------------------------------------------
+  use ELPA_utilities, only : error_unit
+  use elpa_abstract_impl
+  use elpa2_workload
+  use pack_unpack_cpu
+  use pack_unpack_gpu
+  use compute_hh_trafo
+  use elpa_gpu
+  use precision
+  use, intrinsic :: iso_c_binding
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_DOUBLE
+  integer, parameter :: ck = C_DOUBLE_COMPLEX
+  integer, parameter :: rck = C_DOUBLE_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU
+
+  integer(kind=ik), intent(in)                 :: kernel, my_pe
+  integer(kind=ik), intent(in)                 :: na, nev, nblk, nbw, ldq, matrixCols, mpi_comm_rows, mpi_comm_cols
+
+  complex(kind=rck), target              :: q(ldq,*)
+
+  complex(kind=rck), intent(in),target   :: hh_trans(:,:)
+  integer(kind=c_intptr_t)                     :: hh_trans_dev
+  type(c_ptr)                                  :: hh_trans_mpi_dev
+  complex(kind=rck), pointer             :: hh_trans_mpi_fortran_ptr(:,:)
+
+
+  integer(kind=ik)                             :: np_rows, my_prow, np_cols, my_pcol
+  integer(kind=MPI_KIND)                       :: np_rowsMPI, my_prowMPI, np_colsMPI, my_pcolMPI
+  integer(kind=ik)                             :: i, j, ip, sweep, nbuf, l_nev, a_dim2
+  integer(kind=ik)                             :: current_n, current_local_n, current_n_start, current_n_end
+  integer(kind=ik)                             :: next_n, next_local_n, next_n_start, next_n_end
+  integer(kind=ik)                             :: bottom_msg_length, top_msg_length, next_top_msg_length
+  integer(kind=ik)                             :: stripe_width, last_stripe_width, stripe_count
+  integer(kind=ik)                             :: num_result_blocks, num_result_buffers, num_bufs_recvd
+  integer(kind=ik)                             :: a_off, current_tv_off, max_blk_size
+  integer(kind=ik)                             :: src, src_offset, dst, offset, nfact, num_blk
+  integer(kind=MPI_KIND)                       :: mpierr
+
+  logical                                      :: flag
+  complex(kind=rck), pointer             :: aIntern(:,:,:)
+  complex(kind=rck)                      :: a_var
+
+  type(c_ptr)                                  :: aIntern_ptr
+
+  complex(kind=rck), allocatable, target :: row(:)
+
+  integer(kind=c_intptr_t)                     :: row_dev
+  type(c_ptr)                                  :: row_mpi_dev
+  complex(kind=rck), pointer             :: row_mpi_fortran_ptr(:)
+
+  complex(kind=rck), pointer             :: row_group(:,:)
+
+  complex(kind=rck), allocatable, target :: top_border_send_buffer(:,:)
+  complex(kind=rck), allocatable, target :: top_border_recv_buffer(:,:)
+  complex(kind=rck), allocatable, target :: bottom_border_send_buffer(:,:)
+  complex(kind=rck), allocatable, target :: bottom_border_recv_buffer(:,:)
+
+  integer(kind=c_intptr_t)                     :: top_border_recv_buffer_dev, top_border_send_buffer_dev
+  type(c_ptr)                                  :: top_border_recv_buffer_mpi_dev, top_border_send_buffer_mpi_dev
+  complex(kind=rck), pointer             :: top_border_recv_buffer_mpi_fortran_ptr(:,:), &
+                                                  top_border_send_buffer_mpi_fortran_ptr(:,:)
+  integer(kind=c_intptr_t)                     :: bottom_border_send_buffer_dev, bottom_border_recv_buffer_dev
+  type(c_ptr)                                  :: bottom_border_send_buffer_mpi_dev, bottom_border_recv_buffer_mpi_dev
+  complex(kind=rck), pointer             :: bottom_border_send_buffer_mpi_fortran_ptr(:,:), &
+                                                  bottom_border_recv_buffer_mpi_fortran_ptr(:,:)
+  type(c_ptr)                                  :: aIntern_mpi_dev
+  complex(kind=rck), pointer             :: aIntern_mpi_fortran_ptr(:,:,:)
+
+  integer(kind=c_intptr_t)                     :: aIntern_dev
+  integer(kind=c_intptr_t)                     :: bcast_buffer_dev
+
+  type(c_ptr)                                  :: bcast_buffer_mpi_dev
+  complex(kind=rck), pointer             :: bcast_buffer_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: num
+  integer(kind=c_intptr_t)                     :: dev_offset, dev_offset_1
+  integer(kind=c_intptr_t)                     :: row_group_dev
+
+  type(c_ptr)                                  :: row_group_mpi_dev
+  complex(kind=rck), pointer             :: row_group_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: q_dev
+  type(c_ptr)                                  :: q_mpi_dev
+  complex(kind=rck), pointer             :: q_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: hh_tau_dev
+  complex(kind=rck), pointer             :: hh_tau_debug(:)
+  integer(kind=ik)                             :: row_group_size, unpack_idx
+
+  type(c_ptr)                                  :: row_group_host, bcast_buffer_host
+
+  integer(kind=ik)                             :: n_times
+  integer(kind=ik)                             :: chunk, this_chunk
+
+  complex(kind=rck), allocatable,target  :: result_buffer(:,:,:)
+  integer(kind=c_intptr_t)                     :: result_buffer_dev
+
+  type(c_ptr)                                  :: result_buffer_mpi_dev
+  complex(kind=rck), pointer             :: result_buffer_mpi_fortran_ptr(:,:,:)
+
+  complex(kind=rck), pointer             :: bcast_buffer(:,:)
+
+  integer(kind=ik)                             :: n_off
+
+  integer(kind=MPI_KIND), allocatable          :: result_send_request(:), result_recv_request(:)
+  integer(kind=ik), allocatable                :: limits(:)
+  integer(kind=MPI_KIND), allocatable          :: top_send_request(:), bottom_send_request(:)
+  integer(kind=MPI_KIND), allocatable          :: top_recv_request(:), bottom_recv_request(:)
+
+  ! MPI send/recv tags, arbitrary
+
+  integer(kind=ik), parameter                  :: bottom_recv_tag = 111
+  integer(kind=ik), parameter                  :: top_recv_tag    = 222
+  integer(kind=ik), parameter                  :: result_recv_tag = 333
+
+  integer(kind=ik), intent(in)                 :: max_threads_in
+  integer(kind=ik)                             :: max_threads
+
+
+
+  ! Just for measuring the kernel performance
+  real(kind=c_double)                          :: kernel_time, kernel_time_recv ! MPI_WTIME always needs double
+  ! long integer
+  integer(kind=lik)                            :: kernel_flops, kernel_flops_recv
+
+  logical, intent(in)                          :: wantDebug
+  logical                                      :: success
+  integer(kind=ik)                             :: istat, print_flops
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+  logical                                      :: successGPU
+  integer(kind=ik)                             :: j1
+  integer(kind=ik)                             :: error
+  integer(kind=c_intptr_t), parameter          :: size_of_datatype = size_of_&
+                                                                 &double&
+                                                                 &_&
+                                                                 &complex
+  logical, parameter                           :: allComputeOnGPU = .true.
+
+  integer(kind=MPI_KIND)                     :: bcast_request1, allreduce_request1, allreduce_request2, &
+                                                allreduce_request3, allreduce_request4
+  logical                                    :: useNonBlockingCollectivesCols
+  logical                                    :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                        :: non_blocking_collectives_rows, non_blocking_collectives_cols
+
+  integer(kind=c_intptr_t)                   :: gpuHandle, my_stream
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_tridi_to_band_&
+  &complex&
+  &" // &
+  &"_double" //&
+  gpuString)
+
+
+  max_threads = max_threads_in
+
+  call obj%get("nbc_row_elpa2_tridi_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for rows in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  call obj%get("nbc_col_elpa2_tridi_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for cols in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  n_times = 0
+  if (useGPU) then
+    unpack_idx = 0
+    row_group_size = 0
+  endif
+
+  success = .true.
+  kernel_time = 0.0
+  kernel_flops = 0
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call MPI_Comm_rank(int(mpi_comm_rows,kind=MPI_KIND) , my_prowMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_rows,kind=MPI_KIND) , np_rowsMPI , mpierr)
+  call MPI_Comm_rank(int(mpi_comm_cols,kind=MPI_KIND) , my_pcolMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_cols,kind=MPI_KIND) , np_colsMPI , mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &complex&
+                            &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &complex&
+                            &: band backtransform works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  nfact = nbw / nblk
+
+
+  ! local number of eigenvectors
+  l_nev = local_index(nev, my_pcol, np_cols, nblk, -1)
+
+  if (l_nev==0) then
+    stripe_width = 0
+    stripe_count = 0
+    last_stripe_width = 0
+
+  else ! l_nev
+
+
+    ! Suggested stripe width is 48 since 48*64 real*8 numbers should fit into
+    ! every primary cache
+    ! Suggested stripe width is 48 - should this be reduced for the complex case ???
+
+    if (useGPU) then
+      stripe_width = 1024 ! Must be a multiple of 4
+      stripe_count = (l_nev - 1) / stripe_width + 1
+
+    else ! useGPU
+
+      call obj%get("stripewidth_complex",stripe_width, error)
+
+      !stripe_width = 48 ! Must be a multiple of 2
+
+      stripe_count = (l_nev-1)/stripe_width + 1
+
+      ! Adapt stripe width so that last one doesn't get too small
+
+      stripe_width = (l_nev-1)/stripe_count + 1
+
+
+
+     if (kernel .eq. ELPA_2STAGE_COMPLEX_AVX512_BLOCK1 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_AVX512_BLOCK2 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_SVE512_BLOCK1 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_SVE512_BLOCK2  &
+     ) then
+
+       stripe_width = ((stripe_width+7)/8)*8 ! Must be a multiple of 4 because of AVX-512 memory alignment of 64 bytes
+                                       ! (4 * sizeof(double complex) == 64)
+
+     else
+
+       stripe_width = ((stripe_width+3)/4)*4 ! Must be a multiple of 2 because of AVX/SSE memory alignment of 32 bytes
+                                       ! (2 * sizeof(double complex) == 32)
+     endif
+   endif ! useGPU
+
+   last_stripe_width = l_nev - (stripe_count-1)*stripe_width
+
+  endif ! l_nev
+
+  ! Determine the matrix distribution at the beginning
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: limits", 633,  istat,  errorMessage)
+  call determine_workload(obj,na, nbw, np_rows, limits)
+
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  a_dim2 = max_blk_size + nbw
+
+  if (useGPU) then
+
+    if (allComputeOnGPU) then
+      if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+      successGPU = gpu_malloc(q_dev, ldq*matrixCols* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: q_dev", 646,  successGPU)
+
+      successGPU =  gpu_memcpy(q_dev, int(loc(q(1,1)),kind=c_intptr_t),  &
+                               ldq*matrixCols * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q -> q_dev", 672,  successGPU)
+
+      ! associate with c_ptr
+      q_mpi_dev = transfer(q_dev, q_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(q_mpi_dev, q_mpi_fortran_ptr, &
+                       [ldq,matrixCols])
+      if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+      successGPU = gpu_malloc(hh_trans_dev, size(hh_trans,dim=1)*size(hh_trans,dim=2)* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: hh_trans_dev", 683,  successGPU)
+      ! associate with c_ptr
+      hh_trans_mpi_dev = transfer(hh_trans_dev, hh_trans_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(hh_trans_mpi_dev, hh_trans_mpi_fortran_ptr, &
+                       [size(hh_trans,dim=1),size(hh_trans,dim=2)])
+      successGPU =  gpu_memcpy(c_loc(hh_trans_mpi_fortran_ptr(1,1)),  &
+                               c_loc(hh_trans(1,1)), &
+                               size(hh_trans,dim=1)*size(hh_trans,dim=2) * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("tridi_to_band: hh_trans -> hh_trans_dev", 716,  successGPU)
+
+    endif ! allComputeOnGPU
+
+    num = (stripe_width*a_dim2*stripe_count)* size_of_datatype
+    successGPU = gpu_malloc(aIntern_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: aIntern_dev", 727,  successGPU)
+
+    ! openmp loop here
+
+      successGPU = gpu_memset(aIntern_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: aIntern_dev", 743,  successGPU)
+
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      aIntern_mpi_dev = transfer(aIntern_dev, aIntern_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(aIntern_mpi_dev, aIntern_mpi_fortran_ptr, &
+                       [stripe_width,a_dim2,stripe_count])
+    endif ! allComputeOnGPU
+
+    ! "row_group" and "row_group_dev" are needed for GPU optimizations
+      successGPU = gpu_malloc_host(row_group_host,l_nev*nblk*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: row_group_host", 781,  successGPU)
+      call c_f_pointer(row_group_host, row_group, (/l_nev,nblk/))
+
+    row_group(:, :) = 0.0_rck
+    num =  (l_nev*nblk)* size_of_datatype
+    successGPU = gpu_malloc(row_group_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_group_dev", 792,  successGPU)
+
+
+      successGPU = gpu_memset(row_group_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_group_dev", 807,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      row_group_mpi_dev = transfer(row_group_dev, row_group_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(row_group_mpi_dev, row_group_mpi_fortran_ptr, &
+                       [l_nev,nblk])
+    endif ! allComputeOnGPU
+
+  else ! GPUs are not used
+
+
+
+    if (posix_memalign(aIntern_ptr, 64_c_intptr_t, stripe_width*a_dim2*stripe_count*  &
+        C_SIZEOF(a_var)) /= 0) then
+      print *,"trans_ev_tridi_to_band_real: error when allocating aIntern"//errorMessage
+      stop 1
+    endif
+
+    call c_f_pointer(aIntern_ptr, aIntern,[stripe_width,a_dim2,stripe_count] )
+    !allocate(aIntern(stripe_width,a_dim2,stripe_count), stat=istat, errmsg=errorMessage)
+
+    aIntern(:,:,:) = 0.0_rck
+  endif !useGPU
+
+  allocate(row(l_nev), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: row", 862,  istat,  errorMessage)
+
+  row(:) = 0.0_rck
+
+  if (useGPU .and. allComputeOnGPU) then
+    num =  (l_nev)* size_of_datatype
+    successGPU = gpu_malloc(row_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_dev", 869,  successGPU)
+
+      successGPU = gpu_memset(row_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_dev", 886,  successGPU)
+
+
+    ! associate with c_ptr
+    row_mpi_dev = transfer(row_dev, row_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(row_mpi_dev, row_mpi_fortran_ptr, &
+                     [l_nev])
+  endif
+
+  ! Copy q from a block cyclic distribution into a distribution with contiguous rows,
+  ! and transpose the matrix using stripes of given stripe_width for cache blocking.
+
+  ! The peculiar way it is done below is due to the fact that the last row should be
+  ! ready first since it is the first one to start below
+
+
+
+  if (wantDebug) call obj%timer%start("ip_loop")
+  do ip = np_rows-1, 0, -1
+    if (my_prow == ip) then
+      ! Receive my rows which have not yet been received
+      src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+      do i=limits(ip)+1,limits(ip+1)
+        src = mod((i-1)/nblk, np_rows)
+
+        if (src < my_prow) then
+
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            my_stream = obj%gpu_setup%my_stream
+            call unpack_and_prepare_row_group_&
+            &complex&
+            &_gpu_&
+            &double &
+                          ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                                      stripe_width, last_stripe_width, a_dim2, l_nev,&
+                                      row_group_size, nblk, unpack_idx, &
+                                       i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+            if (allComputeOnGPU) then
+              ! memcpy row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1091,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1097,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev, row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+
+            call unpack_row_&
+                &complex&
+                &_cpu_&
+                &double &
+                (obj, aIntern, row,i-limits(ip), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        elseif (src == my_prow) then
+
+          src_offset = src_offset+1
+
+          if (useGPU) then
+
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &double &
+             ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                          stripe_width, last_stripe_width, a_dim2, l_nev,&
+                          row_group_size, nblk, unpack_idx, &
+                          i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_ZCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            else ! allComputeOnGPU
+              row_group(:, row_group_size) = q(src_offset, 1:l_nev)
+            endif ! allComputeOnGPU
+          else ! useGPU
+            row(:) = q(src_offset, 1:l_nev)
+          endif ! useGPU
+
+
+          if (useGPU) then
+
+          else
+            call unpack_row_&
+                 &complex&
+                 &_cpu_&
+                 &double &
+                            (obj, aIntern, row,i-limits(ip),  stripe_count, stripe_width, last_stripe_width)
+          endif
+
+
+        endif ! src == my_prow
+      enddo ! i=limits(ip)+1,limits(ip+1)
+
+
+      ! Send all rows which have not yet been send
+
+
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_ZCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1219,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+            endif
+          enddo
+        enddo
+      else !  allComputeOnGPU
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+              row(:) = q(src_offset, 1:l_nev)
+
+            endif
+          enddo
+        enddo
+      endif ! allComputeOnGPU
+
+    else if (my_prow < ip) then
+
+      ! Send all rows going to PE ip
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+
+            if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_ZCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+            if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+
+            ! is there a way to avoid this device_synchronize ?
+            if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+            successGPU = gpu_devicesynchronize()
+            call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1277,  successGPU)
+            if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+          endif
+        enddo
+      else ! allComputeOnGPU
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+            row(:) = q(src_offset, 1:l_nev)
+          endif
+        enddo
+      endif  ! allComputeOnGPU
+
+      ! Receive all rows from PE ip
+      do i=limits(my_prow)+1,limits(my_prow+1)
+        src = mod((i-1)/nblk, np_rows)
+        if (src == ip) then
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &double&
+                 &( obj, &
+                 row_group, row_group_dev, aIntern_dev, stripe_count,  &
+                 stripe_width, last_stripe_width, a_dim2, l_nev,       &
+                 row_group_size, nblk, unpack_idx,                     &
+                 i - limits(my_prow), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1458,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1464,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev,row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+            call unpack_row_&
+                 &complex&
+                 &_cpu_&
+                 &double &
+                 (obj, aIntern, row,i-limits(my_prow), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        endif
+      enddo ! i=limits(my_prow)+1,limits(my_prow+1)
+    endif ! (my_prow < ip)
+  enddo ! ip = np_rows-1, 0, -1
+
+  if (wantDebug) call obj%timer%stop("ip_loop")
+
+  if (wantDebug) call obj%timer%start("allocate")
+
+  if (useGPU) then
+    ! Force an unpacking of all remaining rows that haven't been unpacked yet
+
+    call unpack_and_prepare_row_group_&
+         &complex&
+         &_gpu_&
+         &double&
+         &( obj, &
+         row_group, row_group_dev, aIntern_dev, stripe_count, &
+         stripe_width, last_stripe_width, &
+         a_dim2, l_nev, row_group_size, nblk, unpack_idx,     &
+         -1, .true., wantDebug, allComputeOnGPU, my_stream)
+
+  endif
+
+  ! Set up result buffer queue
+
+  num_result_blocks = ((na-1)/nblk + np_rows - my_prow) / np_rows
+
+  num_result_buffers = 4*nfact
+  allocate(result_buffer(l_nev,nblk,num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_buffer", 1520,  istat,  errorMessage)
+
+  allocate(result_send_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_send_request", 1523,  istat,  errorMessage)
+
+  allocate(result_recv_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_recv_request", 1526,  istat,  errorMessage)
+
+  if (useGPU .and. allComputeOnGPU) then
+    num_result_buffers = 4*nfact
+    num =  (l_nev*nblk*num_result_buffers)* size_of_datatype
+    successGPU = gpu_malloc(result_buffer_dev, num* size_of_datatype)
+    call check_alloc_GPU_f("tridi_to_band: result_buffer_dev", 1532,  successGPU)
+
+    ! associate with c_ptr
+    result_buffer_mpi_dev = transfer(result_buffer_dev, result_buffer_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(result_buffer_mpi_dev, result_buffer_mpi_fortran_ptr, &
+                     [l_nev,nblk,num_result_buffers])
+  endif
+
+
+  ! Queue up buffers
+
+  ! carefull the "recv" has to be done at the corresponding wait or send
+  ! result_buffer(1: l_nev*nblk,1,j) =result_buffer(1:l_nev*nblk,1,nbuf)
+
+
+  num_bufs_recvd = 0 ! No buffers received yet
+
+  ! Initialize top/bottom requests
+
+  allocate(top_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_send_request", 1589,  istat,  errorMessage)
+
+  allocate(top_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_recv_request", 1592,  istat,  errorMessage)
+
+  allocate(bottom_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_send_request", 1595,  istat,  errorMessage)
+
+  allocate(bottom_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_recv_request", 1598,  istat,  errorMessage)
+
+
+
+  allocate(top_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_send_buffer", 1628,  istat,  errorMessage)
+
+  allocate(top_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_recv_buffer", 1631,  istat,  errorMessage)
+
+  allocate(bottom_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_send_buffer", 1634,  istat,  errorMessage)
+
+  allocate(bottom_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_recv_buffer", 1637,  istat,  errorMessage)
+
+  top_border_send_buffer(:,:) = 0.0_rck
+  top_border_recv_buffer(:,:) = 0.0_rck
+  bottom_border_send_buffer(:,:) = 0.0_rck
+  bottom_border_recv_buffer(:,:) = 0.0_rck
+
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      ! top_border_recv_buffer and top_border_send_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(top_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1655,  successGPU)
+
+      successGPU = gpu_malloc(top_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1658,  successGPU)
+
+        successGPU = gpu_memset(top_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1673,  successGPU)
+        successGPU = gpu_memset(top_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1675,  successGPU)
+
+
+      ! associate with c_ptr
+      top_border_recv_buffer_mpi_dev = transfer(top_border_recv_buffer_dev, top_border_recv_buffer_mpi_dev)
+      top_border_send_buffer_mpi_dev = transfer(top_border_send_buffer_dev, top_border_send_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(top_border_recv_buffer_mpi_dev, top_border_recv_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+      call c_f_pointer(top_border_send_buffer_mpi_dev, top_border_send_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+
+      ! bottom_border_send_buffer and bottom_border_recv_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(bottom_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1710,  successGPU)
+      successGPU = gpu_malloc(bottom_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1712,  successGPU)
+
+
+        successGPU = gpu_memset(bottom_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1728,  successGPU)
+        successGPU = gpu_memset(bottom_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1730,  successGPU)
+
+
+      ! associate with c_ptr
+      bottom_border_send_buffer_mpi_dev = transfer(bottom_border_send_buffer_dev, bottom_border_send_buffer_mpi_dev)
+      bottom_border_recv_buffer_mpi_dev = transfer(bottom_border_recv_buffer_dev, bottom_border_recv_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(bottom_border_send_buffer_mpi_dev, bottom_border_send_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+      call c_f_pointer(bottom_border_recv_buffer_mpi_dev, bottom_border_recv_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+    endif ! allComputeOnGPU
+
+      successGPU = gpu_host_register(int(loc(top_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_send_buffer", 1767,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(top_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_recv_buffer", 1772,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_send_buffer", 1777,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_recv_buffer", 1782,  successGPU)
+  endif ! useGPU
+
+
+  ! Initialize broadcast buffer
+
+  if (useGPU) then
+      successGPU = gpu_malloc_host(bcast_buffer_host,nbw*max_blk_size*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: bcast_buffer_host", 1796,  successGPU)
+      call c_f_pointer(bcast_buffer_host, bcast_buffer, (/nbw,max_blk_size/))
+  else
+    allocate(bcast_buffer(nbw, max_blk_size), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("tridi_to_band: bcast_buffer", 1805,  istat,  errorMessage)
+  endif
+
+  bcast_buffer = 0.0_rck
+
+  if (useGPU) then
+    num =  ( nbw * max_blk_size) * size_of_datatype
+    successGPU = gpu_malloc(bcast_buffer_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: bcast_buffer_dev", 1813,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      bcast_buffer_mpi_dev = transfer(bcast_buffer_dev, bcast_buffer_mpi_dev)
+      call c_f_pointer(bcast_buffer_mpi_dev, bcast_buffer_mpi_fortran_ptr, &
+                      [nbw, max_blk_size])
+    endif ! allComputeOnGPU
+
+
+      successGPU = gpu_memset( bcast_buffer_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 1834,  successGPU)
+
+
+    num =  (max_blk_size)* size_of_datatype
+    successGPU = gpu_malloc( hh_tau_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: hh_tau_dev", 1850,  successGPU)
+
+
+      successGPU = gpu_memset( hh_tau_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: hh_tau_dev", 1864,  successGPU)
+
+  endif ! useGPU
+
+  current_tv_off = 0 ! Offset of next row to be broadcast
+
+  ! ------------------- start of work loop -------------------
+
+  ! Pay attention that for a_off zero indexing is assumed
+  a_off = 0 ! offset in aIntern (to avoid unnecessary shifts)
+
+  top_msg_length = 0
+  bottom_msg_length = 0
+  if (wantDebug) call obj%timer%stop("allocate")
+
+  if (wantDebug) call obj%timer%start("sweep_loop")
+  do sweep = 0, (na-1)/nbw
+
+    current_n = na - sweep*nbw
+    call determine_workload(obj,current_n, nbw, np_rows, limits)
+    current_n_start = limits(my_prow)
+    current_n_end   = limits(my_prow+1)
+    current_local_n = current_n_end - current_n_start
+
+    next_n = max(current_n - nbw, 0)
+    call determine_workload(obj,next_n, nbw, np_rows, limits)
+    next_n_start = limits(my_prow)
+    next_n_end   = limits(my_prow+1)
+    next_local_n = next_n_end - next_n_start
+
+    if (next_n_end < next_n) then
+      bottom_msg_length = current_n_end - next_n_end
+    else
+      bottom_msg_length = 0
+    endif
+
+    if (next_local_n > 0) then
+      next_top_msg_length = current_n_start - next_n_start
+    else
+      next_top_msg_length = 0
+    endif
+
+    if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+      do i = 1, stripe_count
+
+
+        if (useGPU) then
+        else !useGPU
+        endif !useGPU
+!            carefull the recieve has to be done at the corresponding wait or send
+!            bottom_border_recv_buffer(1:nbw*stripe_width,1,i) = top_border_send_buffer(1:nbw*stripe_width,1,i)
+
+      enddo ! i = 1, stripe_count
+    endif ! sweep==0 .and. current_n_end < current_n .and. l_nev > 0
+
+    if (current_local_n > 1) then
+      if (useGPU .and. allComputeOnGPU) then
+        if (my_pcol == mod(sweep,np_cols)) then
+          if (wantDebug) call obj%timer%start("cuda_memcpy")
+          successGPU =  gpu_memcpy(c_loc(bcast_buffer_mpi_fortran_ptr(1,1)), &
+                                   c_loc(hh_trans_mpi_fortran_ptr(1,current_tv_off+1)),  &
+                                     size(hh_trans,dim=1) * (current_tv_off+current_local_n-(current_tv_off+1)+1) * &
+                                     size_of_datatype, &
+                                     gpuMemcpyDeviceToDevice)
+          call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2027,  successGPU)
+          if (wantDebug) call obj%timer%stop("cuda_memcpy")
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      else !useGPU
+        if (my_pcol == mod(sweep,np_cols)) then
+          bcast_buffer(:,1:current_local_n) =    &
+          hh_trans(:,current_tv_off+1:current_tv_off+current_local_n)
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      endif ! useGPU
+
+      if (useGPU .and. .not.(allComputeOnGPU)) then
+        if (wantDebug) call obj%timer%start("memcpy")
+        successGPU =  gpu_memcpy(bcast_buffer_dev, int(loc(bcast_buffer(1,1)),kind=c_intptr_t),  &
+                                 nbw * current_local_n *    &
+                                 size_of_datatype, &
+                                 gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2142,  successGPU)
+        if (wantDebug) call obj%timer%stop("memcpy")
+      endif ! useGPU
+
+      if (useGPU) then
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &complex&
+             &_gpu_&
+             &double&
+             (bcast_buffer_dev, hh_tau_dev, nbw, &
+             current_local_n, .false., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+
+    else ! (current_local_n > 1) then
+
+      ! for current_local_n == 1 the one and only HH Vector is 0 and not stored in hh_trans_real/complex
+      bcast_buffer(:,1) = 0.0_rck
+      if (useGPU) then
+
+          successGPU = gpu_memset(bcast_buffer_dev, 0, nbw * size_of_datatype)
+          call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 2176,  successGPU)
+
+
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &complex&
+             &_gpu_&
+             &double&
+             &( &
+             bcast_buffer_dev, hh_tau_dev, &
+             nbw, 1, .true., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+    endif ! (current_local_n > 1) then
+
+    if (l_nev == 0) cycle
+
+    if (current_local_n > 0) then
+
+      do i = 1, stripe_count
+
+        !wait_b
+        if (current_n_end < current_n) then
+
+
+
+          n_off = current_local_n+a_off
+
+          if (useGPU) then
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_memcpy")
+              successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                       c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                       stripe_width*nbw* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2378,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_memcpy")
+            else ! allComputeOnGPU
+              if (wantDebug) call obj%timer%start("memcpy")
+              dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width *a_dim2 )) * size_of_datatype
+              successGPU =  gpu_memcpy( aIntern_dev + dev_offset , &
+                                      int(loc(bottom_border_recv_buffer(1,i)),kind=c_intptr_t), &
+                                       stripe_width*nbw*  size_of_datatype,    &
+                                       gpuMemcpyHostToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2404,  successGPU)
+              if (wantDebug) call obj%timer%stop("memcpy")
+            endif ! allComputeOnGPU
+          else ! useGPU
+            aIntern(:,n_off+1:n_off+nbw,i) = reshape( &
+            bottom_border_recv_buffer(1:stripe_width*nbw,i),(/stripe_width,nbw/))
+          endif ! useGPU
+
+
+          if (next_n_end < next_n) then
+
+            if (useGPU) then
+            else ! useGPU
+            endif ! useGPU
+!!                carefull the recieve has to be done at the corresponding wait or send
+!!                bottom_border_recv_buffer(1:stripe_width,1:nbw,i) =  top_border_send_buffer(1:stripe_width,1:nbw,i)
+
+            endif ! (next_n_end < next_n)
+          endif ! (current_n_end < current_n)
+
+          if (current_local_n <= bottom_msg_length + top_msg_length) then
+
+            !wait_t
+            if (top_msg_length>0) then
+
+
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! the MPI_IRECV will be done CUDA_AWARE we thus do not need a host to device copy
+                  ! However, we have to copy from top_border_recv_buffer_mpi_fortran_ptr to aIntern_mpi_fortran_ptr
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+                  !Fortran pointer for indexing
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                          c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                          stripe_width*top_msg_length* size_of_datatype,      &
+                                          gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2659,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  !             host_offset= (0 + (0 * stripe_width) + ( (i-1) * stripe_width * nbw ) ) * 8
+                  successGPU =  gpu_memcpy( aIntern_dev+dev_offset , int(loc(top_border_recv_buffer(1,i)),kind=c_intptr_t),  &
+                                             stripe_width*top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2684,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+            endif ! top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+                &complex&
+                &_&
+                &double&
+                &(obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, &
+                max_threads, &
+                a_off, nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+                hh_tau_dev, kernel_flops, kernel_time, n_times, 0, current_local_n, i, &
+                last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+
+            !send_b        1
+
+            if (bottom_msg_length>0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                           c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 2946,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 2954,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy( int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 2979,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3033,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3040,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+            endif !(bottom_msg_length>0)
+
+          else ! current_local_n <= bottom_msg_length + top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &complex&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, &
+             current_local_n - bottom_msg_length, bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !send_b
+            if (bottom_msg_length > 0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                            c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                             stripe_width * bottom_msg_length * size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 3326,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset,  &
+                                           stripe_width*bottom_msg_length* size_of_datatype,  &
+                                           gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 3351,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3407,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3414,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+
+            endif ! (bottom_msg_length > 0)
+
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &complex&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, top_msg_length, &
+             current_local_n-top_msg_length-bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !wait_t
+            if (top_msg_length>0) then
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                           c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                           stripe_width* top_msg_length* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3664,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  ! copy top_border_recv_buffer to aIntern_dev, maybe not necessary if CUDA_AWARE IRECV
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(aIntern_dev + dev_offset ,int(loc( top_border_recv_buffer(:,i)),kind=c_intptr_t),  &
+                                        stripe_width * top_msg_length * size_of_datatype,   &
+                                        gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3689,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+           endif
+
+           !compute
+
+           if (wantDebug) call obj%timer%start("compute_hh_trafo")
+           call compute_hh_trafo_&
+             &complex&
+             &_&
+             &double&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, max_threads, &
+             a_off, nbw, max_blk_size,  bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, 0, top_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+           if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+           if (.not.success) then
+             success=.false.
+             return
+           endif
+
+         endif ! which if branch
+
+         if (next_top_msg_length > 0) then
+           !request top_border data
+
+!             carefull the "recieve" has to be done at the corresponding wait or send
+!              top_border_recv_buffer(1:stripe_width,1:next_top_msg_length,i) =  &
+!               bottom_border_send_buffer(1:stripe_width,1:next_top_msg_length,i)
+
+
+         endif ! next_top_msg_length > 0
+
+         !send_t
+         if (my_prow > 0) then
+
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (wantDebug) call obj%timer%start("cuda_memcpy")
+               successGPU =  gpu_memcpy(c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                        c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                        stripe_width* nbw* size_of_datatype,      &
+                                        gpuMemcpyDeviceToDevice)
+               call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 4067,  successGPU)
+               if (wantDebug) call obj%timer%stop("cuda_memcpy")
+             else ! allComputeOnGPU
+               if (wantDebug) call obj%timer%start("memcpy")
+               dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+               successGPU =  gpu_memcpy(int(loc(top_border_send_buffer(:,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                         stripe_width*nbw * size_of_datatype, &
+                                         gpuMemcpyDeviceToHost)
+               call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> top_border_send_buffer", 4092,  successGPU)
+               if (wantDebug) call obj%timer%stop("memcpy")
+             endif ! allComputeOnGPU
+           else ! useGPU
+             top_border_send_buffer(:,i) = reshape(aIntern(:,a_off+1:a_off+nbw,i),(/stripe_width*nbw/))
+           endif ! useGPU
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4145,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4151,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+               if (next_n_end < next_n) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4174,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4180,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+             else ! allComputeOnGPU
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+               endif
+               if (next_n_end < next_n) then
+                 bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+               endif
+             endif ! allComputeOnGPU
+           else ! useGPU
+             if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+               bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+             endif
+             if (next_n_end < next_n) then
+               bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+             endif
+           endif ! useGPU
+
+         endif ! my_prow > 0
+
+         ! Care that there are not too many outstanding top_recv_request's
+         if (stripe_count > 1) then
+           if (i > 1) then
+           else ! i > 1
+          endif ! i > 1
+        endif ! stripe_count > 1
+      enddo ! i = 1, stripe_count
+
+      top_msg_length = next_top_msg_length
+
+    else ! current_local_n > 0
+      ! wait for last top_send_request
+
+    endif  ! current_local_n > 0
+
+    ! Care about the result
+
+    if (my_prow == 0) then
+
+      ! topmost process sends nbw rows to destination processes
+
+      do j=0, nfact-1
+        num_blk = sweep*nfact+j ! global number of destination block, 0 based
+        if (num_blk*nblk >= na) exit
+
+        nbuf = mod(num_blk, num_result_buffers) + 1 ! buffer number to get this block
+
+        dst = mod(num_blk, np_rows)
+
+        if (dst == 0) then
+          if (useGPU) then
+            row_group_size = min(na - num_blk*nblk, nblk)
+
+            call pack_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &double&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, last_stripe_width, a_dim2, l_nev, &
+                         row_group(:, :), j * nblk + a_off, row_group_size, &
+                         result_buffer_dev, nblk, num_result_buffers, nbuf, .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! memcpy DeviceToDevice row_group_dev -> q_dev
+              do i = 1, row_group_size
+               if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+               gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+               call gpublas_ZCOPY(l_nev, c_loc(row_group_mpi_fortran_ptr(1,i)), 1, &
+                                           c_loc(q_mpi_fortran_ptr((num_blk / np_rows) * nblk + i,1)), ldq, gpuHandle)
+               if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              enddo
+            else ! allComputeOnGPU
+              do i = 1, row_group_size
+                q((num_blk / np_rows) * nblk + i, 1 : l_nev) = row_group(:, i)
+              enddo
+            endif ! allComputeOnGPU
+          else ! useGPU
+
+            do i = 1, min(na - num_blk*nblk, nblk)
+              call pack_row_&
+                   &complex&
+                   &_cpu_&
+                   &double&
+                   &(obj, aIntern, row, j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+              q((num_blk/np_rows)*nblk+i,1:l_nev) = row(:)
+            enddo
+          endif ! useGPU
+
+        else ! (dst == 0)
+
+          if (useGPU) then
+
+            call pack_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &double&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, &
+                   last_stripe_width, a_dim2, l_nev, &
+                   result_buffer(:, :, nbuf), j * nblk + a_off, nblk, &
+                   result_buffer_dev, nblk, num_result_buffers, nbuf, .true., wantDebug, allComputeOnGPU, my_stream)
+
+          else  ! useGPU
+            do i = 1, nblk
+              call pack_row_&
+                   &complex&
+                   &_cpu_&
+                   &double&
+                   &(obj, aIntern, result_buffer(:,i,nbuf),j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+            enddo
+          endif ! useGPU
+
+        endif ! (dst == 0)
+      enddo  !j=0, nfact-1
+
+    else ! (my_prow == 0)
+
+      ! receive and store final result
+
+      do j = num_bufs_recvd, num_result_blocks-1
+
+        nbuf = mod(j, num_result_buffers) + 1 ! buffer number to get this block
+
+        ! If there is still work to do, just test for the next result request
+        ! and leave the loop if it is not ready, otherwise wait for all
+        ! outstanding requests
+
+        if (next_local_n > 0) then
+            ! needed
+            !successGPU = gpu_devicesynchronize()
+          flag = .true.
+
+          if (.not.flag) exit
+
+        else ! (next_local_n > 0)
+        endif ! (next_local_n > 0)
+
+        ! Fill result buffer into q
+        num_blk = j*np_rows + my_prow ! global number of current block, 0 based
+        if (useGPU) then
+          if (allComputeOnGPU) then
+            do i = 1, min(na - num_blk*nblk, nblk)
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_ZCOPY(l_nev, c_loc(result_buffer_mpi_fortran_ptr(1,i,nbuf)), 1, &
+                                          c_loc(q_mpi_fortran_ptr(j*nblk + i,1)), ldq, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            enddo
+          else ! allComputeOnGPU
+            do i = 1, min(na - num_blk*nblk, nblk)
+              q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+            enddo
+          endif ! allComputeOnGPU
+        else ! useGPU
+          do i = 1, min(na - num_blk*nblk, nblk)
+            q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+          enddo
+        endif ! useGPU
+        ! Queue result buffer again if there are outstanding blocks left
+
+
+      enddo ! j = num_bufs_recvd, num_result_blocks-1
+      num_bufs_recvd = j
+
+    endif ! (my_prow == 0)
+
+    ! Shift the remaining rows to the front of aIntern (if necessary)
+
+    offset = nbw - top_msg_length
+    if (offset<0) then
+      if (wantDebug) write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                                         &complex&
+                                         &: internal error, offset for shifting = ',offset
+      success = .false.
+      return
+    endif
+
+    a_off = a_off + offset
+    if (a_off + next_local_n + nbw >= a_dim2) then
+      do i = 1, stripe_count
+        if (useGPU) then
+          chunk = min(next_local_n,a_off)
+
+          if (chunk < 1) exit
+
+          if (wantDebug) call obj%timer%start("normal_memcpy")
+          do j = top_msg_length+1, top_msg_length+next_local_n, chunk
+            this_chunk = min(j+chunk-1,top_msg_length+next_local_n)-j+1
+            dev_offset = ((j-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            dev_offset_1 = ((j+a_off-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            num = stripe_width*this_chunk*size_of_datatype
+            successGPU = gpu_memcpy(aIntern_dev+dev_offset, aIntern_dev+dev_offset_1, num, gpuMemcpyDeviceToDevice)
+
+            call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> aIntern_dev", 4648,  successGPU)
+          end do
+          if (wantDebug) call obj%timer%stop("normal_memcpy")
+        else ! not useGPU
+          do j = top_msg_length+1, top_msg_length+next_local_n
+            aIntern(:,j,i) = aIntern(:,j+a_off,i)
+          end do
+        end if
+      end do ! stripe_count
+
+      a_off = 0
+    end if
+  end do ! sweep
+  if (wantDebug) call obj%timer%stop("sweep_loop")
+
+  ! Just for safety:
+
+  if (my_prow == 0) then
+
+  endif
+
+
+  call obj%get("print_flops",print_flops,error)
+
+
+  if (useGPU .and. allComputeOnGPU) then
+    ! finally copy q_dev to q
+    if (wantDebug) call obj%timer%start("cuda_memcpy")
+    successGPU =  gpu_memcpy(int(loc(q(1,1)),kind=c_intptr_t),  &
+                             q_dev, &
+                             ldq*matrixCols * size_of_datatype, &
+                             gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q_dev -> q", 4771,  successGPU)
+    if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+  endif
+
+  if (my_prow==0 .and. my_pcol==0 .and.print_flops == 1) then
+      write(error_unit,'(" Kernel time:",f10.3," MFlops: ",es12.5)')  kernel_time, kernel_flops/kernel_time*1.d-6
+  endif
+
+  ! deallocate all working space
+
+  if (.not.(useGPU)) then
+    nullify(aIntern)
+    call free(aIntern_ptr)
+  endif
+
+  deallocate(row, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: row", 4789,  istat,  errorMessage)
+
+  deallocate(limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: limits", 4792,  istat,  errorMessage)
+
+  deallocate(result_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_send_request", 4795,  istat,  errorMessage)
+
+  deallocate(result_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_recv_request", 4798,  istat,  errorMessage)
+
+  deallocate(result_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_buffer", 4801,  istat,  errorMessage)
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(result_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: result_buffer_dev", 4806,  successGPU)
+      nullify(result_buffer_mpi_fortran_ptr)
+    endif
+
+      nullify(bcast_buffer)
+
+      successGPU = gpu_free_host(bcast_buffer_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: bcast_buffer_host", 4816,  successGPU)
+  else ! useGPU
+    deallocate(bcast_buffer, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("tridi_to_band: bcast_buffer", 4824,  istat,  errorMessage)
+  endif ! useGPU
+
+
+  if (useGPU) then
+    successGPU = gpu_free(aIntern_dev)
+    call check_dealloc_GPU_f("tridi_to_band: aIntern_dev", 4830,  successGPU)
+
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(q_dev)
+      call check_dealloc_GPU_f("tridi_to_band: q_dev", 4834,  successGPU)
+      nullify(q_mpi_fortran_ptr)
+
+      successGPU = gpu_free(hh_trans_dev)
+      call check_dealloc_GPU_f("tridi_to_band: hh_trans_dev", 4838,  successGPU)
+      nullify(hh_trans_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 4842,  successGPU)
+      nullify(top_border_recv_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 4846,  successGPU)
+      nullify(top_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 4850,  successGPU)
+      nullify(bottom_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 4854,  successGPU)
+      nullify(bottom_border_recv_buffer_mpi_fortran_ptr)
+
+      nullify(aIntern_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU = gpu_free(hh_tau_dev)
+    call check_dealloc_GPU_f("tridi_to_band: hh_tau_dev", 4861,  successGPU)
+
+      nullify(row_group)
+
+      successGPU = gpu_free_host(row_group_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: row_group_host", 4869,  successGPU)
+
+    successGPU = gpu_free(row_group_dev)
+    call check_dealloc_GPU_f("tridi_to_band: row_group_dev", 4877,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(row_group_mpi_fortran_ptr)
+
+      successGPU = gpu_free(row_dev)
+      call check_dealloc_GPU_f("tridi_to_band: row_dev", 4883,  successGPU)
+      nullify(row_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU =  gpu_free(bcast_buffer_dev)
+    call check_dealloc_GPU_f("tridi_to_band: bcast_buffer_dev", 4888,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(bcast_buffer_mpi_fortran_ptr)
+    endif
+
+      successGPU = gpu_host_unregister(int(loc(top_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_send_buffer", 4898,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(top_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_recv_buffer", 4901,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_send_buffer", 4904,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_recv_buffer", 4907,  successGPU)
+
+  endif ! useGPU
+
+  deallocate(top_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_send_buffer", 4927,  istat,  errorMessage)
+
+  deallocate(top_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_recv_buffer", 4930,  istat,  errorMessage)
+
+  deallocate(bottom_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_send_buffer", 4933,  istat,  errorMessage)
+
+  deallocate(bottom_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_recv_buffer", 4936,  istat,  errorMessage)
+
+  deallocate(top_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_send_request", 4939,  istat,  errorMessage)
+
+  deallocate(top_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_recv_request", 4942,  istat,  errorMessage)
+
+  deallocate(bottom_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_send_request", 4945,  istat,  errorMessage)
+
+  deallocate(bottom_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_recv_request", 4948,  istat,  errorMessage)
+
+  call obj%timer%stop("trans_ev_tridi_to_band_&
+                      &complex&
+                      &" // &
+                      &"_double" //&
+                      gpuString)
+  return
+
+end subroutine
+
+! vim: syntax=fortran
+
+
+! complex single precision
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+! - works with mimic loop
+! - is it the sharing of device pointers?
+
+
+subroutine bandred_&
+&complex&
+&_&
+&single &
+(obj, na, a_mat, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, tmat, &
+wantDebug, useGPU, success, &
+max_threads, isSkewsymmetric)
+
+!-------------------------------------------------------------------------------
+!  bandred_real/complex: Reduces a distributed symmetric matrix to band form
+!
+!  Parameters
+!
+!  na          Order of matrix
+!
+!  a_mat(matrixRows,matrixCols)    Distributed matrix which should be reduced.
+!              Distribution is like in Scalapack.
+!              Opposed to Scalapack, a_mat(:,:) must be set completely (upper and lower half)
+!              a_mat(:,:) is overwritten on exit with the band and the Householder vectors
+!              in the upper half.
+!
+!  matrixRows         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith of output matrix
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!  tmat(nbw,nbw,numBlocks)    where numBlocks = (na-1)/nbw + 1
+!              Factors for the Householder vectors (returned), needed for back transformation
+!
+!-------------------------------------------------------------------------------
+
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa1_compute
+  use precision
+  use elpa_blas_interfaces
+  use elpa_abstract_impl
+  !use cuda_functions
+  !use hip_functions
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: ck = C_FLOAT_COMPLEX
+  integer, parameter :: rck = C_FLOAT_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)  :: obj
+  integer(kind=ik)                            :: na, matrixRows, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols
+
+  complex(kind=rck)                     :: a_mat(matrixRows,*)
+  complex(kind=rck)                     :: tmat(nbw,nbw,*)
+
+  logical, intent(in)                         :: useGPU
+  logical, intent(in)                         :: isSkewsymmetric
+  character(20)                               :: gpuString
+
+  integer(kind=ik)                            :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                      :: mpierr,  my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI
+  integer(kind=ik)                            :: l_cols, l_rows, max_l_rows, max_l_cols
+  integer(kind=ik),allocatable                :: blockinfo(:,:)
+  integer(kind=ik)                            :: i, j, lcs, lce, lre, lc, lr, cur_pcol, n_cols, nrow
+  integer(kind=ik)                            :: istep, ncol, lch, lcx, iblock, nblocks, c_start, &
+                                                blc_start, blc_end, blc_len
+  integer(kind=ik)                            :: tile_size, l_rows_tile, l_cols_tile
+
+  complex(kind=rck)                    :: vrl, tau
+  complex(kind=rck)                    :: vav(nbw,nbw)
+
+  complex(kind=rck), allocatable        :: tmpGPU(:)
+  complex(kind=rck), pointer            :: vmrGPU(:), umcGPU(:)
+  complex(kind=rck), pointer            :: vmrGPU_2d(:,:), umcGPU_2d(:,:)
+  complex(kind=rck), allocatable        :: vmrCPU(:,:), umcCPU(:,:), vmrCPU_qr(:,:)
+  complex(kind=rck), allocatable        :: vr(:)
+  complex(kind=rck)                     :: taublock(nbw), vrlblock(nbw)
+  complex(kind=rck), allocatable, target:: ex_buff(:)
+  complex(kind=rck), pointer, contiguous:: ex_buff2d(:,:)
+
+  integer(kind=C_intptr_T)                    :: a_dev, vmr_dev, umc_dev, tmat_dev, vav_dev
+  integer(kind=C_intptr_T)                    :: a_dev0, a_dev1, vmr_dev0, vmr_dev1, umc_dev0, umc_dev1
+  type(c_ptr)                                 :: a_dev_ptr, vmr_dev_ptr, umc_dev_ptr
+  complex(kind=rck), pointer            :: vmr_dev_fortran_ptr, umc_dev_fortran_ptr, a_dev_fortran_ptr
+  type(c_ptr)                                 :: vmr_host, umc_host
+  complex(kind=rck), pointer            :: vmr_debug(:), umc_debug(:)
+  integer(kind=ik)                            :: ierr
+  integer(kind=ik)                            :: cur_l_rows, cur_l_cols
+  integer(kind=ik)                            :: vmr_size, umc_size
+  integer(kind=ik)                            :: l_rows2, vmr_size2, umc_size2
+  integer(kind=c_intptr_t)                    :: lc_start, lc_end
+  integer(kind=c_intptr_t)                    :: lce_1, lcs_1, lre_1
+  integer(kind=ik)                            :: lr_end
+  !integer(kind=ik)                            :: na_cols
+  !integer(kind=BLAS_KIND)                     :: na_colsBLAS
+  integer(kind=ik)                            :: na_rows
+  integer(kind=BLAS_KIND)                     :: na_rowsBLAS
+
+  logical, intent(in)                         :: wantDebug
+  logical, intent(out)                        :: success
+  logical                                     :: successGPU
+  integer(kind=ik)                            :: istat
+  character(200)                              :: errorMessage
+  integer(kind=ik)                            :: min_tile_size, error
+
+  integer(kind=ik)                            :: mystart, myend, m_way, n_way, work_per_thread, m_id, n_id, n_threads, &
+                                                ii, off, lrex
+  integer(kind=c_intptr_t), parameter           :: size_of_datatype = size_of_&
+                                                                    &single&
+                                                                    &_&
+                                                                    &complex
+
+  logical                                     :: useGPU_reduction_lower_block_to_tridiagonal
+  integer(kind=ik),intent(in)                 :: max_threads
+  integer(kind=ik)                            :: max_threads_used
+  logical                                     :: do_memcpy
+  integer(kind=ik)                            :: i_blk,blk_off, blk_end
+
+  integer(kind=MPI_KIND)                      :: bcast_request, allreduce_request1, allreduce_request2, &
+                                                 allreduce_request3, allreduce_request4, allreduce_request5, &
+                                                 allreduce_request6
+  integer(kind=MPI_KIND), allocatable         :: breq(:)
+  
+  logical                                     :: useNonBlockingCollectivesCols
+  logical                                     :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                         :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  integer(kind=c_int)                         :: myThreadID, mimick
+  integer(kind=c_int)                         :: memcols
+
+  integer(kind=c_intptr_t)                    :: gpuHandle, my_stream
+
+
+  max_threads_used = max_threads
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("bandred_&
+  &complex&
+  &" // &
+  "_single" // &
+  gpuString )
+
+  call obj%get("nbc_row_elpa2_full_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_full_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_bandred. Aborting..."
+    success = .false.
+    return
+  endif
+ 
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+ 
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  useGPU_reduction_lower_block_to_tridiagonal = .false.
+ 
+  if (useGPU) then
+    useGPU_reduction_lower_block_to_tridiagonal = .true.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+  success = .true.
+
+
+  ! Semibandwith nbw must be a multiple of blocksize nblk
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &complex&
+                             &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_bandred_&
+                             &complex&
+                             &: ELPA2 works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  ! na_rows in used nowhere; only na_cols
+  if (useGPU) then
+
+    ! Here we convert the regular host array into a pinned host array
+    successGPU = gpu_malloc(a_dev, matrixRows*matrixCols* size_of_datatype)
+    call check_alloc_GPU_f("bandred: a_dev", 344,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(vav),kind=c_intptr_t), &
+                  nbw * nbw * size_of_datatype,&
+                  gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: vav", 352,  successGPU)
+
+    successGPU = gpu_malloc(vav_dev, nbw*nbw* size_of_datatype)
+    call check_alloc_GPU_f("bandred: vav_dev", 358,  successGPU)
+  endif ! useGPU
+
+  ! Matrix is split into tiles; work is done only for tiles on the diagonal or above
+
+  tile_size = nblk*least_common_multiple(np_rows,np_cols) ! minimum global tile size
+
+  ! make tile_size a smallest possible multiple of previously defined tile size, such that it is
+  ! larger or equal to min_tile_size
+  ! min_tile_size has been originally hardcoded as 128 * max(np_rows, np_cols), so it is now the implicit value
+  ! it can, however, be set by the user
+  call obj%get("min_tile_size", min_tile_size ,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for min_tile_size. Aborting..."
+    success = .false.
+    return
+  endif
+  if(min_tile_size == 0) then
+    ! not set by the user, use the default value
+    min_tile_size = 128*max(np_rows, np_cols)
+  endif
+  tile_size = ((min_tile_size-1)/tile_size+1)*tile_size
+
+  l_rows_tile = tile_size/np_rows ! local rows of a tile
+  l_cols_tile = tile_size/np_cols ! local cols of a tile
+
+
+  blk_end = (na-1)/nbw
+  if (useGPU) then
+ 
+      successGPU = gpu_host_register(int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("bandred: a_mat", 437,  successGPU)
+
+    cur_l_rows = 0
+    cur_l_cols = 0
+
+    successGPU = gpu_memcpy(a_dev, int(loc(a_mat),kind=c_intptr_t), &
+                  matrixRows*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("bandred: a_dev", 464,  successGPU)
+
+    successGPU = gpu_malloc(tmat_dev, nbw*nbw*size_of_datatype)
+    call check_alloc_GPU_f("bandred: tmat_dev", 468,  successGPU)
+
+
+
+
+
+    istep = (na-1)/nbw
+    blk_end = (na-1)/nbw
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size = cur_l_rows*2*n_cols
+    umc_size = cur_l_cols*2*n_cols
+
+    istep = (na-1)/nbw - 1
+    n_cols = min(na,(istep+1)*nbw)-istep*nbw
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows2 = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+    cur_l_rows = max(l_rows2,1)
+    cur_l_cols = max(l_cols,1)
+    vmr_size2 = cur_l_rows*2*n_cols
+    umc_size2 = cur_l_cols*2*n_cols
+
+    l_rows = max(l_rows,l_rows2)
+    vmr_size = max(vmr_size,vmr_size2)
+    umc_size = max(umc_size,umc_size2)
+
+    allocate(vr(l_rows + 1), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("bandred: vr", 505,  istat,  errorMessage)
+
+      successGPU = gpu_malloc_host(vmr_host,vmr_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: vmr_host", 511,  successGPU)
+      call c_f_pointer(vmr_host, vmrGPU, (/vmr_size/))
+
+    successGPU = gpu_malloc(vmr_dev, vmr_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: vmr_dev", 520,  successGPU)
+
+
+      successGPU = gpu_malloc_host(umc_host,umc_size*size_of_datatype)
+      call check_host_alloc_GPU_f("bandred: umc_host", 527,  successGPU)
+      call c_f_pointer(umc_host, umcGPU, (/umc_size/))
+
+    successGPU = gpu_malloc(umc_dev, umc_size*size_of_datatype)
+    call check_alloc_GPU_f("bandred: umc_dev", 536,  successGPU)
+
+
+
+  endif ! useGPU
+
+  do istep = blk_end, 1, -1
+
+    n_cols = MIN(na,(istep+1)*nbw) - istep*nbw ! Number of columns in current step
+
+    ! Number of local columns/rows of remaining matrix
+    l_cols = local_index(istep*nbw, my_pcol, np_cols, nblk, -1)
+    l_rows = local_index(istep*nbw, my_prow, np_rows, nblk, -1)
+
+
+    max_l_rows = max(l_rows,1)
+    max_l_cols = max(l_cols,1)
+
+    ! Allocate vmr and umc to their exact sizes so that they can be used in bcasts and reduces
+
+    if (useGPU) then
+      vmr_size = max_l_rows * 2 * n_cols
+      umc_size = max_l_cols * 2 * n_cols
+    else ! GPU not used
+
+      ! unify the the name vmr and vmrCPU, as well as vmrGPU
+      ! the same for umcCPU and umcGPU
+      ! Allocate vmr and umcCPU to their exact sizes so that they can be used in bcasts and reduces
+
+      allocate(vmrCPU(max_l_rows,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vmrCPU", 607,  istat,  errorMessage)
+
+      allocate(umcCPU(max_l_cols,2*n_cols), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: umcCPU", 610,  istat,  errorMessage)
+
+      allocate(vr(l_rows+1), stat=istat, errmsg=errorMessage)
+      call check_allocate_f("bandred: vr", 613,  istat,  errorMessage)
+
+    endif ! use GPU
+
+    if (useGPU) then
+      vmrGPU(1 : max_l_rows * n_cols) = 0.0_rck
+      umcGPU(1 : umc_size) = 0.0_rck
+    else ! useGPU
+      vmrCPU(1:l_rows,1:n_cols) = 0.0_rck
+    endif ! useGPU
+
+
+    vr(:) = 0.0_rck
+    tmat(:,:,istep) = 0.0_rck
+    if (useGPU) then
+      lc_start = local_index(istep*nbw+1, my_pcol, np_cols, nblk, -1)
+      lc_end   = local_index(istep*nbw+n_cols, my_pcol, np_cols, nblk, -1)
+      lr_end   = local_index((istep-1)*nbw + n_cols, my_prow, np_rows, nblk, -1)
+
+      if (lc_start .le. 0) lc_start = 1
+
+      do_memcpy = .false.
+
+      ! Note: mod(nbw,nblk) == 0
+      do i_blk = 1, nbw/nblk
+        blk_off = (i_blk-1) * nblk
+        cur_pcol = pcol(istep*nbw+1+blk_off, nblk, np_cols)
+
+        if (my_pcol == cur_pcol) then
+          do_memcpy = .true.
+        endif
+      enddo
+
+      if (do_memcpy) then
+
+          successGPU = gpu_memcpy2d(int(loc(a_mat(1, lc_start)),kind=c_intptr_t), &
+                        int((matrixRows*size_of_datatype),kind=c_intptr_t), &
+                        (a_dev + int( ( (lc_start-1) * matrixRows*size_of_datatype),kind=c_intptr_t )), &
+                        int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                        int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                        int((lc_end - lc_start+1),kind=c_intptr_t),int(gpuMemcpyDeviceToHost,kind=c_int))
+          call check_memcpy_GPU_f("bandred: a_dev -> a_mat", 680,  successGPU)
+
+      endif ! do_memcpy
+    endif ! useGPU
+
+    ! Reduce current block to lower triangular form
+
+       call obj%timer%start("hh_block")
+       
+       allocate(blockinfo(4,n_cols/nblk+1))
+       iblock=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc
+          if((lc.eq.n_cols).or.(mod(ncol,nblk).eq.0)) then
+             cur_pcol = pcol(ncol, nblk, np_cols) ! Processor column owning current block
+             !new block
+             iblock=iblock+1
+             lch = local_index(ncol, my_pcol, np_cols, nblk, -1) ! HV local column number
+             blockinfo(1,iblock)=cur_pcol !owner of this block
+             blockinfo(2,iblock)=((lch-1)/nblk)*nblk+1 !first a_mat index of this block
+             blockinfo(3,iblock)=mod(ncol-1,nblk)+1 !length of block
+             blockinfo(4,iblock)=lc !last local cell indes of this block
+          end if
+       end do
+       nblocks=iblock
+          
+       allocate(ex_buff(l_rows*n_cols))
+       lrex  = l_rows
+       ex_buff2d(1:lrex,1:n_cols) => ex_buff
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                ex_buff2d(1:lrex,blc_start+off-1)=a_mat(1:lrex,c_start+off-1)
+             end do
+          end if
+       end do
+       call obj%timer%start("hh_trans")
+       off=0
+       do lc = n_cols, 1, -1
+          ncol = istep*nbw + lc ! absolute column number of householder Vector
+          nrow = ncol - nbw ! Absolute number of pivot row  
+          if (nrow == 1) then !done
+             taublock(1)=0. 
+             exit
+          end if
+          
+          lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+          off=off+1
+          call get_hh_vec(ex_buff2d(1:lr,n_cols-off+1),vr,tau,vrl)
+          
+          call apply_ht(tau,vr,ex_buff2d(:,1:n_cols-off))
+          if (useGPU_reduction_lower_block_to_tridiagonal) then
+             vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) = vr(1:lr)
+          else
+             vmrCPU(1:lr,lc) = vr(1:lr)
+          endif
+          taublock(lc) = conjg(tau)
+          vrlblock(lc)=vrl
+       end do
+       call obj%timer%stop("hh_trans")
+          
+       do iblock=1,nblocks
+          c_start = blockinfo(2,iblock)
+          blc_end = blockinfo(4,iblock)
+          blc_len=blockinfo(3,iblock)
+          blc_start=blc_end-blc_len+1
+          cur_pcol = blockinfo(1,iblock)
+          
+          if(my_pcol.eq.cur_pcol) then
+             do off=1,blc_len
+                lc=blc_start+off-1
+                lch=c_start+off-1
+                ncol = istep*nbw + lc ! absolute column number of householder Vector
+                nrow = ncol - nbw ! Absolute number of pivot row   
+                lr  = local_index(nrow, my_prow, np_rows, nblk, -1) ! current row length
+
+                if (nrow.gt.1) then
+                   if (useGPU_reduction_lower_block_to_tridiagonal) then
+                      a_mat(1:lr,lch)=vmrGPU(max_l_rows * (lc - 1) + 1 : max_l_rows * (lc - 1) + lr) 
+                   else
+                      a_mat(1:lr,lch)=vmrCPU(1:lr,lc)  
+                   endif
+                   if (my_prow==prow(nrow, nblk, np_rows)) a_mat(lr,lch) = vrlblock(lc)
+                   a_mat(lr+1:lrex,c_start+off-1)=ex_buff2d(lr+1:lrex,blc_start+off-1)
+                else
+                   a_mat(1:lrex,c_start+off-1)=ex_buff2d(1:lrex,blc_start+off-1)
+                end if
+             end do
+          end if
+       end do
+
+          
+       deallocate(blockinfo)
+       deallocate(ex_buff)
+
+       call obj%timer%stop("hh_block")
+
+       if (useGPU_reduction_lower_block_to_tridiagonal) then
+        ! store column tiles back to GPU
+        if (do_memcpy) then
+
+            successGPU = gpu_memcpy2d((a_dev+ &
+                         int(((lc_start-1)*matrixRows*size_of_datatype),kind=c_intptr_t)), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), int(loc(a_mat(1,lc_start)),kind=c_intptr_t), &
+                         int(matrixRows*size_of_datatype,kind=c_intptr_t), &
+                         int(lr_end*size_of_datatype,kind=c_intptr_t), &
+                         int((lc_end - lc_start+1),kind=c_intptr_t), &
+                         int(gpuMemcpyHostToDevice,kind=c_int))
+            call check_memcpy_GPU_f("bandred: a_mat -> a_dev", 893,  successGPU)
+
+        endif ! do_memcopy
+      endif ! (useGPU_reduction_lower_block_to_tridiagonal
+
+      ! Calculate scalar products of stored Householder vectors.
+      ! This can be done in different ways, we use dsyrk
+
+      vav = 0
+      call obj%timer%start("blas0")
+      if (useGPU_reduction_lower_block_to_tridiagonal) then
+        if (l_rows > 0) then
+          call CHERK('U', 'C',            &
+                           int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                           vmrGPU, int(max(l_rows, 1),kind=BLAS_KIND), &
+                           ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      else ! useGPU_reduction_to_tridiagonal
+        if (l_rows > 0) then
+          call CHERK('U', 'C',           &
+                            int(n_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, vmrCPU, &
+                            int(max(l_rows, 1),kind=BLAS_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+        endif
+      endif
+      call obj%timer%stop("blas0")
+      call herm_matrix_allreduce_&
+         &single &
+                         (obj, n_cols,vav, nbw, nbw,mpi_comm_rows, .true., success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+        return
+      endif
+
+         ! Calculate triangular matrix T for block Householder Transformation
+      call obj%timer%start("blas1")
+      do lc=n_cols,1,-1
+         tau = taublock(lc)
+         tmat(lc,lc,istep)=tau
+         if (lc < n_cols) then
+            call CTRMV('U', 'C', 'N',&
+                 int(n_cols-lc,kind=BLAS_KIND), tmat(lc+1,lc+1,istep), &
+                 int(nbw,kind=BLAS_KIND), vav(lc+1,lc), 1_BLAS_KIND)
+            
+            tmat(lc,lc+1:n_cols,istep) = -tau * conjg(vav(lc+1:n_cols,lc))
+         endif
+      enddo
+      call obj%timer%stop("blas1")
+
+
+    ! Transpose vmr -> vmc (stored in umc, second half)
+    if (useGPU) then
+      call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &single &
+                        (obj, vmrGPU(:), max_l_rows, mpi_comm_rows, &
+                         umcGPU(max_l_cols * n_cols + 1:), max_l_cols, &
+                         mpi_comm_cols, 1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+                         success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    else ! useGPU
+      call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &single &
+                                        (obj, vmrCPU, max_l_rows, mpi_comm_rows, &
+                                         umcCPU(1,n_cols+1), max_l_cols, mpi_comm_cols, &
+                                         1, istep*nbw, n_cols, nblk, max_threads_used, .true., &
+      success)
+      if (.not.(success)) then
+        write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+        return
+      endif
+    endif ! useGPU
+
+    ! Calculate umc = A**T * vmr
+    ! Note that the distributed A has to be transposed
+    ! Opposed to direct tridiagonalization there is no need to use the cache locality
+    ! of the tiles, so we can use strips of the matrix
+
+
+    !Code for Algorithm 4
+
+    ! n_way is actually a branch for the number of OpenMP threads
+    n_way = 1
+
+      if (.not.useGPU) then
+        umcCPU(1:l_cols,1:n_cols) = 0.0_rck
+        vmrCPU(1:l_rows,n_cols+1:2*n_cols) = 0.0_rck
+      endif ! useGPU
+
+      if (l_cols > 0 .and. l_rows > 0) then
+
+        if (useGPU) then
+
+            successGPU = gpu_memset(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                        0, max_l_rows*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: vmr_dev", 1291,  successGPU)
+
+
+          successGPU = gpu_memcpy(vmr_dev, int(loc(vmrGPU(1)),kind=c_intptr_t), &
+                        max_l_rows*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: vmrGPU -> vmr_dev", 1323,  successGPU)
+
+
+            successGPU = gpu_memset(umc_dev, 0, l_cols*n_cols*size_of_datatype)
+            call check_memset_GPU_f("bandred: umc_dev", 1341,  successGPU)
+
+
+
+          successGPU = gpu_memcpy(umc_dev+l_cols*n_cols*size_of_datatype, &
+                        int(loc(umcGPU(1+l_cols*n_cols)),kind=c_intptr_t), &
+                        (umc_size-l_cols*n_cols)*size_of_datatype, &
+                        gpuMemcpyHostToDevice)
+          call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev", 1384,  successGPU)
+        endif ! useGPU
+
+        do i=0,(istep*nbw-1)/tile_size
+
+          lcs = i*l_cols_tile+1
+          lce = min(l_cols,(i+1)*l_cols_tile)
+          if (lce<lcs) cycle
+          lre = min(l_rows,(i+1)*l_rows_tile)
+
+          if (useGPU) then
+            call obj%timer%start("gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_CGEMM('C', 'N',                   &
+                                       lce-lcs+1, n_cols, lre,     &
+                                       ONE, (a_dev + ((lcs-1)*matrixRows* &
+                                       size_of_datatype)),         &
+                                       matrixRows, vmr_dev,max_l_rows,    &
+                                       ONE, (umc_dev+ (lcs-1)*     &
+                                           size_of_datatype),      &
+                                       max_l_cols, gpuHandle)
+
+            call obj%timer%stop("gpublas")
+
+            if(i == 0) cycle
+            call obj%timer%start("gpublas")
+
+            lre = min(l_rows,i*l_rows_tile)
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            if (isSkewsymmetric) then
+              call gpublas_CGEMM('N', 'N', lre,n_cols, lce-lcs+1, -ONE, &
+                            (a_dev+ ((lcs-1)*matrixRows*                 &
+                                  size_of_datatype)),             &
+                       matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                              size_of_datatype),              &
+                              max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                            size_of_datatype),              &
+                              max_l_rows, gpuHandle)
+            else
+              call gpublas_CGEMM('N', 'N', lre,n_cols, lce-lcs+1, ONE, &
+                                          (a_dev+ ((lcs-1)*matrixRows*                 &
+                                                size_of_datatype)),             &
+                                     matrixRows, (umc_dev+(max_l_cols * n_cols+lcs-1)* &
+                                            size_of_datatype),              &
+                                            max_l_cols, ONE, (vmr_dev+(max_l_rows * n_cols)* &
+                                          size_of_datatype),              &
+                                            max_l_rows, gpuHandle)
+            endif
+            call obj%timer%stop("gpublas")
+          else ! useGPU
+
+            call obj%timer%start("blas")
+            call CGEMM('C', 'N',       &
+                                int(lce-lcs+1,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lre,kind=BLAS_KIND), &
+                                ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND), &
+                                vmrCPU, int(max_l_rows,kind=BLAS_KIND), ONE, umcCPU(lcs,1), &
+                                int(max_l_cols,kind=BLAS_KIND) )
+            call obj%timer%stop("blas")
+            if (i == 0) cycle
+            lre = min(l_rows,i*l_rows_tile)
+            call obj%timer%start("blas")
+
+            if (isSkewsymmetric) then
+              call CGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  -ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                           &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+
+            else
+              call CGEMM('N', 'N', int(lre,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(lce-lcs+1,kind=BLAS_KIND), &
+                                  ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND),                                            &
+                                  umcCPU(lcs,n_cols+1), int(max_l_cols,kind=BLAS_KIND), ONE,                          &
+                                  vmrCPU(1,n_cols+1), int(max_l_rows, kind=BLAS_KIND) )
+            endif
+            call obj%timer%stop("blas")
+          endif ! useGPU
+        enddo ! i=0,(istep*nbw-1)/tile_size
+
+        if (useGPU) then
+          if (tile_size < istep*nbw .or. n_way > 1) then
+            successGPU = gpu_memcpy(int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                          vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                          (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyDeviceToHost)
+            call check_memcpy_GPU_f("bandred: vmr_dev -> vmrGPU", 1503,  successGPU)
+          endif
+
+          successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                        umc_dev, l_cols*n_cols*size_of_datatype, gpuMemcpyDeviceToHost)
+          call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU", 1523,  successGPU)
+        endif ! useGPU
+      endif ! l_cols>0 .and. l_rows>0
+
+    ! Sum up all ur(:) parts along rows and add them to the uc(:) parts
+    ! on the processors containing the diagonal
+    ! This is only necessary if ur has been calculated, i.e. if the
+    ! global tile size is smaller than the global remaining matrix
+
+    ! Or if we used the Algorithm 4
+    if (tile_size < istep*nbw .or. n_way > 1) then
+
+      if (useGPU) then
+        call elpa_reduce_add_vectors_&
+             &complex&
+             &_&
+             &single &
+                             (obj, vmrGPU(max_l_rows * n_cols + 1:),max_l_rows,  &
+                              mpi_comm_rows, umcGPU,                            &
+                              max_l_cols, mpi_comm_cols, istep*nbw, n_cols, nblk, max_threads_used)
+      else ! useGPU
+        call elpa_reduce_add_vectors_&
+        &complex&
+        &_&
+        &single &
+                                         (obj, vmrCPU(1,n_cols+1),max_l_rows,mpi_comm_rows, &
+                                          umcCPU, max_l_cols, mpi_comm_cols, &
+                                          istep*nbw, n_cols, nblk, max_threads_used)
+      endif ! useGPU
+    endif ! tile_size < istep*nbw .or. n_way > 1
+
+    if (l_cols > 0) then
+
+      if (useGPU) then
+
+        if (allocated(tmpGPU)) then
+          deallocate(tmpGPU, stat=istat, errmsg=errorMessage)
+          call check_deallocate_f("bandred: tmpGPU", 1585,  istat,  errorMessage)
+        endif
+
+      else ! useGPU
+
+
+      endif ! useGPU
+    endif ! l_cols > 0
+    ! U = U * Tmat**T
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(umc_dev, int(loc(umcGPU(1)),kind=c_intptr_t), &
+                    l_cols*n_cols*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: umcGPU -> umc_dev ", 1630,  successGPU)
+
+      successGPU = gpu_memcpy(tmat_dev,int(loc(tmat(1,1,istep)),kind=c_intptr_t), &
+                    nbw*nbw*size_of_datatype,gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: tmat -> tmat_dev ", 1634,  successGPU)
+
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_CTRMM('Right', 'Upper', 'C', 'Nonunit',  &
+                          l_cols, n_cols, ONE, tmat_dev, nbw, umc_dev, max_l_cols, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      call gpublas_CGEMM('C', 'N',             &
+                               n_cols, n_cols, l_cols, ONE, umc_dev, max_l_cols, &
+                               (umc_dev+(max_l_cols * n_cols )*size_of_datatype),max_l_cols, &
+                               ZERO, vav_dev, nbw, gpuHandle)
+
+      call gpublas_CTRMM('Right', 'Upper', 'C', 'Nonunit',    &
+         n_cols, n_cols, ONE, tmat_dev, nbw, vav_dev, nbw, gpuHandle)
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(vav),kind=c_intptr_t), &
+                  vav_dev, nbw*nbw*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: vav_dev -> vav ", 1671,  successGPU)
+    else ! useGPU
+
+      call obj%timer%start("blas")
+
+      call CTRMM('Right', 'Upper', 'C', 'Nonunit',     &
+                          int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep), &
+                          int(nbw,kind=BLAS_KIND), &
+                          umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      ! VAV = Tmat * V**T * A * V * Tmat**T = (U*Tmat**T)**T * V * Tmat**T
+
+      call CGEMM('C', 'N',              &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), &
+                          ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND), umcCPU(1,n_cols+1), &
+                          int(max_l_cols,kind=BLAs_KIND), ZERO, vav, int(nbw,kind=BLAS_KIND))
+
+      call CTRMM('Right', 'Upper', 'C', 'Nonunit',    &
+                          int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), ONE, tmat(1,1,istep),    &
+                          int(nbw,kind=BLAS_KIND), vav, int(nbw,kind=BLAS_KIND) )
+      call obj%timer%stop("blas")
+
+    endif ! useGPU
+
+    call herm_matrix_allreduce_&
+         &single &
+         (obj, n_cols,vav, nbw, nbw ,mpi_comm_cols, .false., success)
+    if (.not.(success)) then
+      write(error_unit,*) "Error when calling symm/herm_allreduce. Aborting..."
+      return
+    endif
+
+    if (useGPU) then
+      successGPU = gpu_memcpy(vav_dev, int(loc(vav),kind=c_intptr_t), &
+                       nbw*nbw*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vav -> vav_dev ", 1742,  successGPU)
+    endif
+
+
+    ! U = U - 0.5 * V * VAV
+
+    if (useGPU) then
+      call obj%timer%start("gpublas")
+      gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+      if (isSkewsymmetric) then
+        call gpublas_CGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                  (0.5_rk, 0.0_rk), &
+                                  (umc_dev+(max_l_cols * n_cols )* &
+                                  size_of_datatype),   &
+                                  max_l_cols, vav_dev,nbw,        &
+                                  ONE, umc_dev, max_l_cols, gpuHandle)
+      else
+        call gpublas_CGEMM('N', 'N', l_cols, n_cols, n_cols,&
+                                 (-0.5_rk, 0.0_rk), &
+                                 (umc_dev+(max_l_cols * n_cols )* &
+                                 size_of_datatype),   &
+                                 max_l_cols, vav_dev,nbw,        &
+                                 ONE, umc_dev, max_l_cols, gpuHandle)
+      endif
+      call obj%timer%stop("gpublas")
+
+      successGPU = gpu_memcpy(int(loc(umcGPU(1)),kind=c_intptr_t), &
+                  umc_dev, umc_size*size_of_datatype, gpuMemcpyDeviceToHost)
+      call check_memcpy_GPU_f("bandred: umc_dev -> umcGPU ", 1803,  successGPU)
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+           &complex&
+           &_&
+           &single &
+                       (obj, umcGPU(:), max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                        success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+          return
+        endif
+      else
+        call elpa_transpose_vectors_&
+           &complex&
+           &_&
+           &single &
+                       (obj, umcGPU, max_l_cols, mpi_comm_cols, &
+                        vmrGPU(max_l_rows * n_cols + 1:), max_l_rows, mpi_comm_rows, &
+                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., success)
+        if (.not.(success)) then
+          write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+          return
+        endif
+      endif
+
+      successGPU = gpu_memcpy(vmr_dev+max_l_rows*n_cols*size_of_datatype, &
+                  int(loc(vmrGPU(1+max_l_rows*n_cols)),kind=c_intptr_t), &
+                  (vmr_size-max_l_rows*n_cols)*size_of_datatype, gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("bandred: vmr -> vmrGPU ", 1860,  successGPU)
+    else ! useGPU
+      call obj%timer%start("blas")
+      call CGEMM('N', 'N', int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND),     &
+                         (-0.5_rk, 0.0_rk),     &
+                         umcCPU(1,n_cols+1), int(max_l_cols,kind=BLAS_KIND), vav, &
+                         int(nbw,kind=BLAS_KIND), ONE, umcCPU, int(max_l_cols,kind=BLAS_KIND))
+
+      call obj%timer%stop("blas")
+
+      ! Transpose umc -> umr (stored in vmr, second half)
+      if (isSkewsymmetric) then
+        call elpa_transpose_vectors_ss_&
+          &complex&
+        &_&
+        &single &
+                                 (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                        vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                        1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                        success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors_ss. Aborting..."
+            return
+          endif
+      else
+       call elpa_transpose_vectors_&
+       &complex&
+       &_&
+       &single &
+                                (obj, umcCPU, max_l_cols, mpi_comm_cols, &
+                                          vmrCPU(1,n_cols+1), max_l_rows, mpi_comm_rows, &
+                                          1, istep*nbw, n_cols, nblk, max_threads_used, .false., &
+                                          success)
+          if (.not.(success)) then
+            write(error_unit,*) "Error in elpa_transpose_vectors. Aborting..."
+            return
+          endif
+      endif
+    endif  ! useGPU
+
+    ! A = A - V*U**T - U*V**T
+
+
+    do i=0,(istep*nbw-1)/tile_size
+      lcs = i*l_cols_tile+1
+      lce = min(l_cols,(i+1)*l_cols_tile)
+      lre = min(l_rows,(i+1)*l_rows_tile)
+      if (lce<lcs .or. lre<1) cycle
+
+      if (useGPU) then
+        call obj%timer%start("gpublas")
+
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_CGEMM('N', 'C',     &
+                                   lre, lce-lcs+1, 2*n_cols, -ONE, &
+                                   vmr_dev, max_l_rows, (umc_dev +(lcs-1)*  &
+                                   size_of_datatype), &
+                                   max_l_cols, ONE, (a_dev+(lcs-1)*matrixRows* &
+                                   size_of_datatype), matrixRows, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+
+        call obj%timer%start("blas")
+        call CGEMM('N', 'C', int(lre,kind=BLAS_KIND),int(lce-lcs+1,kind=BLAS_KIND), &
+                            int(2*n_cols,kind=BLAS_KIND), &
+                            -ONE, &
+                            vmrCPU, int(max_l_rows,kind=BLAS_KIND), umcCPU(lcs,1), &
+                            int(max_l_cols,kind=BLAS_KIND), &
+                            ONE, a_mat(1,lcs), int(matrixRows,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+     endif ! useGPU
+    enddo ! i=0,(istep*nbw-1)/tile_size
+
+    if (.not.(useGPU)) then
+      if (allocated(vr)) then
+        deallocate(vr, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vr", 2029,  istat,  errorMessage)
+      endif
+
+      if (allocated(umcCPU)) then
+        deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: umcCPU", 2034,  istat,  errorMessage)
+      endif
+
+      if (allocated(vmrCPU)) then
+        deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+        call check_deallocate_f("bandred: vmrCPU", 2039,  istat,  errorMessage)
+      endif
+    endif !useGPU
+
+
+ enddo ! istep - loop
+
+  if (useGPU) then
+
+    ! copy a_dev to a_mat
+    ! we do it here, since a is needed on the host in the following routine
+    ! (band to tridi). Previously, a has been kept on the device and then
+    ! copied in redist_band (called from tridiag_band). However, it seems to
+    ! be easier to do it here.
+    successGPU = gpu_memcpy(int(loc(a_mat),kind=c_intptr_t), &
+                  int(a_dev,kind=c_intptr_t), &
+                  int(matrixRows*matrixCols* size_of_datatype, kind=c_intptr_t), &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("bandred: a_dev -> a_mat ", 2137,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(a_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: a_mat ", 2144,  successGPU)
+
+
+    successGPU = gpu_free(a_dev)
+    call check_dealloc_GPU_f("bandred: a_dev ", 2155,  successGPU)
+
+    successGPU = gpu_free(vav_dev)
+    call check_dealloc_GPU_f("bandred: vav_dev ", 2158,  successGPU)
+
+    successGPU = gpu_free(tmat_dev)
+    call check_dealloc_GPU_f("bandred: tmat_dev ", 2161,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(vav),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("bandred: vav", 2167,  successGPU)
+
+      if (associated(umcGPU)) then
+        nullify(umcGPU)
+
+        successGPU = gpu_free_host(umc_host)
+        call check_host_dealloc_GPU_f("bandred: umc_host ", 2180,  successGPU)
+        successGPU = gpu_free(umc_dev)
+        call check_dealloc_GPU_f("bandred: umc_dev ", 2182,  successGPU)
+      endif
+
+      if (associated(vmrGPU)) then
+        nullify(vmrGPU)
+
+        successGPU = gpu_free_host(vmr_host)
+        call check_host_dealloc_GPU_f("bandred: vmr_host ", 2189,  successGPU)
+
+        successGPU = gpu_free(vmr_dev)
+        call check_dealloc_GPU_f("bandred: vmr_dev ", 2192,  successGPU)
+      endif
+
+  endif ! useGPU
+  
+  if (allocated(vr)) then
+    deallocate(vr, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vr", 2215,  istat,  errorMessage)
+  endif
+
+  if (allocated(umcCPU)) then
+    deallocate(umcCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: umcCPU", 2221,  istat,  errorMessage)
+  endif
+
+  if (allocated(vmrCPU)) then
+    deallocate(vmrCPU, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("bandred: vmrCPU", 2226,  istat,  errorMessage)
+  endif
+
+  
+  call obj%timer%stop("bandred_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+contains
+  subroutine get_hh_vec(vec_in,vr,tau,vrl)
+    complex(kind=rck):: vr(:), vec_in(:), tau, vrl
+    complex(kind=rck):: aux1(2), xf
+    real(kind=rk):: vnorm2
+    ! Get Vector to be transformed; distribute last element and norm of
+    ! remaining elements to all procs in current column
+    
+    if (my_prow==prow(nrow, nblk, np_rows)) then
+       aux1(1) = dot_product(vec_in(1:lr-1),vec_in(1:lr-1))
+       aux1(2) = vec_in(lr)
+    else
+       aux1(1) = dot_product(vec_in(1:lr),vec_in(1:lr))
+       aux1(2) = 0.0_rck
+    endif
+
+
+    vnorm2 = real(aux1(1),kind=rk)
+    vrl    = aux1(2)
+
+    ! Householder transformation
+    call hh_transform_&
+         &complex&
+         &_&
+         &single &
+         (obj, vrl, vnorm2, xf, tau, wantDebug)
+    ! Scale vr and store Householder Vector for back transformation
+
+    vr(1:lr) = vec_in(1:lr) * xf
+    if (my_prow==prow(nrow, nblk, np_rows)) vr(lr) = 1.0_rck
+
+  end subroutine get_hh_vec
+  
+
+  subroutine apply_ht(tau,vr,ex_buff2d)
+    complex(kind=rck):: tau, vr(:), ex_buff2d(:,:)
+    complex(kind=rck):: tauc
+    complex(kind=rck):: aux1(nbw)
+    integer:: nlc, imax
+    logical:: use_blas
+
+    imax=ubound(ex_buff2d,2)
+    
+    if((imax.lt.3).or.(max_threads.gt.1)) then
+       !don't use BLAS for very small imax because overhead is too high
+       !don't use BLAS with OpenMP because measurements showed that threading is not effective for these routines
+       use_blas=.false.
+    else
+       use_blas=.true.
+    end if
+    
+    !we need to transform the remaining ex_buff
+    if (lr>0) then
+       if(use_blas) then !note that aux1 is conjg between > and < thresh_blas!!
+          call CGEMV('C',int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND), &
+               ONE, ex_buff2d, size(ex_buff2d,1,kind=BLAS_KIND), vr, 1_BLAS_KIND, ZERO, aux1, &
+               1_BLAS_KIND)
+       else
+          do nlc=1,imax
+             aux1(nlc) = dot_product(vr(1:lr),ex_buff2d(1:lr,nlc))
+          end do
+       end if
+    else
+       aux1(1:imax) = 0.
+    end if
+
+    ! Get global dot products
+
+    if(lr.le.0) return !no data on this processor
+
+    ! Transform
+    tauc=-conjg(tau)
+    if(use_blas) then
+       call CGERC(int(lr,kind=BLAS_KIND),int(imax,kind=BLAS_KIND),tauc,vr,1_BLAS_KIND,&
+            aux1,1_BLAS_KIND,ex_buff2d,ubound(ex_buff2d,1,kind=BLAS_KIND))
+    else
+       do nlc=1,imax         
+          ex_buff2d(1:lr,nlc) = ex_buff2d(1:lr,nlc) + tauc*aux1(nlc)*vr(1:lr)
+       end do
+    end if
+
+  end subroutine apply_ht
+  
+end subroutine bandred_&
+&complex&
+&_&
+&single
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+subroutine herm_matrix_allreduce_&
+&single &
+                               (obj, n, a, lda, ldb, comm, isRows, success)
+!-------------------------------------------------------------------------------
+!  herm_matrix_allreduce: Does an mpi_allreduce for a hermitian matrix A.
+!  On entry, only the upper half of A needs to be set
+!  On exit, the complete matrix is set
+  use elpa_abstract_impl
+  use precision
+  implicit none
+  class(elpa_abstract_impl_t), intent(inout) :: obj
+  integer(kind=ik)               :: n, lda, ldb, comm
+  complex(kind=CK4) :: a(lda,ldb)
+
+  integer(kind=ik)               :: i, nc
+  integer(kind=MPI_KIND)         :: mpierr
+  complex(kind=CK4) :: h1(n*n), h2(n*n)
+  integer(kind=MPI_KIND)         :: allreduce_request1
+  logical                        :: useNonBlockingCollectivesCols
+  logical                        :: useNonBlockingCollectivesRows
+  logical                        :: useNonBlockingCollectives
+  logical, intent(in)            :: isRows
+  integer(kind=c_int)            :: non_blocking_collectives_rows, error, &
+                                    non_blocking_collectives_cols
+  logical                        :: success
+
+  success = .true.
+
+  call obj%timer%start("herm_matrix_allreduce" // "_single")
+
+  call obj%get("nbc_row_herm_allreduce", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa_herm_allreduce. Aborting..."
+    call obj%timer%stop("herm_matrix_allreduce" // "_single")
+    success = .false.
+    return
+  endif
+  call obj%get("nbc_col_herm_allreduce", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa_herm_allreduce. Aborting..."
+    call obj%timer%stop("herm_matrix_allreduce" // "_single")
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  if (isRows) then
+    useNonBlockingCollectives = useNonBlockingCollectivesRows
+  else
+    useNonBlockingCollectives = useNonBlockingCollectivesCols
+  endif
+
+  nc = 0
+  do i=1,n
+    h1(nc+1:nc+i) = a(1:i,i)
+    nc = nc+i
+  enddo
+!       h2(1:nc) = h1(1:nc)
+
+  nc = 0
+  do i=1,n
+    a(1:i,i) = h1(nc+1:nc+i)
+    a(i,1:i-1) = conjg(a(1:i-1,i))
+    nc = nc+i
+  enddo
+
+
+! nc = 0
+! do i=1,n
+!   a(1:i,i) = h2(nc+1:nc+i)
+!   a(i,1:i-1) = conjg(a(1:i-1,i))
+!   nc = nc+i
+! enddo
+
+  call obj%timer%stop("herm_matrix_allreduce" // "_single")
+
+end subroutine herm_matrix_allreduce_&
+&single
+
+
+
+
+
+
+
+
+
+subroutine trans_ev_band_to_full_&
+    &complex&
+    &_&
+    &single &
+    (obj, na, nqc, nblk, nbw, a_mat, lda, tmat, q_mat, &
+     ldq, matrixCols, numBlocks, mpi_comm_rows, mpi_comm_cols, useGPU, &
+     success)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_band_to_full_real/complex:
+!  Transforms the eigenvectors of a band matrix back to the eigenvectors of the original matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a_mat, number of rows of matrix q_mat
+!
+!  nqc         Number of columns of matrix q_mat
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nbw         semi bandwith
+!
+!  a_mat(lda,matrixCols)    Matrix containing the Householder vectors (i.e. matrix a_mat after bandred_real/complex)
+!              Distribution is like in Scalapack.
+!
+!  lda         Leading dimension of a_mat
+!  matrixCols  local columns of matrix a_mat and q_mat
+!
+!  tmat(nbw,nbw,numBlocks) Factors returned by bandred_real/complex
+!
+!  q_mat           On input: Eigenvectors of band matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q_mat
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns
+!
+!-------------------------------------------------------------------------------
+  use precision
+  use elpa_gpu
+  use, intrinsic :: iso_c_binding
+  use elpa_abstract_impl
+  use elpa_blas_interfaces
+
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: ck = C_FLOAT_COMPLEX
+  integer, parameter :: rck = C_FLOAT_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)     :: obj
+  logical, intent(in)                            :: useGPU
+  integer(kind=ik)                               :: na, nqc, lda, ldq, nblk, nbw, matrixCols, numBlocks, mpi_comm_rows, &
+                                                    mpi_comm_cols
+  complex(kind=rck)                        :: a_mat(lda,*)
+  complex(kind=rck)                        :: q_mat(ldq,*), tmat(nbw,nbw,*)
+
+  integer(kind=ik)                               :: my_prow, my_pcol, np_rows, np_cols
+  integer(kind=MPI_KIND)                         :: my_prowMPI, my_pcolMPI, np_rowsMPI, np_colsMPI, mpierr
+  integer(kind=ik)                               :: max_blocks_row, max_blocks_col, max_local_rows, &
+                                                    max_local_cols
+  integer(kind=ik)                               :: l_cols, l_rows, l_colh, n_cols
+  integer(kind=ik)                               :: istep, lc, ncol, nrow, nb, ns
+
+  complex(kind=rck), allocatable           :: hvb(:)
+  complex(kind=rck), pointer               :: hvm(:,:), tmp1(:), tmp2(:)
+  complex(kind=rck), pointer               :: tmp_debug(:)
+  ! hvm_dev is fist used and set in this routine
+  ! q_mat is changed in trans_ev_tridi on the host, copied to device and passed here. this can be adapted
+  ! tmp_dev is first used in this routine
+  ! tmat_complete_dev is not passed along from bandred_real
+  integer(kind=C_intptr_T)                       :: hvm_dev, q_dev, tmp_dev, tmat_complete_dev, dev_offset
+
+  type(c_ptr)                                    :: hvm_host, tmp1_host, tmp2_host
+
+
+
+  integer(kind=ik)                               :: i
+
+  complex(kind=rck), allocatable, target   :: tmat_complete(:,:), t_tmp(:,:), t_tmp2(:,:)
+  integer(kind=ik)                               :: t_cols, t_rows, ii, jj
+  integer(kind=ik)                               :: cwy_blocking
+
+  integer(kind=ik)                               :: istat
+  character(200)                                 :: errorMessage
+  character(20)                                  :: gpuString
+  logical                                        :: successGPU
+  integer(kind=c_intptr_t), parameter            :: size_of_datatype = size_of_&
+                                                                       &single&
+                                                                       &_&
+                                                                       &complex
+  integer(kind=ik)                               :: blocking_factor, error, blk_end
+  integer(kind=MPI_KIND)                         :: bcast_request1, allreduce_request1, allreduce_request2
+  logical                                        :: useNonBlockingCollectivesCols
+  logical                                        :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                            :: non_blocking_collectives_rows, non_blocking_collectives_cols
+  logical                                        :: success
+  integer(kind=c_intptr_t)                       :: gpuHandle, my_stream
+
+  success = .true.
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_band_to_full_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  call obj%get("nbc_row_elpa2_band_to_full", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for rows in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  call obj%get("nbc_col_elpa2_band_to_full", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives for cols in elpa2_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  call obj%get("blocking_in_band_to_full",blocking_factor,error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem getting option for blocking_in_band_to_full. Aborting..."
+    call obj%timer%stop("trans_ev_band_to_full_&
+    &complex&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+
+  call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND) ,my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND) ,np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND) ,my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND) ,np_colsMPI ,mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+  call obj%timer%stop("mpi_communication")
+
+  max_blocks_row = ((na -1)/nblk)/np_rows + 1 ! Rows of a_mat
+  max_blocks_col = ((nqc-1)/nblk)/np_cols + 1 ! Columns of q_mat!
+
+  max_local_rows = max_blocks_row*nblk
+  max_local_cols = max_blocks_col*nblk
+
+  cwy_blocking = blocking_factor * nbw
+
+  if (useGPU) then
+    ! copy q_mat to q_dev
+    successGPU = gpu_malloc(q_dev,ldq*matrixCols*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: q_dev", 289,  successGPU)
+      successGPU = gpu_host_register(int(loc(q_mat),kind=c_intptr_t),&
+                    ldq*matrixCols*size_of_datatype, gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: q_mat", 295,  successGPU)
+
+    successGPU = gpu_memcpy(q_dev,int(loc(q_mat),kind=c_intptr_t),&
+                  ldq*matrixCols*size_of_datatype, gpuMemcpyHostToDevice)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_mat -> q_dev", 317,  successGPU)
+
+      successGPU = gpu_malloc_host(tmp1_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp1_host", 324,  successGPU)
+      call c_f_pointer(tmp1_host, tmp1, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(tmp2_host,max_local_cols*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: tmp2_host", 328,  successGPU)
+      call c_f_pointer(tmp2_host, tmp2, (/max_local_cols*cwy_blocking/))
+
+      successGPU = gpu_malloc_host(hvm_host,max_local_rows*cwy_blocking*size_of_datatype)
+      call check_host_alloc_GPU_f("trans_ev_band_to_full: hvm_host", 332,  successGPU)
+      call c_f_pointer(hvm_host, hvm, (/max_local_rows,cwy_blocking/))
+  else ! useGPU
+    allocate(tmp1(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp1", 343,  istat,  errorMessage)
+
+    allocate(tmp2(max_local_cols*cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: tmp2", 346,  istat,  errorMessage)
+
+    allocate(hvm(max_local_rows,cwy_blocking), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: hvm", 349,  istat,  errorMessage)
+  endif !useGPU
+
+  allocate(hvb(max_local_rows*cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: hvb", 353,  istat,  errorMessage)
+
+  allocate(tmat_complete(cwy_blocking,cwy_blocking), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("trans_ev_band_to_full: tmat_complete", 356,  istat,  errorMessage)
+
+  if (useGPU) then
+      successGPU = gpu_host_register(int(loc(tmat_complete),kind=c_intptr_t), &
+                    cwy_blocking * cwy_blocking * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("trans_ev_band_to_full: tmat_complete", 365,  successGPU)
+  endif
+
+
+  if (blocking_factor > 1) then
+    allocate(t_tmp(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp", 389,  istat,  errorMessage)
+
+    allocate(t_tmp2(cwy_blocking,nbw), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("trans_ev_band_to_full: t_tmp2", 392,  istat,  errorMessage)
+
+  endif
+
+  if (useGPU) then
+    successGPU = gpu_malloc(hvm_dev,max_local_rows*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: hvm_dev", 409,  successGPU)
+
+    successGPU = gpu_malloc(tmp_dev,max_local_cols*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmp_dev", 412,  successGPU)
+
+
+      successGPU = gpu_memset(tmp_dev, 0, max_local_cols*cwy_blocking*size_of_datatype)
+      call check_memset_GPU_f("trans_ev_band_to_full: tmp_dev", 430,  successGPU)
+
+
+
+    successGPU = gpu_malloc(tmat_complete_dev,cwy_blocking*cwy_blocking*size_of_datatype)
+    call check_alloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 477,  successGPU)
+  endif
+
+
+  hvm = 0.0_rck ! Must be set to 0 !!!
+  hvb = 0.0_rck ! Safety only
+  tmp1 = 0.0_rck
+  tmp2 = 0.0_rck
+  tmat_complete = 0.0_rck
+  if (blocking_factor > 1) then
+     t_tmp = 0.0_rck ! Must be set to 0 !!!
+     t_tmp2 = 0.0_rck
+
+  endif
+  l_cols = local_index(nqc, my_pcol, np_cols, nblk, -1) ! Local columns of q_mat
+
+  blk_end = ((na-1)/nbw-1)/blocking_factor + 1
+  do istep=1, blk_end
+
+    ! This the call when using na >= ((blocking_factor+1)*nbw)
+    ! n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw
+    ! Number of columns in current step
+    ! As an alternative we add some special case handling if na < cwy_blocking
+    if (na < cwy_blocking) then
+      n_cols = MAX(0, na-nbw)
+      if ( n_cols .eq. 0 ) then
+        exit
+      end if
+    else
+      n_cols = MIN(na,istep*cwy_blocking+nbw) - (istep-1)*cwy_blocking - nbw ! Number of columns in current step
+    end if
+
+    ! Broadcast all Householder vectors for current step compressed in hvb
+
+    nb = 0
+    ns = 0
+
+    do lc = 1, n_cols
+      ncol = (istep-1)*cwy_blocking + nbw + lc ! absolute column number of householder Vector
+      nrow = ncol - nbw ! absolute number of pivot row
+
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+      l_colh = local_index(ncol , my_pcol, np_cols, nblk, -1) ! HV local column number
+
+      if (my_pcol==pcol(ncol, nblk, np_cols)) hvb(nb+1:nb+l_rows) = a_mat(1:l_rows,l_colh)
+
+      nb = nb+l_rows
+
+      if (lc==n_cols .or. mod(ncol,nblk)==0) then
+        ns = nb
+      endif
+    enddo ! lc
+
+    ! Expand compressed Householder vectors into matrix hvm
+
+    nb = 0
+    do lc = 1, n_cols
+      nrow = (istep-1)*cwy_blocking + lc ! absolute number of pivot row
+      l_rows = local_index(nrow-1, my_prow, np_rows, nblk, -1) ! row length for bcast
+
+      ! could maybe also done on GPU
+      hvm(1:l_rows,lc) = hvb(nb+1:nb+l_rows)
+      if (my_prow==prow(nrow, nblk, np_rows)) hvm(l_rows+1,lc) = 1.0_rck
+      nb = nb+l_rows
+    enddo
+
+    l_rows = local_index(MIN(na,(istep+1)*cwy_blocking), my_prow, np_rows, nblk, -1)
+
+    ! compute tmat2 out of tmat(:,:,)
+    tmat_complete = 0
+    do i = 1, blocking_factor
+      t_cols = MIN(nbw, n_cols - (i-1)*nbw)
+      if (t_cols <= 0) exit
+      t_rows = (i - 1) * nbw
+      tmat_complete(t_rows+1:t_rows+t_cols,t_rows+1:t_rows+t_cols) = tmat(1:t_cols,1:t_cols,(istep-1)*blocking_factor + i)
+
+      if (i > 1) then
+        if (useGPU) then
+          call obj%timer%start("blas")
+          call CGEMM('C', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        else ! useGPU
+          call obj%timer%start("blas")
+          call CGEMM('C', 'N', &
+                            int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, hvm, &
+                            int(max_local_rows,kind=BLAS_KIND), hvm(:,(i-1)*nbw+1:), &
+                            int(max_local_rows,kind=BLAS_KIND), ZERO, t_tmp, int(cwy_blocking, kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+        endif ! useGPU
+
+
+        if (useGPU) then
+          ! remove cuda_aware section here, does not make sense without MPI add MORE_GPUBLAS instead
+          call obj%timer%start("blas")
+          call CTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call CTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        else !useGPU
+          call obj%timer%start("blas")
+          call CTRMM('L', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call CTRMM('R', 'U', 'N', 'N', int(t_rows,kind=BLAS_KIND), int(t_cols,kind=BLAS_KIND), -ONE, &
+                              tmat_complete(t_rows+1,t_rows+1), &
+                              int(cwy_blocking,kind=BLAS_KIND), t_tmp, int(cwy_blocking,kind=BLAS_KIND))
+          call obj%timer%stop("blas")
+          tmat_complete(1:t_rows,t_rows+1:t_rows+t_cols) = t_tmp(1:t_rows,1:t_cols)
+        endif !useGPU
+
+
+      endif
+    enddo
+
+    ! Q = Q - V * T**T * V**T * Q
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        successGPU = gpu_memcpy(hvm_dev, int(loc(hvm),kind=c_intptr_t), &
+                        max_local_rows*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: hvm -> hvm_dev", 1039,  successGPU)
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_CGEMM('C', 'N', &
+                                     n_cols, l_cols, l_rows, ONE, hvm_dev, max_local_rows, &
+                                     q_dev, ldq , ZERO, tmp_dev, n_cols, gpuHandle)
+        call obj%timer%stop("gpublas")
+
+      else ! useGPU
+        call obj%timer%start("blas")
+        call CGEMM('C', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(l_rows,kind=BLAS_KIND), ONE, &
+                            hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), q_mat, int(ldq,kind=BLAS_KIND), ZERO, tmp1, &
+                           int(n_cols,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    else ! l_rows>0
+        tmp1(1:l_cols*n_cols) = 0.0_rck
+    endif ! l_rows>0
+
+
+    if (l_rows > 0) then
+      if (useGPU) then
+        ! needed as long as not device to device copy
+        successGPU = gpu_memcpy(tmat_complete_dev, int(loc(tmat_complete),kind=c_intptr_t), &
+                      cwy_blocking*cwy_blocking*size_of_datatype, gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("trans_ev_band_to_full: tmat_complete -> tmat_complete_dev", 1407,  successGPU)
+
+        call obj%timer%start("gpublas")
+        gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+        call gpublas_CTRMM('L', 'U', 'C', 'N', &
+                                   n_cols, l_cols, ONE, tmat_complete_dev, cwy_blocking, &
+                                   tmp_dev, n_cols, gpuHandle)
+        call gpublas_CGEMM('N', 'N', l_rows, l_cols, n_cols, &
+                                    -ONE, hvm_dev, max_local_rows, tmp_dev, n_cols, ONE, q_dev, ldq, gpuHandle)
+        call obj%timer%stop("gpublas")
+      else ! useGPU
+        call obj%timer%start("blas")
+        call CTRMM('L', 'U', 'C', 'N', &
+                            int(n_cols,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), ONE, tmat_complete, &
+                            int(cwy_blocking,kind=BLAS_KIND), &
+                            tmp1, int(n_cols,kind=BLAS_KIND))
+        call CGEMM('N', 'N', int(l_rows,kind=BLAS_KIND), int(l_cols,kind=BLAS_KIND), int(n_cols,kind=BLAS_KIND), &
+                            -ONE, hvm, int(ubound(hvm,dim=1),kind=BLAS_KIND), tmp1, int(n_cols,kind=BLAS_KIND), ONE, q_mat, &
+                            int(ldq,kind=BLAS_KIND))
+        call obj%timer%stop("blas")
+      endif ! useGPU
+    endif
+
+  enddo ! istep
+
+  deallocate(hvb, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: hvb", 1435,  istat,  errorMessage)
+
+  if (useGPU) then
+    successGPU = gpu_free(hvm_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: hvm_dev", 1439,  successGPU)
+
+    successGPU = gpu_free(tmp_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmp_dev", 1442,  successGPU)
+
+    successGPU = gpu_free(tmat_complete_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: tmat_complete_dev", 1449,  successGPU)
+
+    ! final transfer of q_dev
+    successGPU = gpu_memcpy(int(loc(q_mat),kind=c_intptr_t), q_dev, ldq*matrixCols*size_of_datatype, &
+                  gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_band_to_full: q_dev -> q_mat", 1469,  successGPU)
+
+    successGPU = gpu_free(q_dev)
+    call check_dealloc_GPU_f("trans_ev_band_to_full: q_dev", 1473,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(q_mat),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: q_mat", 1479,  successGPU)
+      nullify(tmp1)
+      nullify(tmp2)
+      nullify(hvm)
+
+    ! take care of new pointers nullify them
+
+
+      successGPU = gpu_free_host(tmp1_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp1_host", 1504,  successGPU)
+
+      successGPU = gpu_free_host(tmp2_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: tmp2_host", 1507,  successGPU)
+
+      successGPU = gpu_free_host(hvm_host)
+      call check_host_dealloc_GPU_f("trans_ev_band_to_full: hvm_host", 1510,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(tmat_complete),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("trans_ev_band_to_full: tmat_complete", 1513,  successGPU)
+  else ! useGPU
+    deallocate(tmp1, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp1", 1519,  istat,  errorMessage)
+
+    deallocate(tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: tmp2", 1522,  istat,  errorMessage)
+
+    deallocate(hvm, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: hvm", 1525,  istat,  errorMessage)
+  endif ! useGPU
+
+  deallocate(tmat_complete, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("trans_ev_band_to_full: tmat_complete", 1529,  istat,  errorMessage)
+
+
+  if (blocking_factor > 1) then
+
+    deallocate(t_tmp, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp", 1556,  istat,  errorMessage)
+
+    deallocate(t_tmp2, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("trans_ev_band_to_full: t_tmp2", 1559,  istat,  errorMessage)
+  endif
+
+  call obj%timer%stop("trans_ev_band_to_full_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+end subroutine trans_ev_band_to_full_&
+&complex&
+    &_&
+    &single
+
+
+
+
+
+
+subroutine tridiag_band_&
+  &complex&
+  &_&
+  &single &
+  (obj, na, nb, nblk, a_mat, lda, d, e, matrixCols, &
+  hh_trans, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, useGPU, wantDebug, nrThreads, isSkewsymmetric, &
+  success)
+  !-------------------------------------------------------------------------------
+  ! tridiag_band_real/complex:
+  ! Reduces a real symmetric band matrix to tridiagonal form
+  !
+  !  na          Order of matrix a
+  !
+  !  nb          Semi bandwith
+  !
+  !  nblk        blocksize of cyclic distribution, must be the same in both directions!
+  !
+  !  a_mat(lda,matrixCols)    Distributed system matrix reduced to banded form in the upper diagonal
+  !
+  !  lda         Leading dimension of a
+  !  matrixCols  local columns of matrix a
+  !
+  ! hh_trans : housholder vectors
+  !
+  !  d(na)       Diagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  e(na)       Subdiagonal of tridiagonal matrix, set only on PE 0 (output)
+  !
+  !  mpi_comm_rows
+  !  mpi_comm_cols
+  !              MPI-Communicators for rows/columns
+  !  mpi_comm_all
+  !              MPI-Communicator for the total processor set
+  !-------------------------------------------------------------------------------
+  use elpa_abstract_impl
+  use elpa2_workload
+  use precision
+  use, intrinsic :: iso_c_binding
+  use redist
+  use elpa_blas_interfaces
+  use elpa_skewsymmetric_blas
+  use elpa_gpu
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: ck = C_FLOAT_COMPLEX
+  integer, parameter :: rck = C_FLOAT_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU, wantDebug
+  logical, intent(in)                          :: isSkewsymmetric
+  integer(kind=ik), intent(in)                 :: na, nb, nblk, lda, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all
+  complex(kind=rck), intent(in)         :: a_mat(lda,*)
+  real(kind=rk), intent(out)        :: d(na), e(na) ! set only on PE 0
+  complex(kind=rck), intent(out), allocatable   :: hh_trans(:,:)
+
+  real(kind=rk)                     :: vnorm2
+  complex(kind=rck)                     :: hv(nb), tau, x, h(nb), ab_s(1+nb), hv_s(nb), hv_new(nb), tau_new, hf
+  complex(kind=rck)                     :: hd(nb), hs(nb)
+
+  integer(kind=ik)                             :: i, n, nc, nr, ns, ne, istep, iblk, nblocks_total, nblocks, nt
+  integer(kind=ik)                             :: my_pe, n_pes
+  integer(kind=ik)                             :: my_prow, np_rows, my_pcol, np_cols
+  integer(kind=MPI_KIND)                       :: my_peMPI, n_pesMPI, mpierr
+  integer(kind=MPI_KIND)                       :: my_prowMPI, np_rowsMPI, my_pcolMPI, np_colsMPI
+  integer(kind=MPI_KIND)                       :: ireq_ab, ireq_hv
+  integer(kind=ik)                             :: na_s, nx, num_hh_vecs, num_chunks, local_size, max_blk_size, n_off
+  integer(kind=ik), intent(in)                 :: nrThreads
+  integer(kind=ik), allocatable                :: global_id(:,:), hh_cnt(:), hh_dst(:)
+  integer(kind=MPI_KIND), allocatable          :: ireq_hhr(:), ireq_hhs(:)
+  integer(kind=ik), allocatable                :: limits(:), snd_limits(:,:)
+  integer(kind=ik), allocatable                :: block_limits(:)
+  complex(kind=rck), allocatable         :: ab(:,:), hh_gath(:,:,:), hh_send(:,:,:)
+  integer                                      :: istat
+  integer(kind=ik)                             :: nblockEnd
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+
+  integer(kind=ik)                             :: startAddr
+
+   integer(kind=MPI_KIND)                      :: allreduce_request1, allreduce_request2
+   logical                                     :: useNonBlockingCollectivesAll
+   integer(kind=c_int)                         :: non_blocking_collectives, error
+   logical                                     :: success
+
+   success = .true.
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("tridiag_band_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  call obj%get("nbc_all_elpa2_band_to_tridi", non_blocking_collectives, error)
+  if (error .ne. ELPA_OK) then
+    write(error_unit,*) "Problem setting option for non blocking collectives in elpa2_band_to_tridi. Aborting..."
+    call obj%timer%stop("tridiag_band_&
+    &complex&
+    &" // &
+    &"_single" //&
+    gpuString)
+    success = .false.
+    return
+  endif
+
+  if (non_blocking_collectives .eq. 1) then
+    useNonBlockingCollectivesAll = .true.
+  else
+    useNonBlockingCollectivesAll = .false.
+  endif
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call mpi_comm_rank(int(mpi_comm_all,kind=MPI_KIND) ,my_peMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_all,kind=MPI_KIND) ,n_pesMPI ,mpierr)
+
+  call mpi_comm_rank(int(mpi_comm_rows,kind=MPI_KIND),my_prowMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_rows,kind=MPI_KIND),np_rowsMPI ,mpierr)
+  call mpi_comm_rank(int(mpi_comm_cols,kind=MPI_KIND),my_pcolMPI ,mpierr)
+  call mpi_comm_size(int(mpi_comm_cols,kind=MPI_KIND),np_colsMPI ,mpierr)
+
+  my_pe = int(my_peMPI,kind=MPI_KIND)
+  n_pes = int(n_pesMPI,kind=MPI_KIND)
+  my_prow = int(my_prowMPI,kind=MPI_KIND)
+  np_rows = int(np_rowsMPI,kind=MPI_KIND)
+  my_pcol = int(my_pcolMPI,kind=MPI_KIND)
+  np_cols = int(np_colsMPI,kind=MPI_KIND)
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  ! Get global_id mapping 2D procssor coordinates to global id
+
+  allocate(global_id(0:np_rows-1,0:np_cols-1), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: global_id", 201,  istat,  errorMessage)
+
+  global_id(:,:) = 0
+  global_id(my_prow, my_pcol) = my_pe
+
+
+
+  ! Total number of blocks in the band:
+
+  nblocks_total = (na-1)/nb + 1
+
+  ! Set work distribution
+
+  allocate(block_limits(0:n_pes), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: block_limits", 245,  istat,  errorMessage)
+
+  call divide_band(obj,nblocks_total, n_pes, block_limits)
+
+  ! nblocks: the number of blocks for my task
+  nblocks = block_limits(my_pe+1) - block_limits(my_pe)
+
+  ! allocate the part of the band matrix which is needed by this PE
+  ! The size is 1 block larger than needed to avoid extensive shifts
+  allocate(ab(2*nb,(nblocks+1)*nb), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: ab", 255,  istat,  errorMessage)
+
+  ab = 0.0_rck ! needed for lower half, the extra block should also be set to 0 for safety
+
+  ! n_off: Offset of ab within band
+  n_off = block_limits(my_pe)*nb
+
+  ! Redistribute band in a to ab
+  call redist_band_&
+  &complex&
+  &_&
+  &single&
+  &(obj,a_mat, lda, na, nblk, nb, matrixCols, mpi_comm_rows, mpi_comm_cols, mpi_comm_all, ab, &
+   success)
+  if (.not.(success)) then
+    write(error_unit,*) "Error in redist_band. Aborting..."
+    return
+  endif
+
+  ! Calculate the workload for each sweep in the back transformation
+  ! and the space requirements to hold the HH vectors
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: limits", 278,  istat,  errorMessage)
+
+  call determine_workload(obj,na, nb, np_rows, limits)
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  do n = 1, nblocks_total
+    call determine_workload(obj, nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    ! add to number of householder vectors
+    ! please note: for nx==1 the one and only HH Vector is 0 and is neither calculated nor send below!
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_hh_vecs = num_hh_vecs + local_size
+      num_chunks  = num_chunks+1
+    endif
+    nx = nx - nb
+  enddo
+
+  ! Allocate space for HH vectors
+
+  allocate(hh_trans(nb,num_hh_vecs), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_trans", 301,  istat,  errorMessage)
+
+  ! Allocate and init MPI requests
+
+  allocate(ireq_hhr(num_chunks), stat=istat, errmsg=errorMessage) ! Recv requests
+  call check_allocate_f("tridiag_band: ireq_hhr", 306,  istat,  errorMessage)
+  allocate(ireq_hhs(nblocks), stat=istat, errmsg=errorMessage)    ! Send requests
+  call check_allocate_f("tridiag_band: ireq_hhs", 308,  istat,  errorMessage)
+
+  num_hh_vecs = 0
+  num_chunks  = 0
+  nx = na
+  nt = 0
+  nBlockEnd=1
+  do n = 1, nblocks_total
+    call determine_workload(obj,nx, nb, np_rows, limits)
+    local_size = limits(my_prow+1) - limits(my_prow)
+    if (mod(n-1,np_cols) == my_pcol .and. local_size>0 .and. nx>1) then
+      num_chunks  = num_chunks+1
+      ! carefull non-block recv data copy must be done at wait or send
+      ! hh_trans(1:nb*local_size,num_hh_vecs+1) = hh_send(1:nb*hh_cnt(iblk),1,iblk)
+
+      num_hh_vecs = num_hh_vecs + local_size
+    endif
+    nx = nx - nb
+    if (n == block_limits(nt+1)) then
+      nt = nt + 1
+    endif
+  enddo
+  ! Buffers for gathering/sending the HH vectors
+
+  allocate(hh_gath(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! gathers HH vectors
+  call check_allocate_f("tridiag_band: hh_gath", 347,  istat,  errorMessage)
+
+  allocate(hh_send(nb,max_blk_size,nblocks), stat=istat, errmsg=errorMessage) ! send buffer for HH vectors
+  call check_allocate_f("tridiag_band: hh_send", 350,  istat,  errorMessage)
+
+  hh_gath(:,:,:) = 0.0_rck
+  hh_send(:,:,:) = 0.0_rck
+
+  ! Some counters
+
+  allocate(hh_cnt(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_cnt", 358,  istat,  errorMessage)
+
+  allocate(hh_dst(nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: hh_dst", 361,  istat,  errorMessage)
+
+  hh_cnt(:) = 1 ! The first transfomation Vector is always 0 and not calculated at all
+  hh_dst(:) = 0 ! PE number for receive
+  ! Limits for sending
+
+  allocate(snd_limits(0:np_rows,nblocks), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridiag_band: snd_limits", 372,  istat,  errorMessage)
+
+  do iblk=1,nblocks
+    call determine_workload(obj, na-(iblk+block_limits(my_pe)-1)*nb, nb, np_rows, snd_limits(:,iblk))
+  enddo
+
+
+  ! ---------------------------------------------------------------------------
+  ! Start of calculations
+
+  na_s = block_limits(my_pe)*nb + 1
+
+  if (my_pe>0 .and. na_s<=na) then
+    ! send first column to previous PE
+    ! Only the PE owning the diagonal does that (sending 1 element of the subdiagonal block also)
+    ab_s(1:nb+1) = ab(1:nb+1,na_s-n_off)
+  endif
+
+if (np_rows*np_cols==1) then
+  startAddr = ubound(hh_trans,dim=2)
+endif
+
+   do istep=1,na-nblockEnd
+
+     if (my_pe==0) then
+       n = MIN(na-na_s,nb) ! number of rows to be reduced
+       hv(:) = 0.0_rck
+       hd(:) = 0.0_rck
+       tau = 0.0_rck
+
+       ! Transform first column of remaining matrix
+       ! Opposed to the real case, the last step (istep=na-1) is needed here for making
+       ! the last subdiagonal element a real number
+
+         vnorm2 = sum(real(ab(3:n+1,na_s-n_off),kind=rk4)**2+aimag(ab(3:n+1,na_s-n_off))**2)
+         if (n<2) vnorm2 = 0.0_rk ! Safety only
+
+          call hh_transform_&
+               &complex&
+               &_&
+               &single &
+                          (obj, ab(2,na_s-n_off), vnorm2, hf, tau, wantDebug)
+
+          hv(1) = 1.0_rck
+          hv(2:n) = ab(3:n+1,na_s-n_off)*hf
+
+       d(istep) = real(ab(1,na_s-n_off), kind=rk)
+       e(istep) = real(ab(2,na_s-n_off), kind=rk)
+
+       if (istep == na-1) then
+
+         d(na) = real(ab(1,na_s+1-n_off),kind=rk)
+         e(na) = 0.0_rck
+       endif
+     else
+       if (na>na_s) then
+         ! Receive Householder Vector from previous task, from PE owning subdiagonal
+
+
+         hv(1:nb) = hv_s(1:nb)
+
+         tau = hv(1)
+         hv(1) = 1.0_rck
+       endif
+      endif
+
+      na_s = na_s+1
+      if (na_s-n_off > nb) then
+        ab(:,1:nblocks*nb) = ab(:,nb+1:(nblocks+1)*nb)
+        ab(:,nblocks*nb+1:(nblocks+1)*nb) = 0.0_rck
+        n_off = n_off + nb
+      endif
+
+
+      do iblk=1,nblocks
+        ns = na_s + (iblk-1)*nb - n_off ! first column in block
+        ne = ns+nb-1                    ! last column in block
+
+        if (ns+n_off>na) exit
+
+        ! Store Householder Vector for back transformation
+
+        hh_cnt(iblk) = hh_cnt(iblk) + 1
+
+        hh_gath(1   ,hh_cnt(iblk),iblk) = tau
+        hh_gath(2:nb,hh_cnt(iblk),iblk) = hv(2:nb)
+
+        if (hh_cnt(iblk) == snd_limits(hh_dst(iblk)+1,iblk)-snd_limits(hh_dst(iblk),iblk)) then
+          ! Wait for last transfer to finish
+          ! Copy vectors into send buffer
+          hh_send(:,1:hh_cnt(iblk),iblk) = hh_gath(:,1:hh_cnt(iblk),iblk)
+          ! Send to destination
+
+          ! do the post-poned irecv here
+          startAddr = startAddr - hh_cnt(iblk)
+          hh_trans(1:nb,startAddr+1:startAddr+hh_cnt(iblk)) = hh_send(1:nb,1:hh_cnt(iblk),iblk)
+
+          ! Reset counter and increase destination row
+          hh_cnt(iblk) = 0
+          hh_dst(iblk) = hh_dst(iblk)+1
+        endif
+
+        ! The following code is structured in a way to keep waiting times for
+        ! other PEs at a minimum, especially if there is only one block.
+        ! For this reason, it requests the last column as late as possible
+        ! and sends the Householder Vector and the first column as early
+        ! as possible.
+        nc = MIN(na-ns-n_off+1,nb) ! number of columns in diagonal block
+        nr = MIN(na-nb-ns-n_off+1,nb) ! rows in subdiagonal block (may be < 0!!!)
+                                      ! Note that nr>=0 implies that diagonal block is full (nc==nb)!
+
+        ! Multiply diagonal block and subdiagonal block with Householder Vector
+
+        if (iblk==nblocks .and. nc==nb) then
+
+          ! We need the last column from the next PE.
+          ! First do the matrix multiplications without last column ...
+
+          ! Diagonal block, the contribution of the last element is added below!
+          ab(1,ne) = 0.0_rck
+
+          if (wantDebug) call obj%timer%start("blas")
+
+          call CHEMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                           hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          ! Subdiagonal block
+          if (nr>0) call CGEMV('N', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                        tau, ab(nb+1,ns), int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, &
+                                        ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+
+          ! ... then request last column ...
+
+          ab(1:nb+1,ne) = ab_s(1:nb+1)
+
+
+          ! ... and complete the result
+          hs(1:nr) = hs(1:nr) + ab(2:nr+1,ne)*tau*hv(nb)
+          hd(nb) = hd(nb) + ab(1,ne)*hv(nb)*tau
+
+        else ! if (iblk==nblocks .and. nc==nb) then
+
+          ! Normal matrix multiply
+          if (wantDebug) call obj%timer%start("blas")
+          call CHEMV('L', int(nc,kind=BLAS_KIND), tau, ab(1,ns), int(2*nb-1,kind=BLAS_KIND), &
+                             hv, 1_BLAS_KIND, ZERO, hd, 1_BLAS_KIND)
+          if (nr>0) call CGEMV('N', int(nr,kind=BLAS_KIND), int(nb,kind=BLAS_KIND), tau, ab(nb+1,ns), &
+                                      int(2*nb-1,kind=BLAS_KIND), hv, 1_BLAS_KIND, ZERO, hs, 1_BLAS_KIND)
+          if (wantDebug) call obj%timer%stop("blas")
+        endif ! if (iblk==nblocks .and. nc==nb) then
+
+        ! Calculate first column of subdiagonal block and calculate new
+        ! Householder transformation for this column
+        hv_new(:) = 0.0_rck ! Needed, last rows must be 0 for nr < nb
+        tau_new = 0.0_rck
+        if (nr>0) then
+
+          ! complete (old) Householder transformation for first column
+
+          ab(nb+1:nb+nr,ns) = ab(nb+1:nb+nr,ns) - hs(1:nr) ! Note: hv(1) == 1
+
+          ! calculate new Householder transformation ...
+          if (nr>1) then
+            vnorm2 = sum(real(ab(nb+2:nb+nr,ns),kind=rk4)**2+aimag(ab(nb+2:nb+nr,ns))**2)
+
+            call hh_transform_&
+                &complex&
+                &_&
+                &single &
+               (obj, ab(nb+1,ns), vnorm2, hf, tau_new, wantDebug)
+            hv_new(1) = 1.0_rck
+            hv_new(2:nr) = ab(nb+2:nb+nr,ns)*hf
+            ab(nb+2:,ns) = 0.0_rck
+          endif ! nr > 1
+
+          ! ... and send it away immediatly if this is the last block
+
+          if (iblk==nblocks) then
+            hv_s(1) = tau_new
+            hv_s(2:) = hv_new(2:)
+
+          endif
+
+        endif
+
+        ! Transform diagonal block
+        x = dot_product(hv(1:nc),hd(1:nc))*conjg(tau)
+
+          hd(1:nc) = hd(1:nc) - 0.5_rk*x*hv(1:nc)
+        if (my_pe>0 .and. iblk==1) then
+
+          ! The first column of the diagonal block has to be send to the previous PE
+          ! Calculate first column only ...
+          ab(1:nc,ns) = ab(1:nc,ns) - hd(1:nc)*conjg(hv(1)) - hv(1:nc)*conjg(hd(1))
+          ! ... send it away ...
+          ab_s(1:nb+1) = ab(1:nb+1,ns)
+
+          ! ... and calculate remaining columns with rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          if (nc>1) call CHER2('L', int(nc-1,kind=BLAS_KIND), -ONE, hd(2), 1_BLAS_KIND, &
+                                     hv(2), 1_BLAS_KIND, ab(1,ns+1), int(2*nb-1,kind=BLAS_KIND) )
+          if (wantDebug) call obj%timer%stop("blas")
+
+        else ! (my_pe>0 .and. iblk==1)
+          ! No need to  send, just a rank-2 update
+          if (wantDebug) call obj%timer%start("blas")
+          call CHER2('L', int(nc,kind=BLAS_KIND), -ONE, hd, 1_BLAS_KIND, hv, 1_BLAS_KIND, &
+                              ab(1,ns), int(2*nb-1,kind=BLAS_KIND))
+          if (wantDebug) call obj%timer%stop("blas")
+        endif  ! (my_pe>0 .and. iblk==1)
+
+        ! Do the remaining double Householder transformation on the subdiagonal block cols 2 ... nb
+
+        if (nr > 0) then
+          if (nr > 1) then
+            if (wantDebug) call obj%timer%start("blas")
+            call CGEMV('C', int(nr,kind=BLAS_KIND), int(nb-1,kind=BLAS_KIND), &
+                                tau_new, ab(nb,ns+1), int(2*nb-1,kind=BLAS_KIND), &
+                                hv_new, 1_BLAS_KIND, ZERO, h(2), 1_BLAS_KIND)
+            if (wantDebug) call obj%timer%stop("blas")
+            x = dot_product(hs(1:nr),hv_new(1:nr))*tau_new
+            h(2:nb) = h(2:nb) - x*hv(2:nb)
+            ! Unfortunately there is no BLAS routine like DSYR2 for a nonsymmetric rank 2 update
+            do i=2,nb
+              ab(2+nb-i:1+nb+nr-i,i+ns-1) = ab(2+nb-i:1+nb+nr-i,i+ns-1) - hv_new(1:nr)*conjg(h(i)) - hs(1:nr)*conjg(hv(i))
+            enddo
+          else ! nr > 1
+            ! No double Householder transformation for nr=1, just complete the row
+            do i=2,nb
+              ab(2+nb-i,i+ns-1) = ab(2+nb-i,i+ns-1) - hs(1)*conjg(hv(i))
+            enddo
+          endif ! nr > 1
+        endif ! nr > 0
+
+        ! Use new HH Vector for the next block
+        hv(:) = hv_new(:)
+        tau = tau_new
+
+      enddo
+
+
+  enddo ! istep
+
+  ! Finish the last outstanding requests
+
+
+
+
+  deallocate(ab, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ab", 1232,  istat,  errorMessage)
+
+  deallocate(ireq_hhr, ireq_hhs, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: ireq_hhr", 1235,  istat,  errorMessage)
+
+  deallocate(hh_cnt, hh_dst, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_dst", 1238,  istat,  errorMessage)
+
+  deallocate(hh_gath, hh_send, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: hh_gath", 1241,  istat,  errorMessage)
+
+  deallocate(limits, snd_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: limits", 1244,  istat,  errorMessage)
+
+  deallocate(block_limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: block_limits", 1247,  istat,  errorMessage)
+
+  deallocate(global_id, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridiag_band: global_id", 1250,  istat,  errorMessage)
+
+  call obj%timer%stop("tridiag_band_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+  ! intel compiler bug makes these ifdefs necessary
+end subroutine tridiag_band_complex_&
+&single
+
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+! ELPA1 -- Faster replacements for ScaLAPACK symmetric eigenvalue routines
+!
+! Copyright of the original code rests with the authors inside the ELPA
+! consortium. The copyright of any additional modifications shall rest
+! with their original authors, but shall adhere to the licensing terms
+! distributed along with the original code in the file "COPYING".
+
+
+
+
+
+
+!#if REALCASE == 1
+!#endif
+
+!#if 1 == 1
+!#undef WITH_CUDA_AWARE_MPI_TRANS_TRIDI_TO_BAND
+!#endif
+
+subroutine trans_ev_tridi_to_band_&
+&complex&
+&_&
+&single &
+(obj, na, nev, nblk, nbw, q, ldq, matrixCols,         &
+ hh_trans, my_pe, mpi_comm_rows, mpi_comm_cols, wantDebug, useGPU, max_threads_in, success, &
+ kernel)
+
+!-------------------------------------------------------------------------------
+!  trans_ev_tridi_to_band_real/complex:
+!  Transforms the eigenvectors of a tridiagonal matrix back to the eigenvectors of the band matrix
+!
+!  Parameters
+!
+!  na          Order of matrix a, number of rows of matrix q
+!
+!  nev         Number eigenvectors to compute (= columns of matrix q)
+!
+!  nblk        blocksize of cyclic distribution, must be the same in both directions!
+!
+!  nb          semi bandwith
+!
+!  q           On input: Eigenvectors of tridiagonal matrix
+!              On output: Transformed eigenvectors
+!              Distribution is like in Scalapack.
+!
+!  ldq         Leading dimension of q
+!  matrixCols  local columns of matrix q
+!
+!  mpi_comm_rows
+!  mpi_comm_cols
+!              MPI-Communicators for rows/columns/both
+!
+!-------------------------------------------------------------------------------
+  use ELPA_utilities, only : error_unit
+  use elpa_abstract_impl
+  use elpa2_workload
+  use pack_unpack_cpu
+  use pack_unpack_gpu
+  use compute_hh_trafo
+  use elpa_gpu
+  use precision
+  use, intrinsic :: iso_c_binding
+  implicit none
+!    Copyright 2011, A. Marek
+!
+!    This file is part of ELPA.
+!
+!    The ELPA library was originally created by the ELPA consortium,
+!    consisting of the following organizations:
+!
+!    - Max Planck Computing and Data Facility (MPCDF), formerly known as
+!      Rechenzentrum Garching der Max-Planck-Gesellschaft (RZG),
+!    - Bergische Universität Wuppertal, Lehrstuhl für angewandte
+!      Informatik,
+!    - Technische Universität München, Lehrstuhl für Informatik mit
+!      Schwerpunkt Wissenschaftliches Rechnen ,
+!    - Fritz-Haber-Institut, Berlin, Abt. Theorie,
+!    - Max-Plack-Institut für Mathematik in den Naturwissenschaften,
+!      Leipzig, Abt. Komplexe Strukutren in Biologie und Kognition,
+!      and
+!    - IBM Deutschland GmbH
+!
+!    This particular source code file contains additions, changes and
+!    enhancements authored by Intel Corporation which is not part of
+!    the ELPA consortium.
+!
+!    More information can be found here:
+!    http://elpa.mpcdf.mpg.de/
+!
+!    ELPA is free software: you can redistribute it and/or modify
+!    it under the terms of the version 3 of the license of the
+!    GNU Lesser General Public License as published by the Free
+!    Software Foundation.
+!
+!    ELPA is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!
+!    You should have received a copy of the GNU Lesser General Public License
+!    along with ELPA.  If not, see <http://www.gnu.org/licenses/>
+!
+!    ELPA reflects a substantial effort on the part of the original
+!    ELPA consortium, and we ask you to respect the spirit of the
+!    license that we chose: i.e., please contribute any changes you
+!    may have back to the original ELPA library distribution, and keep
+!    any derivatives of ELPA under the same license that we chose for
+!    the original distribution, the GNU Lesser General Public License.
+!
+!
+
+  integer, parameter :: rk = C_FLOAT
+  integer, parameter :: ck = C_FLOAT_COMPLEX
+  integer, parameter :: rck = C_FLOAT_COMPLEX
+  complex(kind=rck), parameter     :: ZERO = (0.0_rk,0.0_rk), ONE = (1.0_rk,0.0_rk)
+  class(elpa_abstract_impl_t), intent(inout)   :: obj
+  logical, intent(in)                          :: useGPU
+
+  integer(kind=ik), intent(in)                 :: kernel, my_pe
+  integer(kind=ik), intent(in)                 :: na, nev, nblk, nbw, ldq, matrixCols, mpi_comm_rows, mpi_comm_cols
+
+  complex(kind=rck), target              :: q(ldq,*)
+
+  complex(kind=rck), intent(in),target   :: hh_trans(:,:)
+  integer(kind=c_intptr_t)                     :: hh_trans_dev
+  type(c_ptr)                                  :: hh_trans_mpi_dev
+  complex(kind=rck), pointer             :: hh_trans_mpi_fortran_ptr(:,:)
+
+
+  integer(kind=ik)                             :: np_rows, my_prow, np_cols, my_pcol
+  integer(kind=MPI_KIND)                       :: np_rowsMPI, my_prowMPI, np_colsMPI, my_pcolMPI
+  integer(kind=ik)                             :: i, j, ip, sweep, nbuf, l_nev, a_dim2
+  integer(kind=ik)                             :: current_n, current_local_n, current_n_start, current_n_end
+  integer(kind=ik)                             :: next_n, next_local_n, next_n_start, next_n_end
+  integer(kind=ik)                             :: bottom_msg_length, top_msg_length, next_top_msg_length
+  integer(kind=ik)                             :: stripe_width, last_stripe_width, stripe_count
+  integer(kind=ik)                             :: num_result_blocks, num_result_buffers, num_bufs_recvd
+  integer(kind=ik)                             :: a_off, current_tv_off, max_blk_size
+  integer(kind=ik)                             :: src, src_offset, dst, offset, nfact, num_blk
+  integer(kind=MPI_KIND)                       :: mpierr
+
+  logical                                      :: flag
+  complex(kind=rck), pointer             :: aIntern(:,:,:)
+  complex(kind=rck)                      :: a_var
+
+  type(c_ptr)                                  :: aIntern_ptr
+
+  complex(kind=rck), allocatable, target :: row(:)
+
+  integer(kind=c_intptr_t)                     :: row_dev
+  type(c_ptr)                                  :: row_mpi_dev
+  complex(kind=rck), pointer             :: row_mpi_fortran_ptr(:)
+
+  complex(kind=rck), pointer             :: row_group(:,:)
+
+  complex(kind=rck), allocatable, target :: top_border_send_buffer(:,:)
+  complex(kind=rck), allocatable, target :: top_border_recv_buffer(:,:)
+  complex(kind=rck), allocatable, target :: bottom_border_send_buffer(:,:)
+  complex(kind=rck), allocatable, target :: bottom_border_recv_buffer(:,:)
+
+  integer(kind=c_intptr_t)                     :: top_border_recv_buffer_dev, top_border_send_buffer_dev
+  type(c_ptr)                                  :: top_border_recv_buffer_mpi_dev, top_border_send_buffer_mpi_dev
+  complex(kind=rck), pointer             :: top_border_recv_buffer_mpi_fortran_ptr(:,:), &
+                                                  top_border_send_buffer_mpi_fortran_ptr(:,:)
+  integer(kind=c_intptr_t)                     :: bottom_border_send_buffer_dev, bottom_border_recv_buffer_dev
+  type(c_ptr)                                  :: bottom_border_send_buffer_mpi_dev, bottom_border_recv_buffer_mpi_dev
+  complex(kind=rck), pointer             :: bottom_border_send_buffer_mpi_fortran_ptr(:,:), &
+                                                  bottom_border_recv_buffer_mpi_fortran_ptr(:,:)
+  type(c_ptr)                                  :: aIntern_mpi_dev
+  complex(kind=rck), pointer             :: aIntern_mpi_fortran_ptr(:,:,:)
+
+  integer(kind=c_intptr_t)                     :: aIntern_dev
+  integer(kind=c_intptr_t)                     :: bcast_buffer_dev
+
+  type(c_ptr)                                  :: bcast_buffer_mpi_dev
+  complex(kind=rck), pointer             :: bcast_buffer_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: num
+  integer(kind=c_intptr_t)                     :: dev_offset, dev_offset_1
+  integer(kind=c_intptr_t)                     :: row_group_dev
+
+  type(c_ptr)                                  :: row_group_mpi_dev
+  complex(kind=rck), pointer             :: row_group_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: q_dev
+  type(c_ptr)                                  :: q_mpi_dev
+  complex(kind=rck), pointer             :: q_mpi_fortran_ptr(:,:)
+
+  integer(kind=c_intptr_t)                     :: hh_tau_dev
+  complex(kind=rck), pointer             :: hh_tau_debug(:)
+  integer(kind=ik)                             :: row_group_size, unpack_idx
+
+  type(c_ptr)                                  :: row_group_host, bcast_buffer_host
+
+  integer(kind=ik)                             :: n_times
+  integer(kind=ik)                             :: chunk, this_chunk
+
+  complex(kind=rck), allocatable,target  :: result_buffer(:,:,:)
+  integer(kind=c_intptr_t)                     :: result_buffer_dev
+
+  type(c_ptr)                                  :: result_buffer_mpi_dev
+  complex(kind=rck), pointer             :: result_buffer_mpi_fortran_ptr(:,:,:)
+
+  complex(kind=rck), pointer             :: bcast_buffer(:,:)
+
+  integer(kind=ik)                             :: n_off
+
+  integer(kind=MPI_KIND), allocatable          :: result_send_request(:), result_recv_request(:)
+  integer(kind=ik), allocatable                :: limits(:)
+  integer(kind=MPI_KIND), allocatable          :: top_send_request(:), bottom_send_request(:)
+  integer(kind=MPI_KIND), allocatable          :: top_recv_request(:), bottom_recv_request(:)
+
+  ! MPI send/recv tags, arbitrary
+
+  integer(kind=ik), parameter                  :: bottom_recv_tag = 111
+  integer(kind=ik), parameter                  :: top_recv_tag    = 222
+  integer(kind=ik), parameter                  :: result_recv_tag = 333
+
+  integer(kind=ik), intent(in)                 :: max_threads_in
+  integer(kind=ik)                             :: max_threads
+
+
+
+  ! Just for measuring the kernel performance
+  real(kind=c_double)                          :: kernel_time, kernel_time_recv ! MPI_WTIME always needs double
+  ! long integer
+  integer(kind=lik)                            :: kernel_flops, kernel_flops_recv
+
+  logical, intent(in)                          :: wantDebug
+  logical                                      :: success
+  integer(kind=ik)                             :: istat, print_flops
+  character(200)                               :: errorMessage
+  character(20)                                :: gpuString
+  logical                                      :: successGPU
+  integer(kind=ik)                             :: j1
+  integer(kind=ik)                             :: error
+  integer(kind=c_intptr_t), parameter          :: size_of_datatype = size_of_&
+                                                                 &single&
+                                                                 &_&
+                                                                 &complex
+  logical, parameter                           :: allComputeOnGPU = .true.
+
+  integer(kind=MPI_KIND)                     :: bcast_request1, allreduce_request1, allreduce_request2, &
+                                                allreduce_request3, allreduce_request4
+  logical                                    :: useNonBlockingCollectivesCols
+  logical                                    :: useNonBlockingCollectivesRows
+  integer(kind=c_int)                        :: non_blocking_collectives_rows, non_blocking_collectives_cols
+
+  integer(kind=c_intptr_t)                   :: gpuHandle, my_stream
+
+  if(useGPU) then
+    gpuString = "_gpu"
+  else
+    gpuString = ""
+  endif
+
+  call obj%timer%start("trans_ev_tridi_to_band_&
+  &complex&
+  &" // &
+  &"_single" //&
+  gpuString)
+
+
+  max_threads = max_threads_in
+
+  call obj%get("nbc_row_elpa2_tridi_to_band", non_blocking_collectives_rows, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for rows in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  call obj%get("nbc_col_elpa2_tridi_to_band", non_blocking_collectives_cols, error)
+  if (error .ne. ELPA_OK) then
+    print *,"Problem setting option for non blocking collectives for cols in elpa2_tridi_to_band. Aborting..."
+    stop 1
+  endif
+
+  if (non_blocking_collectives_rows .eq. 1) then
+    useNonBlockingCollectivesRows = .true.
+  else
+    useNonBlockingCollectivesRows = .false.
+  endif
+
+  if (non_blocking_collectives_cols .eq. 1) then
+    useNonBlockingCollectivesCols = .true.
+  else
+    useNonBlockingCollectivesCols = .false.
+  endif
+
+  n_times = 0
+  if (useGPU) then
+    unpack_idx = 0
+    row_group_size = 0
+  endif
+
+  success = .true.
+  kernel_time = 0.0
+  kernel_flops = 0
+
+  if (wantDebug) call obj%timer%start("mpi_communication")
+  call MPI_Comm_rank(int(mpi_comm_rows,kind=MPI_KIND) , my_prowMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_rows,kind=MPI_KIND) , np_rowsMPI , mpierr)
+  call MPI_Comm_rank(int(mpi_comm_cols,kind=MPI_KIND) , my_pcolMPI , mpierr)
+  call MPI_Comm_size(int(mpi_comm_cols,kind=MPI_KIND) , np_colsMPI , mpierr)
+
+  my_prow = int(my_prowMPI,kind=c_int)
+  my_pcol = int(my_pcolMPI,kind=c_int)
+  np_rows = int(np_rowsMPI,kind=c_int)
+  np_cols = int(np_colsMPI,kind=c_int)
+
+  if (wantDebug) call obj%timer%stop("mpi_communication")
+
+  if (mod(nbw,nblk)/=0) then
+    if (my_prow==0 .and. my_pcol==0) then
+      if (wantDebug) then
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &complex&
+                            &: ERROR: nbw=',nbw,', nblk=',nblk
+        write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                            &complex&
+                            &: band backtransform works only for nbw==n*nblk'
+      endif
+      success = .false.
+      return
+    endif
+  endif
+
+  nfact = nbw / nblk
+
+
+  ! local number of eigenvectors
+  l_nev = local_index(nev, my_pcol, np_cols, nblk, -1)
+
+  if (l_nev==0) then
+    stripe_width = 0
+    stripe_count = 0
+    last_stripe_width = 0
+
+  else ! l_nev
+
+
+    ! Suggested stripe width is 48 since 48*64 real*8 numbers should fit into
+    ! every primary cache
+    ! Suggested stripe width is 48 - should this be reduced for the complex case ???
+
+    if (useGPU) then
+      stripe_width = 1024 ! Must be a multiple of 4
+      stripe_count = (l_nev - 1) / stripe_width + 1
+
+    else ! useGPU
+
+      call obj%get("stripewidth_complex",stripe_width, error)
+
+      !stripe_width = 48 ! Must be a multiple of 4
+
+      stripe_count = (l_nev-1)/stripe_width + 1
+
+      ! Adapt stripe width so that last one doesn't get too small
+
+      stripe_width = (l_nev-1)/stripe_count + 1
+
+
+
+     if (kernel .eq. ELPA_2STAGE_COMPLEX_AVX512_BLOCK1 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_AVX512_BLOCK2 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_SVE512_BLOCK1 .or. &
+         kernel .eq. ELPA_2STAGE_COMPLEX_SVE512_BLOCK2  &
+         ) then
+
+       stripe_width = ((stripe_width+15)/16)*16 ! Must be a multiple of 8 because of AVX-512 memory alignment of 64 bytes
+                                       ! (8 * sizeof(float complex) == 64)
+
+     else
+       stripe_width = ((stripe_width+3)/4)*4 ! Must be a multiple of 4 because of AVX/SSE memory alignment of 32 bytes
+                                       ! (4 * sizeof(float complex) == 32)
+     endif
+   endif ! useGPU
+
+   last_stripe_width = l_nev - (stripe_count-1)*stripe_width
+
+  endif ! l_nev
+
+  ! Determine the matrix distribution at the beginning
+
+  allocate(limits(0:np_rows), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: limits", 633,  istat,  errorMessage)
+  call determine_workload(obj,na, nbw, np_rows, limits)
+
+  max_blk_size = maxval(limits(1:np_rows) - limits(0:np_rows-1))
+
+  a_dim2 = max_blk_size + nbw
+
+  if (useGPU) then
+
+    if (allComputeOnGPU) then
+      if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+      successGPU = gpu_malloc(q_dev, ldq*matrixCols* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: q_dev", 646,  successGPU)
+
+      successGPU =  gpu_memcpy(q_dev, int(loc(q(1,1)),kind=c_intptr_t),  &
+                               ldq*matrixCols * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q -> q_dev", 672,  successGPU)
+
+      ! associate with c_ptr
+      q_mpi_dev = transfer(q_dev, q_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(q_mpi_dev, q_mpi_fortran_ptr, &
+                       [ldq,matrixCols])
+      if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+      successGPU = gpu_malloc(hh_trans_dev, size(hh_trans,dim=1)*size(hh_trans,dim=2)* size_of_datatype)
+      call check_alloc_GPU_f("tridi_to_band: hh_trans_dev", 683,  successGPU)
+      ! associate with c_ptr
+      hh_trans_mpi_dev = transfer(hh_trans_dev, hh_trans_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(hh_trans_mpi_dev, hh_trans_mpi_fortran_ptr, &
+                       [size(hh_trans,dim=1),size(hh_trans,dim=2)])
+      successGPU =  gpu_memcpy(c_loc(hh_trans_mpi_fortran_ptr(1,1)),  &
+                               c_loc(hh_trans(1,1)), &
+                               size(hh_trans,dim=1)*size(hh_trans,dim=2) * size_of_datatype, &
+                               gpuMemcpyHostToDevice)
+      call check_memcpy_GPU_f("tridi_to_band: hh_trans -> hh_trans_dev", 716,  successGPU)
+
+    endif ! allComputeOnGPU
+
+    num = (stripe_width*a_dim2*stripe_count)* size_of_datatype
+    successGPU = gpu_malloc(aIntern_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: aIntern_dev", 727,  successGPU)
+
+    ! openmp loop here
+
+      successGPU = gpu_memset(aIntern_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: aIntern_dev", 743,  successGPU)
+
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      aIntern_mpi_dev = transfer(aIntern_dev, aIntern_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(aIntern_mpi_dev, aIntern_mpi_fortran_ptr, &
+                       [stripe_width,a_dim2,stripe_count])
+    endif ! allComputeOnGPU
+
+    ! "row_group" and "row_group_dev" are needed for GPU optimizations
+      successGPU = gpu_malloc_host(row_group_host,l_nev*nblk*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: row_group_host", 781,  successGPU)
+      call c_f_pointer(row_group_host, row_group, (/l_nev,nblk/))
+
+    row_group(:, :) = 0.0_rck
+    num =  (l_nev*nblk)* size_of_datatype
+    successGPU = gpu_malloc(row_group_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_group_dev", 792,  successGPU)
+
+
+      successGPU = gpu_memset(row_group_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_group_dev", 807,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      row_group_mpi_dev = transfer(row_group_dev, row_group_mpi_dev)
+      ! and associate a fortran pointer
+      call c_f_pointer(row_group_mpi_dev, row_group_mpi_fortran_ptr, &
+                       [l_nev,nblk])
+    endif ! allComputeOnGPU
+
+  else ! GPUs are not used
+
+
+
+    if (posix_memalign(aIntern_ptr, 64_c_intptr_t, stripe_width*a_dim2*stripe_count*  &
+        C_SIZEOF(a_var)) /= 0) then
+      print *,"trans_ev_tridi_to_band_real: error when allocating aIntern"//errorMessage
+      stop 1
+    endif
+
+    call c_f_pointer(aIntern_ptr, aIntern,[stripe_width,a_dim2,stripe_count] )
+    !allocate(aIntern(stripe_width,a_dim2,stripe_count), stat=istat, errmsg=errorMessage)
+
+    aIntern(:,:,:) = 0.0_rck
+  endif !useGPU
+
+  allocate(row(l_nev), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: row", 862,  istat,  errorMessage)
+
+  row(:) = 0.0_rck
+
+  if (useGPU .and. allComputeOnGPU) then
+    num =  (l_nev)* size_of_datatype
+    successGPU = gpu_malloc(row_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: row_dev", 869,  successGPU)
+
+      successGPU = gpu_memset(row_dev , 0, num)
+      call check_memset_GPU_f("tridi_to_band: row_dev", 886,  successGPU)
+
+
+    ! associate with c_ptr
+    row_mpi_dev = transfer(row_dev, row_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(row_mpi_dev, row_mpi_fortran_ptr, &
+                     [l_nev])
+  endif
+
+  ! Copy q from a block cyclic distribution into a distribution with contiguous rows,
+  ! and transpose the matrix using stripes of given stripe_width for cache blocking.
+
+  ! The peculiar way it is done below is due to the fact that the last row should be
+  ! ready first since it is the first one to start below
+
+
+
+  if (wantDebug) call obj%timer%start("ip_loop")
+  do ip = np_rows-1, 0, -1
+    if (my_prow == ip) then
+      ! Receive my rows which have not yet been received
+      src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+      do i=limits(ip)+1,limits(ip+1)
+        src = mod((i-1)/nblk, np_rows)
+
+        if (src < my_prow) then
+
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            my_stream = obj%gpu_setup%my_stream
+            call unpack_and_prepare_row_group_&
+            &complex&
+            &_gpu_&
+            &single &
+                          ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                                      stripe_width, last_stripe_width, a_dim2, l_nev,&
+                                      row_group_size, nblk, unpack_idx, &
+                                       i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+            if (allComputeOnGPU) then
+              ! memcpy row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1091,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1097,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev, row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+
+            call unpack_row_&
+                &complex&
+                &_cpu_&
+                &single &
+                (obj, aIntern, row,i-limits(ip), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        elseif (src == my_prow) then
+
+          src_offset = src_offset+1
+
+          if (useGPU) then
+
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &single &
+             ( obj, &
+                          row_group, row_group_dev, aIntern_dev, stripe_count, &
+                          stripe_width, last_stripe_width, a_dim2, l_nev,&
+                          row_group_size, nblk, unpack_idx, &
+                          i - limits(ip), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_CCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            else ! allComputeOnGPU
+              row_group(:, row_group_size) = q(src_offset, 1:l_nev)
+            endif ! allComputeOnGPU
+          else ! useGPU
+            row(:) = q(src_offset, 1:l_nev)
+          endif ! useGPU
+
+
+          if (useGPU) then
+
+          else
+            call unpack_row_&
+                 &complex&
+                 &_cpu_&
+                 &single &
+                            (obj, aIntern, row,i-limits(ip),  stripe_count, stripe_width, last_stripe_width)
+          endif
+
+
+        endif ! src == my_prow
+      enddo ! i=limits(ip)+1,limits(ip+1)
+
+
+      ! Send all rows which have not yet been send
+
+
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_CCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1219,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+            endif
+          enddo
+        enddo
+      else !  allComputeOnGPU
+        src_offset = 0
+        do dst = 0, ip-1
+          do i=limits(dst)+1,limits(dst+1)
+            if (mod((i-1)/nblk, np_rows) == my_prow) then
+              src_offset = src_offset+1
+              row(:) = q(src_offset, 1:l_nev)
+
+            endif
+          enddo
+        enddo
+      endif ! allComputeOnGPU
+
+    else if (my_prow < ip) then
+
+      ! Send all rows going to PE ip
+      if (allComputeOnGPU .and. useGPU) then
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+
+            if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+            gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+            call gpublas_CCOPY(l_nev, c_loc(q_mpi_fortran_ptr(src_offset,1)), ldq, &
+                                          c_loc(row_mpi_fortran_ptr(1)), 1, gpuHandle)
+            if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+
+            ! is there a way to avoid this device_synchronize ?
+            if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+            successGPU = gpu_devicesynchronize()
+            call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1277,  successGPU)
+            if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+
+
+          endif
+        enddo
+      else ! allComputeOnGPU
+        src_offset = local_index(limits(ip), my_prow, np_rows, nblk, -1)
+        do i=limits(ip)+1,limits(ip+1)
+          src = mod((i-1)/nblk, np_rows)
+          if (src == my_prow) then
+            src_offset = src_offset+1
+            row(:) = q(src_offset, 1:l_nev)
+          endif
+        enddo
+      endif  ! allComputeOnGPU
+
+      ! Receive all rows from PE ip
+      do i=limits(my_prow)+1,limits(my_prow+1)
+        src = mod((i-1)/nblk, np_rows)
+        if (src == ip) then
+          if (useGPU) then
+            ! An unpacking of the current row group may occur before queuing the next row
+
+            call unpack_and_prepare_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &single&
+                 &( obj, &
+                 row_group, row_group_dev, aIntern_dev, stripe_count,  &
+                 stripe_width, last_stripe_width, a_dim2, l_nev,       &
+                 row_group_size, nblk, unpack_idx,                     &
+                 i - limits(my_prow), .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! row_dev -> row_group_dev
+              successGPU =  gpu_memcpy(c_loc(row_group_mpi_fortran_ptr(1,row_group_size)), &
+                                       c_loc(row_mpi_fortran_ptr(1)),  &
+                                       l_nev* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: row_dev -> row_group_dev", 1458,  successGPU)
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 1464,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+            else
+              row_group(1:l_nev,row_group_size) = row(1:l_nev)
+            endif
+
+          else ! useGPU
+!           row(1:l_nev) = row(1:l_nev)
+            call unpack_row_&
+                 &complex&
+                 &_cpu_&
+                 &single &
+                 (obj, aIntern, row,i-limits(my_prow), stripe_count, stripe_width, last_stripe_width)
+          endif ! useGPU
+
+
+        endif
+      enddo ! i=limits(my_prow)+1,limits(my_prow+1)
+    endif ! (my_prow < ip)
+  enddo ! ip = np_rows-1, 0, -1
+
+  if (wantDebug) call obj%timer%stop("ip_loop")
+
+  if (wantDebug) call obj%timer%start("allocate")
+
+  if (useGPU) then
+    ! Force an unpacking of all remaining rows that haven't been unpacked yet
+
+    call unpack_and_prepare_row_group_&
+         &complex&
+         &_gpu_&
+         &single&
+         &( obj, &
+         row_group, row_group_dev, aIntern_dev, stripe_count, &
+         stripe_width, last_stripe_width, &
+         a_dim2, l_nev, row_group_size, nblk, unpack_idx,     &
+         -1, .true., wantDebug, allComputeOnGPU, my_stream)
+
+  endif
+
+  ! Set up result buffer queue
+
+  num_result_blocks = ((na-1)/nblk + np_rows - my_prow) / np_rows
+
+  num_result_buffers = 4*nfact
+  allocate(result_buffer(l_nev,nblk,num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_buffer", 1520,  istat,  errorMessage)
+
+  allocate(result_send_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_send_request", 1523,  istat,  errorMessage)
+
+  allocate(result_recv_request(num_result_buffers), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: result_recv_request", 1526,  istat,  errorMessage)
+
+  if (useGPU .and. allComputeOnGPU) then
+    num_result_buffers = 4*nfact
+    num =  (l_nev*nblk*num_result_buffers)* size_of_datatype
+    successGPU = gpu_malloc(result_buffer_dev, num* size_of_datatype)
+    call check_alloc_GPU_f("tridi_to_band: result_buffer_dev", 1532,  successGPU)
+
+    ! associate with c_ptr
+    result_buffer_mpi_dev = transfer(result_buffer_dev, result_buffer_mpi_dev)
+    ! and associate a fortran pointer
+    call c_f_pointer(result_buffer_mpi_dev, result_buffer_mpi_fortran_ptr, &
+                     [l_nev,nblk,num_result_buffers])
+  endif
+
+
+  ! Queue up buffers
+
+  ! carefull the "recv" has to be done at the corresponding wait or send
+  ! result_buffer(1: l_nev*nblk,1,j) =result_buffer(1:l_nev*nblk,1,nbuf)
+
+
+  num_bufs_recvd = 0 ! No buffers received yet
+
+  ! Initialize top/bottom requests
+
+  allocate(top_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_send_request", 1589,  istat,  errorMessage)
+
+  allocate(top_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_recv_request", 1592,  istat,  errorMessage)
+
+  allocate(bottom_send_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_send_request", 1595,  istat,  errorMessage)
+
+  allocate(bottom_recv_request(stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_recv_request", 1598,  istat,  errorMessage)
+
+
+
+  allocate(top_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_send_buffer", 1628,  istat,  errorMessage)
+
+  allocate(top_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: top_border_recv_buffer", 1631,  istat,  errorMessage)
+
+  allocate(bottom_border_send_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_send_buffer", 1634,  istat,  errorMessage)
+
+  allocate(bottom_border_recv_buffer(stripe_width*nbw, stripe_count), stat=istat, errmsg=errorMessage)
+  call check_allocate_f("tridi_to_band: bottom_border_recv_buffer", 1637,  istat,  errorMessage)
+
+  top_border_send_buffer(:,:) = 0.0_rck
+  top_border_recv_buffer(:,:) = 0.0_rck
+  bottom_border_send_buffer(:,:) = 0.0_rck
+  bottom_border_recv_buffer(:,:) = 0.0_rck
+
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      ! top_border_recv_buffer and top_border_send_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(top_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1655,  successGPU)
+
+      successGPU = gpu_malloc(top_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1658,  successGPU)
+
+        successGPU = gpu_memset(top_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 1673,  successGPU)
+        successGPU = gpu_memset(top_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: top_border_send_buffer_dev", 1675,  successGPU)
+
+
+      ! associate with c_ptr
+      top_border_recv_buffer_mpi_dev = transfer(top_border_recv_buffer_dev, top_border_recv_buffer_mpi_dev)
+      top_border_send_buffer_mpi_dev = transfer(top_border_send_buffer_dev, top_border_send_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(top_border_recv_buffer_mpi_dev, top_border_recv_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+      call c_f_pointer(top_border_send_buffer_mpi_dev, top_border_send_buffer_mpi_fortran_ptr, [stripe_width*nbw, stripe_count])
+
+      ! bottom_border_send_buffer and bottom_border_recv_buffer
+      num =  ( stripe_width*nbw*stripe_count) * size_of_datatype
+      successGPU = gpu_malloc(bottom_border_send_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1710,  successGPU)
+      successGPU = gpu_malloc(bottom_border_recv_buffer_dev, num)
+      call check_alloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1712,  successGPU)
+
+
+        successGPU = gpu_memset(bottom_border_send_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 1728,  successGPU)
+        successGPU = gpu_memset(bottom_border_recv_buffer_dev, 0, num)
+        call check_memset_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 1730,  successGPU)
+
+
+      ! associate with c_ptr
+      bottom_border_send_buffer_mpi_dev = transfer(bottom_border_send_buffer_dev, bottom_border_send_buffer_mpi_dev)
+      bottom_border_recv_buffer_mpi_dev = transfer(bottom_border_recv_buffer_dev, bottom_border_recv_buffer_mpi_dev)
+      ! and create a fortran pointer
+      call c_f_pointer(bottom_border_send_buffer_mpi_dev, bottom_border_send_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+      call c_f_pointer(bottom_border_recv_buffer_mpi_dev, bottom_border_recv_buffer_mpi_fortran_ptr, &
+                       [stripe_width*nbw, stripe_count])
+    endif ! allComputeOnGPU
+
+      successGPU = gpu_host_register(int(loc(top_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_send_buffer", 1767,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(top_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: top_border_recv_buffer", 1772,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_send_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_send_buffer", 1777,  successGPU)
+
+      successGPU = gpu_host_register(int(loc(bottom_border_recv_buffer),kind=c_intptr_t), &
+                    stripe_width*nbw* stripe_count * size_of_datatype,&
+                    gpuHostRegisterDefault)
+      call check_host_register_GPU_f("tridi_to_band: bottom_border_recv_buffer", 1782,  successGPU)
+  endif ! useGPU
+
+
+  ! Initialize broadcast buffer
+
+  if (useGPU) then
+      successGPU = gpu_malloc_host(bcast_buffer_host,nbw*max_blk_size*size_of_datatype)
+      call check_host_alloc_GPU_f("tridi_to_band: bcast_buffer_host", 1796,  successGPU)
+      call c_f_pointer(bcast_buffer_host, bcast_buffer, (/nbw,max_blk_size/))
+  else
+    allocate(bcast_buffer(nbw, max_blk_size), stat=istat, errmsg=errorMessage)
+    call check_allocate_f("tridi_to_band: bcast_buffer", 1805,  istat,  errorMessage)
+  endif
+
+  bcast_buffer = 0.0_rck
+
+  if (useGPU) then
+    num =  ( nbw * max_blk_size) * size_of_datatype
+    successGPU = gpu_malloc(bcast_buffer_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: bcast_buffer_dev", 1813,  successGPU)
+
+    if (allComputeOnGPU) then
+      ! associate with c_ptr
+      bcast_buffer_mpi_dev = transfer(bcast_buffer_dev, bcast_buffer_mpi_dev)
+      call c_f_pointer(bcast_buffer_mpi_dev, bcast_buffer_mpi_fortran_ptr, &
+                      [nbw, max_blk_size])
+    endif ! allComputeOnGPU
+
+
+      successGPU = gpu_memset( bcast_buffer_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 1834,  successGPU)
+
+
+    num =  (max_blk_size)* size_of_datatype
+    successGPU = gpu_malloc( hh_tau_dev, num)
+    call check_alloc_GPU_f("tridi_to_band: hh_tau_dev", 1850,  successGPU)
+
+
+      successGPU = gpu_memset( hh_tau_dev, 0, num)
+      call check_memset_GPU_f("tridi_to_band: hh_tau_dev", 1864,  successGPU)
+
+  endif ! useGPU
+
+  current_tv_off = 0 ! Offset of next row to be broadcast
+
+  ! ------------------- start of work loop -------------------
+
+  ! Pay attention that for a_off zero indexing is assumed
+  a_off = 0 ! offset in aIntern (to avoid unnecessary shifts)
+
+  top_msg_length = 0
+  bottom_msg_length = 0
+  if (wantDebug) call obj%timer%stop("allocate")
+
+  if (wantDebug) call obj%timer%start("sweep_loop")
+  do sweep = 0, (na-1)/nbw
+
+    current_n = na - sweep*nbw
+    call determine_workload(obj,current_n, nbw, np_rows, limits)
+    current_n_start = limits(my_prow)
+    current_n_end   = limits(my_prow+1)
+    current_local_n = current_n_end - current_n_start
+
+    next_n = max(current_n - nbw, 0)
+    call determine_workload(obj,next_n, nbw, np_rows, limits)
+    next_n_start = limits(my_prow)
+    next_n_end   = limits(my_prow+1)
+    next_local_n = next_n_end - next_n_start
+
+    if (next_n_end < next_n) then
+      bottom_msg_length = current_n_end - next_n_end
+    else
+      bottom_msg_length = 0
+    endif
+
+    if (next_local_n > 0) then
+      next_top_msg_length = current_n_start - next_n_start
+    else
+      next_top_msg_length = 0
+    endif
+
+    if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+      do i = 1, stripe_count
+
+
+        if (useGPU) then
+        else !useGPU
+        endif !useGPU
+!            carefull the recieve has to be done at the corresponding wait or send
+!            bottom_border_recv_buffer(1:nbw*stripe_width,1,i) = top_border_send_buffer(1:nbw*stripe_width,1,i)
+
+      enddo ! i = 1, stripe_count
+    endif ! sweep==0 .and. current_n_end < current_n .and. l_nev > 0
+
+    if (current_local_n > 1) then
+      if (useGPU .and. allComputeOnGPU) then
+        if (my_pcol == mod(sweep,np_cols)) then
+          if (wantDebug) call obj%timer%start("cuda_memcpy")
+          successGPU =  gpu_memcpy(c_loc(bcast_buffer_mpi_fortran_ptr(1,1)), &
+                                   c_loc(hh_trans_mpi_fortran_ptr(1,current_tv_off+1)),  &
+                                     size(hh_trans,dim=1) * (current_tv_off+current_local_n-(current_tv_off+1)+1) * &
+                                     size_of_datatype, &
+                                     gpuMemcpyDeviceToDevice)
+          call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2027,  successGPU)
+          if (wantDebug) call obj%timer%stop("cuda_memcpy")
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      else !useGPU
+        if (my_pcol == mod(sweep,np_cols)) then
+          bcast_buffer(:,1:current_local_n) =    &
+          hh_trans(:,current_tv_off+1:current_tv_off+current_local_n)
+          current_tv_off = current_tv_off + current_local_n
+        endif
+      endif ! useGPU
+
+      if (useGPU .and. .not.(allComputeOnGPU)) then
+        if (wantDebug) call obj%timer%start("memcpy")
+        successGPU =  gpu_memcpy(bcast_buffer_dev, int(loc(bcast_buffer(1,1)),kind=c_intptr_t),  &
+                                 nbw * current_local_n *    &
+                                 size_of_datatype, &
+                                 gpuMemcpyHostToDevice)
+        call check_memcpy_GPU_f("tridi_to_band: bcast_buffer -> bcast_buffer_dev", 2142,  successGPU)
+        if (wantDebug) call obj%timer%stop("memcpy")
+      endif ! useGPU
+
+      if (useGPU) then
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &complex&
+             &_gpu_&
+             &single&
+             (bcast_buffer_dev, hh_tau_dev, nbw, &
+             current_local_n, .false., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+
+    else ! (current_local_n > 1) then
+
+      ! for current_local_n == 1 the one and only HH Vector is 0 and not stored in hh_trans_real/complex
+      bcast_buffer(:,1) = 0.0_rck
+      if (useGPU) then
+
+          successGPU = gpu_memset(bcast_buffer_dev, 0, nbw * size_of_datatype)
+          call check_memset_GPU_f("tridi_to_band: bcast_buffer_dev", 2176,  successGPU)
+
+
+        if (wantDebug) call obj%timer%start("extract_hh")
+        call extract_hh_tau_&
+             &complex&
+             &_gpu_&
+             &single&
+             &( &
+             bcast_buffer_dev, hh_tau_dev, &
+             nbw, 1, .true., my_stream)
+        if (wantDebug) call obj%timer%stop("extract_hh")
+      endif ! useGPU
+    endif ! (current_local_n > 1) then
+
+    if (l_nev == 0) cycle
+
+    if (current_local_n > 0) then
+
+      do i = 1, stripe_count
+
+        !wait_b
+        if (current_n_end < current_n) then
+
+
+
+          n_off = current_local_n+a_off
+
+          if (useGPU) then
+            if (allComputeOnGPU) then
+              if (wantDebug) call obj%timer%start("cuda_memcpy")
+              successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                       c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                       stripe_width*nbw* size_of_datatype,      &
+                                       gpuMemcpyDeviceToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2378,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_memcpy")
+            else ! allComputeOnGPU
+              if (wantDebug) call obj%timer%start("memcpy")
+              dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width *a_dim2 )) * size_of_datatype
+              successGPU =  gpu_memcpy( aIntern_dev + dev_offset , &
+                                      int(loc(bottom_border_recv_buffer(1,i)),kind=c_intptr_t), &
+                                       stripe_width*nbw*  size_of_datatype,    &
+                                       gpuMemcpyHostToDevice)
+              call check_memcpy_GPU_f("tridi_to_band: bottom_border_recv_buffer -> aIntern_dev", 2404,  successGPU)
+              if (wantDebug) call obj%timer%stop("memcpy")
+            endif ! allComputeOnGPU
+          else ! useGPU
+            aIntern(:,n_off+1:n_off+nbw,i) = reshape( &
+            bottom_border_recv_buffer(1:stripe_width*nbw,i),(/stripe_width,nbw/))
+          endif ! useGPU
+
+
+          if (next_n_end < next_n) then
+
+            if (useGPU) then
+            else ! useGPU
+            endif ! useGPU
+!!                carefull the recieve has to be done at the corresponding wait or send
+!!                bottom_border_recv_buffer(1:stripe_width,1:nbw,i) =  top_border_send_buffer(1:stripe_width,1:nbw,i)
+
+            endif ! (next_n_end < next_n)
+          endif ! (current_n_end < current_n)
+
+          if (current_local_n <= bottom_msg_length + top_msg_length) then
+
+            !wait_t
+            if (top_msg_length>0) then
+
+
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! the MPI_IRECV will be done CUDA_AWARE we thus do not need a host to device copy
+                  ! However, we have to copy from top_border_recv_buffer_mpi_fortran_ptr to aIntern_mpi_fortran_ptr
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+
+                  !Fortran pointer for indexing
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                          c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                          stripe_width*top_msg_length* size_of_datatype,      &
+                                          gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2659,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  !             host_offset= (0 + (0 * stripe_width) + ( (i-1) * stripe_width * nbw ) ) * 8
+                  successGPU =  gpu_memcpy( aIntern_dev+dev_offset , int(loc(top_border_recv_buffer(1,i)),kind=c_intptr_t),  &
+                                             stripe_width*top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 2684,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+            endif ! top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+                &complex&
+                &_&
+                &single&
+                &(obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, &
+                max_threads, &
+                a_off, nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+                hh_tau_dev, kernel_flops, kernel_time, n_times, 0, current_local_n, i, &
+                last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+
+            !send_b        1
+
+            if (bottom_msg_length>0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                           c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 2946,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 2954,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy( int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                            stripe_width * bottom_msg_length * size_of_datatype,      &
+                                            gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 2979,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3033,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3040,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+            endif !(bottom_msg_length>0)
+
+          else ! current_local_n <= bottom_msg_length + top_msg_length
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &complex&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, &
+             current_local_n - bottom_msg_length, bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !send_b
+            if (bottom_msg_length > 0) then
+              n_off = current_local_n+nbw-bottom_msg_length+a_off
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  ! send should be done on GPU, send_buffer must be created and filled first
+                  ! memcpy from aIntern_dev to bottom_border_send_buffer_dev
+                  ! either with two offsets or with indexed pointer
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy( c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)), &
+                                            c_loc(aIntern_mpi_fortran_ptr(1,n_off+1,i)), &
+                                             stripe_width * bottom_msg_length * size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer_dev", 3326,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  dev_offset = (0 + (n_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(int(loc(bottom_border_send_buffer(1,i)),kind=c_intptr_t), aIntern_dev + dev_offset,  &
+                                           stripe_width*bottom_msg_length* size_of_datatype,  &
+                                           gpuMemcpyDeviceToHost)
+                  call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> bottom_border_send_buffer", 3351,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+
+              else !useGPU
+                bottom_border_send_buffer(1:stripe_width*bottom_msg_length,i) = reshape(&
+                aIntern(:,n_off+1:n_off+bottom_msg_length,i),(/stripe_width*bottom_msg_length/))
+              endif !useGPU
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (next_top_msg_length > 0) then
+                    successGPU =  gpu_memcpy(c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                             c_loc(bottom_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                             stripe_width*next_top_msg_length* size_of_datatype,      &
+                                             gpuMemcpyDeviceToDevice)
+                    call check_memcpy_GPU_f("tridi_to_band: bottom_border_send_dev -> top_border_recv_dev", 3407,  successGPU)
+                  endif
+
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 3414,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+                else ! allComputeOnGPU
+                  if (next_top_msg_length > 0) then
+                    top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                    bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                  endif
+                endif ! allComputeOnGPU
+              else ! useGPU
+                if (next_top_msg_length > 0) then
+                  top_border_recv_buffer(1:stripe_width*next_top_msg_length,i) =  &
+                  bottom_border_send_buffer(1:stripe_width*next_top_msg_length,i)
+                endif
+              endif ! useGPU
+
+            endif ! (bottom_msg_length > 0)
+
+
+            !compute
+
+            if (wantDebug) call obj%timer%start("compute_hh_trafo")
+            call compute_hh_trafo_&
+             &complex&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, &
+             stripe_count, max_threads, &
+             a_off,  nbw, max_blk_size, bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, top_msg_length, &
+             current_local_n-top_msg_length-bottom_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+            if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+            if (.not.success) then
+              success=.false.
+              return
+            endif
+
+            !wait_t
+            if (top_msg_length>0) then
+
+              if (useGPU) then
+                if (allComputeOnGPU) then
+                  if (wantDebug) call obj%timer%start("cuda_memcpy")
+                  successGPU =  gpu_memcpy(c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                           c_loc(top_border_recv_buffer_mpi_fortran_ptr(1,i)),  &
+                                           stripe_width* top_msg_length* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3664,  successGPU)
+                  if (wantDebug) call obj%timer%stop("cuda_memcpy")
+                else ! allComputeOnGPU
+                  if (wantDebug) call obj%timer%start("memcpy")
+                  ! copy top_border_recv_buffer to aIntern_dev, maybe not necessary if CUDA_AWARE IRECV
+                  dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+                  successGPU =  gpu_memcpy(aIntern_dev + dev_offset ,int(loc( top_border_recv_buffer(:,i)),kind=c_intptr_t),  &
+                                        stripe_width * top_msg_length * size_of_datatype,   &
+                                        gpuMemcpyHostToDevice)
+                  call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 3689,  successGPU)
+                  if (wantDebug) call obj%timer%stop("memcpy")
+                endif ! allComputeOnGPU
+              else ! useGPU
+                aIntern(:,a_off+1:a_off+top_msg_length,i) = &
+                reshape(top_border_recv_buffer(1:stripe_width*top_msg_length,i),(/stripe_width,top_msg_length/))
+              endif ! useGPU
+           endif
+
+           !compute
+
+           if (wantDebug) call obj%timer%start("compute_hh_trafo")
+           call compute_hh_trafo_&
+             &complex&
+             &_&
+             &single&
+             (obj, my_pe, useGPU, wantDebug, aIntern, aIntern_dev, stripe_width, a_dim2, stripe_count, max_threads, &
+             a_off, nbw, max_blk_size,  bcast_buffer, bcast_buffer_dev, &
+             hh_tau_dev, kernel_flops, kernel_time, n_times, 0, top_msg_length, i, &
+             last_stripe_width, kernel, my_stream=my_stream, success=success)
+           if (wantDebug) call obj%timer%stop("compute_hh_trafo")
+           if (.not.success) then
+             success=.false.
+             return
+           endif
+
+         endif ! which if branch
+
+         if (next_top_msg_length > 0) then
+           !request top_border data
+
+!             carefull the "recieve" has to be done at the corresponding wait or send
+!              top_border_recv_buffer(1:stripe_width,1:next_top_msg_length,i) =  &
+!               bottom_border_send_buffer(1:stripe_width,1:next_top_msg_length,i)
+
+
+         endif ! next_top_msg_length > 0
+
+         !send_t
+         if (my_prow > 0) then
+
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (wantDebug) call obj%timer%start("cuda_memcpy")
+               successGPU =  gpu_memcpy(c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                        c_loc(aIntern_mpi_fortran_ptr(1,a_off+1,i)), &
+                                        stripe_width* nbw* size_of_datatype,      &
+                                        gpuMemcpyDeviceToDevice)
+               call check_memcpy_GPU_f("tridi_to_band: top_border_recv_buffer -> aIntern_dev", 4067,  successGPU)
+               if (wantDebug) call obj%timer%stop("cuda_memcpy")
+             else ! allComputeOnGPU
+               if (wantDebug) call obj%timer%start("memcpy")
+               dev_offset = (0 + (a_off * stripe_width) + ( (i-1) * stripe_width * a_dim2 )) * size_of_datatype
+               successGPU =  gpu_memcpy(int(loc(top_border_send_buffer(:,i)),kind=c_intptr_t), aIntern_dev + dev_offset, &
+                                         stripe_width*nbw * size_of_datatype, &
+                                         gpuMemcpyDeviceToHost)
+               call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> top_border_send_buffer", 4092,  successGPU)
+               if (wantDebug) call obj%timer%stop("memcpy")
+             endif ! allComputeOnGPU
+           else ! useGPU
+             top_border_send_buffer(:,i) = reshape(aIntern(:,a_off+1:a_off+nbw,i),(/stripe_width*nbw/))
+           endif ! useGPU
+           if (useGPU) then
+             if (allComputeOnGPU) then
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4145,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4151,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+               if (next_n_end < next_n) then
+                 successGPU =  gpu_memcpy(c_loc(bottom_border_recv_buffer_mpi_fortran_ptr(1,i)), &
+                                          c_loc(top_border_send_buffer_mpi_fortran_ptr(1,i)),  &
+                                          nbw*stripe_width* size_of_datatype,      &
+                                           gpuMemcpyDeviceToDevice)
+                 call check_memcpy_GPU_f("tridi_to_band: top_border_send_dev -> bottom_border_recv_dev", 4174,  successGPU)
+               endif
+              if (wantDebug) call obj%timer%start("cuda_aware_device_synchronize")
+              successGPU = gpu_devicesynchronize()
+              call check_memcpy_GPU_f("tridi_to_band: device_synchronize", 4180,  successGPU)
+              if (wantDebug) call obj%timer%stop("cuda_aware_device_synchronize")
+             else ! allComputeOnGPU
+               if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+                 bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+               endif
+               if (next_n_end < next_n) then
+                 bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+               endif
+             endif ! allComputeOnGPU
+           else ! useGPU
+             if (sweep==0 .and. current_n_end < current_n .and. l_nev > 0) then
+               bottom_border_recv_buffer(1:nbw*stripe_width,i) = top_border_send_buffer(1:nbw*stripe_width,i)
+             endif
+             if (next_n_end < next_n) then
+               bottom_border_recv_buffer(1:stripe_width*nbw,i) =  top_border_send_buffer(1:stripe_width*nbw,i)
+             endif
+           endif ! useGPU
+
+         endif ! my_prow > 0
+
+         ! Care that there are not too many outstanding top_recv_request's
+         if (stripe_count > 1) then
+           if (i > 1) then
+           else ! i > 1
+          endif ! i > 1
+        endif ! stripe_count > 1
+      enddo ! i = 1, stripe_count
+
+      top_msg_length = next_top_msg_length
+
+    else ! current_local_n > 0
+      ! wait for last top_send_request
+
+    endif  ! current_local_n > 0
+
+    ! Care about the result
+
+    if (my_prow == 0) then
+
+      ! topmost process sends nbw rows to destination processes
+
+      do j=0, nfact-1
+        num_blk = sweep*nfact+j ! global number of destination block, 0 based
+        if (num_blk*nblk >= na) exit
+
+        nbuf = mod(num_blk, num_result_buffers) + 1 ! buffer number to get this block
+
+        dst = mod(num_blk, np_rows)
+
+        if (dst == 0) then
+          if (useGPU) then
+            row_group_size = min(na - num_blk*nblk, nblk)
+
+            call pack_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &single&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, last_stripe_width, a_dim2, l_nev, &
+                         row_group(:, :), j * nblk + a_off, row_group_size, &
+                         result_buffer_dev, nblk, num_result_buffers, nbuf, .false., wantDebug, allComputeOnGPU, my_stream)
+
+            if (allComputeOnGPU) then
+              ! memcpy DeviceToDevice row_group_dev -> q_dev
+              do i = 1, row_group_size
+               if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+               gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+               call gpublas_CCOPY(l_nev, c_loc(row_group_mpi_fortran_ptr(1,i)), 1, &
+                                           c_loc(q_mpi_fortran_ptr((num_blk / np_rows) * nblk + i,1)), ldq, gpuHandle)
+               if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+              enddo
+            else ! allComputeOnGPU
+              do i = 1, row_group_size
+                q((num_blk / np_rows) * nblk + i, 1 : l_nev) = row_group(:, i)
+              enddo
+            endif ! allComputeOnGPU
+          else ! useGPU
+
+            do i = 1, min(na - num_blk*nblk, nblk)
+              call pack_row_&
+                   &complex&
+                   &_cpu_&
+                   &single&
+                   &(obj, aIntern, row, j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+              q((num_blk/np_rows)*nblk+i,1:l_nev) = row(:)
+            enddo
+          endif ! useGPU
+
+        else ! (dst == 0)
+
+          if (useGPU) then
+
+            call pack_row_group_&
+                 &complex&
+                 &_gpu_&
+                 &single&
+                 &(obj, row_group_dev, aIntern_dev, stripe_count, stripe_width, &
+                   last_stripe_width, a_dim2, l_nev, &
+                   result_buffer(:, :, nbuf), j * nblk + a_off, nblk, &
+                   result_buffer_dev, nblk, num_result_buffers, nbuf, .true., wantDebug, allComputeOnGPU, my_stream)
+
+          else  ! useGPU
+            do i = 1, nblk
+              call pack_row_&
+                   &complex&
+                   &_cpu_&
+                   &single&
+                   &(obj, aIntern, result_buffer(:,i,nbuf),j*nblk+i+a_off, stripe_width, last_stripe_width, stripe_count)
+            enddo
+          endif ! useGPU
+
+        endif ! (dst == 0)
+      enddo  !j=0, nfact-1
+
+    else ! (my_prow == 0)
+
+      ! receive and store final result
+
+      do j = num_bufs_recvd, num_result_blocks-1
+
+        nbuf = mod(j, num_result_buffers) + 1 ! buffer number to get this block
+
+        ! If there is still work to do, just test for the next result request
+        ! and leave the loop if it is not ready, otherwise wait for all
+        ! outstanding requests
+
+        if (next_local_n > 0) then
+            ! needed
+            !successGPU = gpu_devicesynchronize()
+          flag = .true.
+
+          if (.not.flag) exit
+
+        else ! (next_local_n > 0)
+        endif ! (next_local_n > 0)
+
+        ! Fill result buffer into q
+        num_blk = j*np_rows + my_prow ! global number of current block, 0 based
+        if (useGPU) then
+          if (allComputeOnGPU) then
+            do i = 1, min(na - num_blk*nblk, nblk)
+              if (wantDebug) call obj%timer%start("cuda_aware_gpublas")
+              gpuHandle = obj%gpu_setup%gpublasHandleArray(0)
+              call gpublas_CCOPY(l_nev, c_loc(result_buffer_mpi_fortran_ptr(1,i,nbuf)), 1, &
+                                          c_loc(q_mpi_fortran_ptr(j*nblk + i,1)), ldq, gpuHandle)
+              if (wantDebug) call obj%timer%stop("cuda_aware_gpublas")
+            enddo
+          else ! allComputeOnGPU
+            do i = 1, min(na - num_blk*nblk, nblk)
+              q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+            enddo
+          endif ! allComputeOnGPU
+        else ! useGPU
+          do i = 1, min(na - num_blk*nblk, nblk)
+            q(j*nblk+i, 1:l_nev) = result_buffer(1:l_nev, i, nbuf)
+          enddo
+        endif ! useGPU
+        ! Queue result buffer again if there are outstanding blocks left
+
+
+      enddo ! j = num_bufs_recvd, num_result_blocks-1
+      num_bufs_recvd = j
+
+    endif ! (my_prow == 0)
+
+    ! Shift the remaining rows to the front of aIntern (if necessary)
+
+    offset = nbw - top_msg_length
+    if (offset<0) then
+      if (wantDebug) write(error_unit,*) 'ELPA2_trans_ev_tridi_to_band_&
+                                         &complex&
+                                         &: internal error, offset for shifting = ',offset
+      success = .false.
+      return
+    endif
+
+    a_off = a_off + offset
+    if (a_off + next_local_n + nbw >= a_dim2) then
+      do i = 1, stripe_count
+        if (useGPU) then
+          chunk = min(next_local_n,a_off)
+
+          if (chunk < 1) exit
+
+          if (wantDebug) call obj%timer%start("normal_memcpy")
+          do j = top_msg_length+1, top_msg_length+next_local_n, chunk
+            this_chunk = min(j+chunk-1,top_msg_length+next_local_n)-j+1
+            dev_offset = ((j-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            dev_offset_1 = ((j+a_off-1)*stripe_width+(i-1)*stripe_width*a_dim2)*size_of_datatype
+            num = stripe_width*this_chunk*size_of_datatype
+            successGPU = gpu_memcpy(aIntern_dev+dev_offset, aIntern_dev+dev_offset_1, num, gpuMemcpyDeviceToDevice)
+
+            call check_memcpy_GPU_f("tridi_to_band: aIntern_dev -> aIntern_dev", 4648,  successGPU)
+          end do
+          if (wantDebug) call obj%timer%stop("normal_memcpy")
+        else ! not useGPU
+          do j = top_msg_length+1, top_msg_length+next_local_n
+            aIntern(:,j,i) = aIntern(:,j+a_off,i)
+          end do
+        end if
+      end do ! stripe_count
+
+      a_off = 0
+    end if
+  end do ! sweep
+  if (wantDebug) call obj%timer%stop("sweep_loop")
+
+  ! Just for safety:
+
+  if (my_prow == 0) then
+
+  endif
+
+
+  call obj%get("print_flops",print_flops,error)
+
+
+  if (useGPU .and. allComputeOnGPU) then
+    ! finally copy q_dev to q
+    if (wantDebug) call obj%timer%start("cuda_memcpy")
+    successGPU =  gpu_memcpy(int(loc(q(1,1)),kind=c_intptr_t),  &
+                             q_dev, &
+                             ldq*matrixCols * size_of_datatype, &
+                             gpuMemcpyDeviceToHost)
+    call check_memcpy_GPU_f("trans_ev_tridi_to_band 1: q_dev -> q", 4771,  successGPU)
+    if (wantDebug) call obj%timer%stop("cuda_memcpy")
+
+  endif
+
+  if (my_prow==0 .and. my_pcol==0 .and.print_flops == 1) then
+      write(error_unit,'(" Kernel time:",f10.3," MFlops: ",es12.5)')  kernel_time, kernel_flops/kernel_time*1.d-6
+  endif
+
+  ! deallocate all working space
+
+  if (.not.(useGPU)) then
+    nullify(aIntern)
+    call free(aIntern_ptr)
+  endif
+
+  deallocate(row, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: row", 4789,  istat,  errorMessage)
+
+  deallocate(limits, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: limits", 4792,  istat,  errorMessage)
+
+  deallocate(result_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_send_request", 4795,  istat,  errorMessage)
+
+  deallocate(result_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_recv_request", 4798,  istat,  errorMessage)
+
+  deallocate(result_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: result_buffer", 4801,  istat,  errorMessage)
+
+  if (useGPU) then
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(result_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: result_buffer_dev", 4806,  successGPU)
+      nullify(result_buffer_mpi_fortran_ptr)
+    endif
+
+      nullify(bcast_buffer)
+
+      successGPU = gpu_free_host(bcast_buffer_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: bcast_buffer_host", 4816,  successGPU)
+  else ! useGPU
+    deallocate(bcast_buffer, stat=istat, errmsg=errorMessage)
+    call check_deallocate_f("tridi_to_band: bcast_buffer", 4824,  istat,  errorMessage)
+  endif ! useGPU
+
+
+  if (useGPU) then
+    successGPU = gpu_free(aIntern_dev)
+    call check_dealloc_GPU_f("tridi_to_band: aIntern_dev", 4830,  successGPU)
+
+    if (allComputeOnGPU) then
+      successGPU = gpu_free(q_dev)
+      call check_dealloc_GPU_f("tridi_to_band: q_dev", 4834,  successGPU)
+      nullify(q_mpi_fortran_ptr)
+
+      successGPU = gpu_free(hh_trans_dev)
+      call check_dealloc_GPU_f("tridi_to_band: hh_trans_dev", 4838,  successGPU)
+      nullify(hh_trans_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_recv_buffer_dev", 4842,  successGPU)
+      nullify(top_border_recv_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(top_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: top_border_send_buffer_dev", 4846,  successGPU)
+      nullify(top_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_send_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_send_buffer_dev", 4850,  successGPU)
+      nullify(bottom_border_send_buffer_mpi_fortran_ptr)
+
+      successGPU = gpu_free(bottom_border_recv_buffer_dev)
+      call check_dealloc_GPU_f("tridi_to_band: bottom_border_recv_buffer_dev", 4854,  successGPU)
+      nullify(bottom_border_recv_buffer_mpi_fortran_ptr)
+
+      nullify(aIntern_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU = gpu_free(hh_tau_dev)
+    call check_dealloc_GPU_f("tridi_to_band: hh_tau_dev", 4861,  successGPU)
+
+      nullify(row_group)
+
+      successGPU = gpu_free_host(row_group_host)
+      call check_host_dealloc_GPU_f("tridi_to_band: row_group_host", 4869,  successGPU)
+
+    successGPU = gpu_free(row_group_dev)
+    call check_dealloc_GPU_f("tridi_to_band: row_group_dev", 4877,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(row_group_mpi_fortran_ptr)
+
+      successGPU = gpu_free(row_dev)
+      call check_dealloc_GPU_f("tridi_to_band: row_dev", 4883,  successGPU)
+      nullify(row_mpi_fortran_ptr)
+    endif ! allComputeOnGPU
+
+    successGPU =  gpu_free(bcast_buffer_dev)
+    call check_dealloc_GPU_f("tridi_to_band: bcast_buffer_dev", 4888,  successGPU)
+
+    if (allComputeOnGPU) then
+      nullify(bcast_buffer_mpi_fortran_ptr)
+    endif
+
+      successGPU = gpu_host_unregister(int(loc(top_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_send_buffer", 4898,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(top_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: top_border_recv_buffer", 4901,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_send_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_send_buffer", 4904,  successGPU)
+
+      successGPU = gpu_host_unregister(int(loc(bottom_border_recv_buffer),kind=c_intptr_t))
+      call check_host_unregister_GPU_f("tridi_to_band: bottom_border_recv_buffer", 4907,  successGPU)
+
+  endif ! useGPU
+
+  deallocate(top_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_send_buffer", 4927,  istat,  errorMessage)
+
+  deallocate(top_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_border_recv_buffer", 4930,  istat,  errorMessage)
+
+  deallocate(bottom_border_send_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_send_buffer", 4933,  istat,  errorMessage)
+
+  deallocate(bottom_border_recv_buffer, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_border_recv_buffer", 4936,  istat,  errorMessage)
+
+  deallocate(top_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_send_request", 4939,  istat,  errorMessage)
+
+  deallocate(top_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: top_recv_request", 4942,  istat,  errorMessage)
+
+  deallocate(bottom_send_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_send_request", 4945,  istat,  errorMessage)
+
+  deallocate(bottom_recv_request, stat=istat, errmsg=errorMessage)
+  call check_deallocate_f("tridi_to_band: bottom_recv_request", 4948,  istat,  errorMessage)
+
+  call obj%timer%stop("trans_ev_tridi_to_band_&
+                      &complex&
+                      &" // &
+                      &"_single" //&
+                      gpuString)
+  return
+
+end subroutine
+
+! vim: syntax=fortran
+
+
+
+end module ELPA2_compute
