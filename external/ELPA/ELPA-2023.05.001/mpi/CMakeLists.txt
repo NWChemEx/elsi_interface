@@ -168,7 +168,7 @@ ELSE()
   ENDIF()
 ENDIF()
 
-CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/external/ELPA-2023.05.001/src/elpa/elpa_constants.h.in
+CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/external/ELPA-2023.05.001/mpi/src/elpa/elpa_constants.h.in
   ${PROJECT_BINARY_DIR}/generated/elpa_constants.h
   @ONLY)
 
