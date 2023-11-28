@@ -124,7 +124,7 @@ ELSE()
   ENDIF()
 ENDIF()
 
-CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/external/ELPA/src/elpa_constants.h.in
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/src/elpa_constants.h.in
   ${PROJECT_BINARY_DIR}/generated/elpa_constants.h
   @ONLY)
 
