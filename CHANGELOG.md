@@ -1,12 +1,15 @@
 # ELSI changelog
 
-## v.2.10.0 (October 2023)
+## v.2.10.0 (November 2023)
 
-The internal ELPA solver has been updated to v2023.05.001. This can be enabled with the cmake option USE_ELPA_2023.
-The Chase solver (v.1.4.0) has been integrated into ELSI.
-A new method for calculating static excitation through the delta-SCF method has been implemented.
-An interface with Slate for matrix inversion was added.
-A method to calculate electronic excitations for core-level spectroscopy has been implemented.
+* Include ELPA-2023.05.001:
+  * ELPA-2023.05.001 is the new default version on Linux for CPUs. If ELSI is run with GPU or on a Mac we still use ELPA-2020.05.001 (the old default). The reasons are build problems we have encountered. This should be resolved with the ELPA-2023.11.001 release.
+  * Added support for LLVM compiler (Clang). The Chase solver (v.1.4.0) has been integrated into ELSI.
+  * Different ELPA versions can be enforced by setting `USE_ELPA_2020`, `USE_ELPA_2021`, or `USE_ELPA_2023` in the CMake cache file.
+* The [ChASE](https://chase-library.github.io/ChASE/chase.html) solver (v1.4.0) is integrated into ELSI. 
+* A new method for calculating static excitation through the delta-SCF method has been implemented.
+* An interface with Slate for matrix inversion was added.
+* A method to calculate electronic excitations for core-level spectroscopy has been implemented.
 
 ## v2.9.1 (May 2022)
 
