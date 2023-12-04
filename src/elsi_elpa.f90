@@ -1715,9 +1715,9 @@ subroutine elsi_elpa_setup(ph,bh,is_aux)
          call ph%elpa_aux%set("solver",2,ierr)
 
          if(ph%elpa_gpu == UNSET .or. ph%elpa_gpu == 0) then
-            call ph%elpa_aux%set("gpu",0,ierr)
+            call ph%elpa_aux%set("nvidia-gpu",0,ierr)
          else
-            call ph%elpa_aux%set("gpu",1,ierr)
+            call ph%elpa_aux%set("nvidia-gpu",1,ierr)
             call ph%elpa_aux%set("real_kernel",ELPA_2STAGE_REAL_GPU,ierr)
             call ph%elpa_aux%set("complex_kernel",ELPA_2STAGE_COMPLEX_GPU,ierr)
          end if
@@ -1725,9 +1725,9 @@ subroutine elsi_elpa_setup(ph,bh,is_aux)
          call ph%elpa_aux%set("solver",1,ierr)
 
          if(ph%elpa_gpu == UNSET .or. ph%elpa_gpu == 0) then
-            call ph%elpa_aux%set("gpu",0,ierr)
+            call ph%elpa_aux%set("nvidia-gpu",0,ierr)
          else
-            call ph%elpa_aux%set("gpu",1,ierr)
+            call ph%elpa_aux%set("nvidia-gpu",1,ierr)
          end if
       end if
    else
@@ -1771,7 +1771,7 @@ subroutine elsi_elpa_setup(ph,bh,is_aux)
       end if
 
       if(ph%elpa_gpu /= UNSET) then
-         call ph%elpa_solve%set("gpu",ph%elpa_gpu,ierr)
+         call ph%elpa_solve%set("nvidia-gpu",ph%elpa_gpu,ierr)
       end if
 
       if(ph%elpa_gpu == 1) then
