@@ -12,7 +12,7 @@ SET(ENABLE_PEXSI ON CACHE BOOL "Enable PEXSI")
 SET(ENABLE_CHASE ON CACHE BOOL "Enable ChASE eigensolver")
 SET(ENABLE_TESTS ON CACHE BOOL "Enable Fortran tests")
 SET(ENABLE_C_TESTS ON CACHE BOOL "Enable C tests")
-SET(USE_ELPA_2023 ON CACHE BOOL "ENABLE ELPA 2023")
+# SET(USE_ELPA_2023 ON CACHE BOOL "ENABLE ELPA 2023")
 
 SET(LIB_PATHS "$ENV{nvcompdir}/lib $ENV{nvcommdir}/openmpi/openmpi-3.1.5/lib" CACHE STRING "External library paths")
 SET(LIBS "scalapack lapack blas" CACHE STRING "External libraries")
